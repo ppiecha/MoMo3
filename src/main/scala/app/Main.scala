@@ -1,6 +1,7 @@
 import cats.effect._
 import fs2.Stream
 import javax.sound.midi._
+import app.midi.ReactiveSynth
 
 // to
 
