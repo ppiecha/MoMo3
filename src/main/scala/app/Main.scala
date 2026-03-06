@@ -3,7 +3,7 @@ import fs2.Stream
 import javax.sound.midi._
 import app.midi.ReactiveSynth
 
-// to
+// todo Generator/parse should return stream
 
 object Main extends IOApp.Simple {
   // Utility to create PROGRAM_CHANGE message
@@ -49,6 +49,7 @@ object Main extends IOApp.Simple {
 
     val midiInputs = List(producerC, producerE, producerG)
 
-    ReactiveSynth.resource[IO](midiInputs).use { case (_, all) => all.compile.drain }
+    //ReactiveSynth.resource[IO](midiInputs).use { case (_, all) => all.compile.drain }
+    IO.unit
   }
 }

@@ -8,9 +8,9 @@ enum ValidationError extends DomainError {
   case InvalidBpm(value: Int) extends ValidationError
   case InvalidMidiValue(value: Int) extends ValidationError
   case InvalidChannel(value: Int) extends ValidationError
-  case InvalidTick(value: Long) extends ValidationError
-  case InvalidEvent(error: String) extends ValidationError
-  case InvalidEvents(errors: List[InvalidEvent]) extends ValidationError
+  case InvalidTimeValue(value: Long) extends ValidationError
+  case InvalidMessage(error: String) extends ValidationError
+  //case InvalidEvents(errors: List[InvalidEvent]) extends ValidationError
 }
 
 enum FileError extends DomainError {

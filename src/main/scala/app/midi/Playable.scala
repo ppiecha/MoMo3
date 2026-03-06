@@ -11,7 +11,7 @@ trait Playable {
 
   def play[F[_]: Async](duration: Option[FiniteDuration] = None): App[F, Unit] =
     for {
-      env    <- ask[F]
+      env     <- ask[F]
       streams <- midiStreams(duration)
-    } yield ReactiveSynth.resource[F](streams).use { case (_, all) => all.compile.drain }
+    } yield ReactiveSynth.resource[F](streams, env.soundFontPath).use { case (_, all) => all.compile.drain }
 }

@@ -30,10 +30,11 @@ object ReactiveSynth {
     } yield synth
 
   def resource[F[_]: Async](
-      inputs: List[MidiStream[F]]
+      inputs: List[MidiStream[F]],
+      soundFontPath: String
   ): Resource[F, (List[Queue[F, Option[MidiMessage]]], Stream[F, Unit])] =
     for {
-      synth    <- Resource.make(Async[F].delay(MidiSystem.getSynthesizer))(s => Async[F].delay(s.close()))
+      synth    <- Resource.make(loadSynthesizer(soundFontPath))(s => Async[F].delay(s.close()))
       _        <- Resource.eval(Async[F].delay(synth.open()))
       receiver <- Resource.make(Async[F].delay(synth.getReceiver))(r => Async[F].delay(r.close()))
       queues   <- Resource.eval(inputs.traverse(_ => Queue.unbounded[F, Option[MidiMessage]]))

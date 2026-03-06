@@ -51,19 +51,3 @@ object Channel {
   }
 }
 
-opaque type Tick = Long
-
-object Tick {
-  def from(value: Long): IsValid[Tick] =
-    if value >= 0 then value.validNec[ValidationError]
-    else ValidationError.InvalidTick(value).invalidNec[Tick]
-
-  def unsafe(value: Long): Tick = value
-
-  extension (tk: Tick) {
-    def value: Long          = tk
-    def +(other: Tick): Tick = tk + other
-  }
-}
-
-type Duration = Tick
