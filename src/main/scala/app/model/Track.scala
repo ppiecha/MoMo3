@@ -19,14 +19,13 @@ case class Track(
     timeGen: Generator[FiniteDuration],
     durGen: Generator[FiniteDuration],
     noteGen: Generator[Note]
-) //extends Playable
-{
+) extends Playable {
 
   private def parsedTime[F[_]: Async]: App[F, Stream[Pure, IsValid[FiniteDuration]]] = Generator.parse(timeGen)
   private def accumulatedTime[F[_]: Async]: App[F, Stream[Pure, IsValid[FiniteDuration]]] =
     parsedTime[F].map(_.scan(0.millis.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _)))
 
-  def stream[F[_]: Async]: App[F, MidiStream[F]] =
+  def midiStream[F[_]: Async]: App[F, MidiStream[F]] =
     for {
       start    <- accumulatedTime
       note     <- Generator.parse(noteGen)
@@ -39,70 +38,12 @@ case class Track(
           (s, n, d)
             .mapN((start, note, duration) => makeMidiStream(channel, start, note, duration)) match {
             case Valid(events) => events
-            case Invalid(nec)  => Stream.raiseError[F](new RuntimeException("Invalid MIDI message: " + nec.toList.mkString(", ")))
+            case Invalid(nec) =>
+              Stream.raiseError[F](new RuntimeException("Invalid MIDI message: " + nec.toList.mkString(", ")))
           }
         }
     }
 
-//     Kleisli { env =>
-//       val events = for {
-//         start    <- accumulatedTime
-//         note     <- Generator.parse(noteGen)
-//         duration <- Generator.parse(durSeq)
-//       } yield {
-//         start
-//           .zip(note)
-//           .zip(duration)
-//           .flatMap { case ((s, n), d) =>
-//             (s, n, d)
-//               .mapN((start, note, duration) => makeMidiEvents(channel, start, note, duration)) match {
-//               case Validated.Valid(events) => events.map(_.validNec[ValidationError])
-//               case Validated.Invalid(nec)  => LazyList(Invalid(nec))
-//             }
-//           }
-//       }
-//       val res = events.run(env)
-//       res match
-//         case Left(domainError) => Left(domainError)
-//         case Right(events)     => Track.attempt(events)
-//     }
+  override def midiStreams[F[_]: Async]: App[F, List[MidiStream[F]]] = midiStream[F].map(List(_))
 
-//   override def sequence(duration: Option[FiniteDuration]): App[Sequence] =
-//     for {
-//       env <- Kleisli.ask[ErrorOr, Env]
-//       sequence <- Track.addTrackToSequence(
-//         this,
-//         new Sequence(Sequence.PPQ, env.ctx.ppq.value),
-//         duration
-//       )
-//     } yield sequence
-// }
-
-// object Track {
-
-//   def addEventToTrack(event: MidiEvent, track: midi.Track, console: Console): Unit =
-//     if !track.add(event) then throw new RuntimeException(s"Failed to add event: $event to track")
-
-//   def attempt(events: LazyList[IsValid[Event]]): ErrorOr[LazyList[Event]] =
-//     val (errors, validEvents) = events.partitionMap {
-//       case Valid(event) => Right(event)
-//       case Invalid(nec) => Left(ValidationError.InvalidEvent(s"${nec.toList.mkString(", ")}"))
-//     }
-//     if errors.nonEmpty then
-//       Left(ValidationError.InvalidEvents(errors.toList.map(_.asInstanceOf[ValidationError.InvalidEvent])))
-//     else Right(validEvents)
-
-//   def addTrackToSequence(
-//       track: Track,
-//       sequence: Sequence,
-//       duration: Option[FiniteDuration]
-//   ): App[Sequence] =
-//     for {
-//       env    <- Kleisli.ask[ErrorOr, Env]
-//       events <- limitEvents(track.toMidiEvents.run(env), duration)
-//     } yield {
-//       val midiTrack = sequence.createTrack()
-//       events.flatMap(makeMidiEvent).foreach(event => addEventToTrack(event, midiTrack, env.console))
-//       sequence
-//     }
 }
