@@ -9,8 +9,7 @@ import javax.sound.midi._
 import app.*
 import cats.MonadThrow
 import java.nio.file.Paths
-
-def test[F[_]: Async](i: Int): App[F, Int] = EitherT.rightT(i)
+import scala.concurrent.duration.*
 
 object ReactiveSynth {
 
@@ -21,34 +20,47 @@ object ReactiveSynth {
       soundBank <- Async[F].delay(MidiSystem.getSoundbank(sfFile))
       supported <- Async[F].delay(synth.isSoundbankSupported(soundBank))
       _ <-
-        if !supported then Async[F].unit
+        if supported then Async[F].unit
         else MonadThrow[F].raiseError(new Exception(s"Soundbank not supported: $soundFontPath"))
       loaded <- Async[F].delay(synth.loadAllInstruments(soundBank))
-      _ <-
-        if !loaded then Async[F].unit
-        else MonadThrow[F].raiseError(new Exception(s"Failed to load soundbank: $soundFontPath"))
+      // todo
+      // _ <-
+      //   if loaded then Async[F].unit
+      //   else MonadThrow[F].raiseError(new Exception(s"Failed to load soundbank: $soundFontPath"))
     } yield synth
 
   def resource[F[_]: Async](
-      inputs: List[MidiStream[F]],
+      midiStreams: List[MidiStream[F]],
       soundFontPath: String
   ): Resource[F, (List[Queue[F, Option[MidiMessage]]], Stream[F, Unit])] =
     for {
       synth    <- Resource.make(loadSynthesizer(soundFontPath))(s => Async[F].delay(s.close()))
-      _        <- Resource.eval(Async[F].delay(synth.open()))
+      _        <- Resource.eval(Async[F].delay(synth.open()) *> Async[F].delay(println("Synth ready...")))
       receiver <- Resource.make(Async[F].delay(synth.getReceiver))(r => Async[F].delay(r.close()))
-      queues   <- Resource.eval(inputs.traverse(_ => Queue.unbounded[F, Option[MidiMessage]]))
+      queues   <- Resource.eval(midiStreams.traverse(_ => Queue.unbounded[F, Option[MidiMessage]]))
     } yield {
       // Each stream puts messages into its own queue
-      val inputStreams = inputs.zip(queues).map { case (stream, queue) =>
+      val inputStreams = midiStreams.zip(queues).map { case (stream, queue) =>
         stream.evalMap(msg => queue.offer(Some(msg)))
       }
       // Queue streams consume messages and send them to the synthesizer
-      val midiStreams = queues.map { queue =>
+      val queueStreams = queues.map { queue =>
         Stream.fromQueueNoneTerminated(queue).evalMap(msg => Async[F].delay { receiver.send(msg, -1) })
       }
       // Start all streams (can be merged or run in parallel)
-      val all = Stream(inputStreams: _*).parJoinUnbounded.merge(Stream(midiStreams: _*).parJoinUnbounded)
+      val all = Stream(inputStreams: _*).parJoinUnbounded.merge(Stream(queueStreams: _*).parJoinUnbounded)
       (queues, all)
     }
+
+  def midiStreamFromFile[F[_]: Async](filePath: String): Stream[F, MidiMessage] =
+    Stream.awakeEvery[F](1.second) // co sekundę
+      .evalMap { _ =>
+        Async[F].blocking {
+          // wczytaj plik, sparsuj i zwróć listę wiadomości MIDI
+          val messages: List[MidiMessage] = ??? //parseMidiFile(filePath)
+          messages
+        }
+      }
+      .flatMap(Stream.emits) // emituj każdą wiadomość osobno
+
 }

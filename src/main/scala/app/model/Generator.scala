@@ -15,26 +15,36 @@ extension [A](ll: LazyList[A]) {
 }
 
 enum Generator[A] {
-  case TimeGen(s: LazyList[Double])     extends Generator[FiniteDuration]
+  case TimeGen(s: LazyList[Double])     extends Generator[Time]
   case NoteGen(s: LazyList[Int])        extends Generator[Note]
-  case DurationGen(s: LazyList[Double]) extends Generator[FiniteDuration]
-
+  case DurationGen(s: LazyList[Double]) extends Generator[Time]
 }
 
 object Generator {
 
-  private def doubleToFiniteDuration[F[_]: Async](d: Double): App[F, IsValid[FiniteDuration]] =
+  def doubleToFiniteDuration[F[_]: Async](d: Double): App[F, IsValid[FiniteDuration]] =
     for {
       env <- ask[F]
-      value = (4 * 60000 / d * env.bpm.value).toLong
+      value = (4 * 60000 / (d * env.bpm.value)).toLong
       time <- if value >= 0 then liftFPure(value.millis.validNec[ValidationError])
       else liftFPure(ValidationError.InvalidTimeValue(value).invalidNec[FiniteDuration])
     } yield time
 
+  def doubleToTick[F[_]: Async](d: Double): App[F, IsValid[Tick]] =
+    for {
+      env <- ask[F]
+      value = if d == 0.0 then 0L else ((env.ppq.value.toDouble * 4) / d.toDouble).toLong
+      tick <- if value >= 0 then liftFPure(Tick.from(value.toInt))
+      else liftFPure(ValidationError.InvalidTick(value.toInt).invalidNec[Tick])
+    } yield tick 
+
+  def doubleToTime[F[_]: Async](d: Double): App[F, IsValid[Time]] =
+    (doubleToFiniteDuration(d), doubleToTick(d)).mapN((x, y) => (x, y).mapN(Time.apply))  
+
   def parse[F[_]: Async, A](seq: Generator[A]): App[F, Stream[Pure, IsValid[A]]] =
     seq match {
-      case TimeGen(s)     => s.traverse(doubleToFiniteDuration).map(Stream.emits(_))
+      case TimeGen(s)     => s.traverse(doubleToTime).map(Stream.emits(_))
       case NoteGen(s)     => liftFPure(Stream.emits(s.map(MidiValue.from)))
-      case DurationGen(s) => s.traverse(doubleToFiniteDuration).map(Stream.emits(_))
+      case DurationGen(s) => s.traverse(doubleToTime).map(Stream.emits(_))
     }
 }

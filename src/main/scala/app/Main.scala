@@ -1,55 +1,63 @@
 import cats.effect._
 import fs2.Stream
 import javax.sound.midi._
-import app.midi.ReactiveSynth
+import app.midi.*
+import app.*
+import app.model.Track
+import app.model.Generator.*
+import cats.syntax.all.*
+import app.model.given
+import app.model.*
 
-// todo Generator/parse should return stream
+// track as case class of stream of events (stream of stream of midi messages)
+// parse returns absolute accumulated time in ticks (midi sequence/file) and relative time in millis (scheduling)
+// change reactive syth to use fluidsynth and send messages to proper device and port
+// scala cli migration
+// to stop app send to all queues None
 
 object Main extends IOApp.Simple {
-  // Utility to create PROGRAM_CHANGE message
-  def programChange(channel: Int, program: Int): MidiMessage = {
-    val msg = new ShortMessage()
-    msg.setMessage(ShortMessage.PROGRAM_CHANGE, channel, program, 0)
-    msg
-  }
 
-  def noteOn(note: Int, channel: Int): MidiMessage = {
-    val msg = new ShortMessage()
-    msg.setMessage(ShortMessage.NOTE_ON, channel, note, 100)
-    msg
-  }
-
-  def noteOff(note: Int, channel: Int): MidiMessage = {
-    val msg = new ShortMessage()
-    msg.setMessage(ShortMessage.NOTE_OFF, channel, note, 0)
-    msg
-  }
+  def program[F[_]: Async](tracks: List[Track])= for {
+    env     <- ask
+    streams <- tracks.traverse(_.eventStream[F])
+  } yield ReactiveSynth.resource[F](streams, env.soundFontPath) 
 
   def run: IO[Unit] = {
-    // 1. Set instrument (Piano = 0) for each channel before playing notes
-    val producerC: Stream[IO, MidiMessage] =
-      Stream.emit(programChange(0, 0)) ++
-      Stream.emit(noteOn(60, 0)) ++
-      Stream.sleep_[IO](scala.concurrent.duration.DurationInt(500).millis) ++
-      Stream.emit(noteOff(60, 0))
+    
+    val repeatCount = 1
+    
+    val track1 = Track(
+      channel = Channel.unsafe(9),
+      TimeGen(LazyList(8, 8, 4).repeatN(repeatCount)),
+      DurationGen(LazyList(8, 8, 8).repeatN(repeatCount)),
+      NoteGen(LazyList(36, 36, 0).repeatN(repeatCount))
+    )
+    
+    val track2 = Track(
+      channel = Channel.unsafe(9),
+      TimeGen(LazyList(4, 4).repeatN(repeatCount)),
+      DurationGen(LazyList(4, 4).repeatN(repeatCount)),
+      NoteGen(LazyList(0, 39).repeatN(repeatCount))
+    )    
 
-    val producerE: Stream[IO, MidiMessage] =
-      Stream.emit(programChange(1, 0)) ++
-      Stream.sleep_[IO](scala.concurrent.duration.DurationInt(100).millis) ++
-      Stream.emit(noteOn(64, 1)) ++
-      Stream.sleep_[IO](scala.concurrent.duration.DurationInt(500).millis) ++
-      Stream.emit(noteOff(64, 1))
+    val track3 = Track(
+      channel = Channel.unsafe(9),
+      TimeGen(LazyList(8, 8, 8, 8).repeatN(repeatCount)),
+      DurationGen(LazyList(8, 8, 8, 8).repeatN(repeatCount)),
+      NoteGen(LazyList(36, 36, 36, 36).repeatN(repeatCount))
+    )    
 
-    val producerG: Stream[IO, MidiMessage] =
-      Stream.emit(programChange(2, 0)) ++
-      Stream.sleep_[IO](scala.concurrent.duration.DurationInt(200).millis) ++
-      Stream.emit(noteOn(67, 2)) ++
-      Stream.sleep_[IO](scala.concurrent.duration.DurationInt(500).millis) ++
-      Stream.emit(noteOff(67, 2))
-
-    val midiInputs = List(producerC, producerE, producerG)
-
-    //ReactiveSynth.resource[IO](midiInputs).use { case (_, all) => all.compile.drain }
-    IO.unit
+    val track4 = Track(
+      channel = Channel.unsafe(0),
+      TimeGen(LazyList(8, 8, 4).repeatN(repeatCount)),
+      DurationGen(LazyList(2, 3, 4).repeatN(repeatCount)),
+      NoteGen(LazyList(60, 64, 67).repeatN(repeatCount))
+    )    
+    
+    val env = Env(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), console = consoleImpl)
+    program[IO](List(track4)).value.run(env).flatMap {
+      case Left(e) => IO.println(s"Error: $e")
+      case Right(synth) => synth.use { case (_, all) => all.compile.drain }
+    }
   }
 }

@@ -22,9 +22,16 @@ def liftFPure[F[_]: Async, A](a: A): App[F, A] = EitherT.liftF(ReaderT.liftF(Asy
 
 def raise[F[_]: Async](e: DomainError): App[F, Nothing] = EitherT.leftT(e) 
 
-type MidiStream[F[_]] = Stream[F, MidiMessage]
+type EventStream[F[_]] = Stream[F, Event]
+type MidiStream[F[_]] = Stream[F, Stream[Pure, MidiMessage]]
 
-case class Env(bpm: Bpm, console: Console, soundFontPath: String = "sf/soundfont.sf2")
+case class Env(
+  ppq: Ppq, 
+  bpm: Bpm, 
+  console: Console, 
+  soundFontPath: String = "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2",
+  loopMidiPortName: String = "0:loopMIDI Port"
+)
 
 trait Console {
   val debug = true

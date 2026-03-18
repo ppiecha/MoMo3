@@ -6,6 +6,7 @@ sealed trait DomainError extends Product with Serializable
 enum ValidationError extends DomainError {
   case InvalidPpq(value: Int) extends ValidationError
   case InvalidBpm(value: Int) extends ValidationError
+  case InvalidTick(value: Int) extends ValidationError
   case InvalidMidiValue(value: Int) extends ValidationError
   case InvalidChannel(value: Int) extends ValidationError
   case InvalidTimeValue(value: Long) extends ValidationError
