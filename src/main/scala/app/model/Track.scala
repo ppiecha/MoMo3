@@ -14,9 +14,6 @@ import scala.concurrent.duration.*
 import cats.effect.kernel.*
 import fs2.*
 
-
-case class TrackOutput[F[_]: Async](midiStream: MidiStream[F], midiEventsStream: Stream[Pure, MidiEvent])
-
 case class Track(
     channel: Channel,
     timeGen: Generator[Time],
@@ -56,14 +53,17 @@ case class Track(
         }
     }
 
-  def eventStreamToOutput[F[_]](eventStream: EventStream[F]): TrackOutput[F] = ???
+  def eventStreamToOutput[F[_]: Async](eventStream: EventStream[F]): TrackOutput[F] = 
+    TrackOutput(eventStream.map(_.streamOfMidiMessages), eventStream.flatMap(_.streamOfMidiEvents))
   
   def output[F[_]: Async]: App[F, TrackOutput[F]] = eventStream.map(eventStreamToOutput)
 
-  def midiStream[F[_]: Async]: App[F, MidiStream[F]] = ???
+  def midiStream[F[_]: Async]: App[F, MidiStream[F]] = output.map(_.midiStream)
   override def midiStreams[F[_]: Async]: App[F, List[MidiStream[F]]] = midiStream[F].map(List(_))
 
 }
+
+case class TrackOutput[F[_]: Async](midiStream: MidiStream[F], midiEventsStream: MidiEventStream[F])
 
 object Track {
   def fromFile[F[_]: Async](filePath: String): App[F, Track] =

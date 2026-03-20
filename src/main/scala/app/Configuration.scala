@@ -23,7 +23,9 @@ def liftFPure[F[_]: Async, A](a: A): App[F, A] = EitherT.liftF(ReaderT.liftF(Asy
 def raise[F[_]: Async](e: DomainError): App[F, Nothing] = EitherT.leftT(e) 
 
 type EventStream[F[_]] = Stream[F, Event]
-type MidiStream[F[_]] = Stream[F, Stream[Pure, MidiMessage]]
+type MidiEventStream[F[_]] = Stream[F, MidiEvent]
+type MidiMesageStream[F[_]] = Stream[F, MidiMessage]
+type MidiStream[F[_]] = Stream[F, MidiMesageStream[F]]
 
 case class Env(
   ppq: Ppq, 
