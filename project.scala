@@ -1,0 +1,6 @@
+//> using scala "3.3.7"
+//> using dep "co.fs2::fs2-core:3.12.2"
+//> using dep "co.fs2::fs2-io:3.12.2"
+//> using test.dep "org.typelevel::munit-cats-effect-3:1.0.7"
+//> using test.framework "munit.Framework"
+//> using mainClass "Main"

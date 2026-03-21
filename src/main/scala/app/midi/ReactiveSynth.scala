@@ -29,14 +29,22 @@ object ReactiveSynth {
       //   else MonadThrow[F].raiseError(new Exception(s"Failed to load soundbank: $soundFontPath"))
     } yield synth
 
+  def loadDevice[F[_]: Async](portName: String): F[MidiDevice] =
+    Async[F].delay {
+        MidiSystem.getMidiDeviceInfo
+        .map(MidiSystem.getMidiDevice)
+        .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
+        .getOrElse(throw new Exception(s"MIDI device with port name '$portName' not found"))
+      }
+
   def resource[F[_]: Async](
       midiStreams: List[MidiStream[F]],
-      soundFontPath: String
+      portName: String
   ): Resource[F, (List[Queue[F, Option[MidiMessage]]], Stream[F, Unit])] =
     for {
-      synth    <- Resource.make(loadSynthesizer(soundFontPath))(s => Async[F].delay(s.close()))
-      _        <- Resource.eval(Async[F].delay(synth.open()) *> Async[F].delay(println("Synth ready...")))
-      receiver <- Resource.make(Async[F].delay(synth.getReceiver))(r => Async[F].delay(r.close()))
+      device    <- Resource.make(loadDevice(portName))(d => Async[F].delay(d.close()))
+      _        <- Resource.eval(Async[F].delay(device.open()) *> Async[F].delay(println("Synth ready...")))
+      receiver <- Resource.make(Async[F].delay(device.getReceiver))(r => Async[F].delay(r.close()))
       queues   <- Resource.eval(midiStreams.traverse(_ => Queue.unbounded[F, Option[MidiMessage]]))
     } yield {
       // Each stream puts messages into its own queue
@@ -53,11 +61,12 @@ object ReactiveSynth {
     }
 
   def midiStreamFromFile[F[_]: Async](filePath: String): Stream[F, MidiMessage] =
-    Stream.awakeEvery[F](1.second) // co sekundę
+    Stream
+      .awakeEvery[F](1.second) // co sekundę
       .evalMap { _ =>
         Async[F].blocking {
           // wczytaj plik, sparsuj i zwróć listę wiadomości MIDI
-          val messages: List[MidiMessage] = ??? //parseMidiFile(filePath)
+          val messages: List[MidiMessage] = ??? // parseMidiFile(filePath)
           messages
         }
       }

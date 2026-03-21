@@ -1,46 +1,27 @@
-Run loopMIDI
+# MoMo3
 
-cd C:\tools\fluidsynth\bin
+This project now uses Scala CLI instead of sbt.
 
+## Requirements
+
+- Scala CLI 1.12.x or newer
+- A MIDI output device or FluidSynth setup if you want to run the app end-to-end
+
+## Commands
+
+- Compile: `scala-cli compile .`
+- Run: `scala-cli run .`
+- Test: `scala-cli test .`
+- REPL: `scala-cli repl .`
+
+## FluidSynth on Windows
+
+Run loopMIDI first, then start FluidSynth from `C:\tools\fluidsynth\bin`:
+
+```powershell
 .\fluidsynth.exe -h
 .\fluidsynth.exe -o help
-
-//fluidsynth -a dsound -o midi.driver=winmidi -o midi.winmidi.device="0:loopMIDI Port" C:\tools\fluidsynth\soundfonts\soundfont.sf2
 fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:loopMIDI Port" C:\tools\fluidsynth\soundfonts\soundfont.sf2
+```
 
-  // --- szukanie portu loopMIDI ---
-  def findPort(name: String): Option[MidiDevice] =
-    val infos = MidiSystem.getMidiDeviceInfo()
-    println(s"\nDostępne urządzenia MIDI (${infos.length}):")
-    infos.zipWithIndex.foreach { (info, i) =>
-      val dev = MidiSystem.getMidiDevice(info)
-      val dir = if dev.getMaxReceivers != 0 then "OUT" else "IN"
-      println(s"  [$i] $dir  ${info.getName}  (${dev.getClass.getSimpleName})")
-    }
-    println()
-
-    infos
-      .map(MidiSystem.getMidiDevice)
-      .find { dev =>
-        dev.getDeviceInfo.getName.contains(name) && dev.getMaxReceivers != 0
-      }
-
-findPort(PortName) match
-      case Some(device) =>
-        device.open()
-        val receiver = device.getReceiver
-        println(s"✅ Połączono z: ${device.getDeviceInfo.getName}\n")
-finally
-    receiver.close()
-    device.close()
-
-
-
-## sbt project compiled with Scala 3
-
-### Usage
-
-This is a normal sbt project. You can compile code with `sbt compile`, run it with `sbt run`, and `sbt console` will start a Scala 3 REPL.
-
-For more information on the sbt-dotty plugin, see the
-[scala3-example-project](https://github.com/scala/scala3-example-project/blob/main/README.md).
+The project soundfont is currently expected at `sf/soundfont.sf2`.

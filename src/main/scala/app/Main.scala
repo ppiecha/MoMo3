@@ -9,11 +9,9 @@ import cats.syntax.all.*
 import app.model.given
 import app.model.*
 
-// track as case class of stream of events (stream of stream of midi messages)
-// parse returns absolute accumulated time in ticks (midi sequence/file) and relative time in millis (scheduling)
-// change reactive syth to use fluidsynth and send messages to proper device and port
 // change queue to run each event on separated fiber
 // scala cli migration
+// complete readme
 // to stop app send to all queues None
 
 object Main extends IOApp.Simple {

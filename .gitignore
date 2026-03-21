@@ -1,8 +1,8 @@
 .bloop/
 .bsp/
+.scala-build/
 .idea/
 .metals/
 .vscode/
-project/
 target/
 sf/
