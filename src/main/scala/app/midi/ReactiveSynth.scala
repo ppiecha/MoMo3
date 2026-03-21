@@ -31,29 +31,33 @@ object ReactiveSynth {
 
   def loadDevice[F[_]: Async](portName: String): F[MidiDevice] =
     Async[F].delay {
-        MidiSystem.getMidiDeviceInfo
+      MidiSystem.getMidiDeviceInfo
         .map(MidiSystem.getMidiDevice)
         .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
         .getOrElse(throw new Exception(s"MIDI device with port name '$portName' not found"))
-      }
+    }
 
-  def resource[F[_]: Async](
-      midiStreams: List[MidiStream[F]],
+  def resource[F[_]: Async: Concurrent](
+      midiStreams: List[Stream[F, Stream[F, MidiMessage]]],
       portName: String
-  ): Resource[F, (List[Queue[F, Option[MidiMessage]]], Stream[F, Unit])] =
+  ): Resource[F, (List[Queue[F, Option[Stream[F, MidiMessage]]]], Stream[F, Unit])] =
     for {
-      device    <- Resource.make(loadDevice(portName))(d => Async[F].delay(d.close()))
-      _        <- Resource.eval(Async[F].delay(device.open()) *> Async[F].delay(println("Synth ready...")))
+      device   <- Resource.make(loadDevice(portName))(d => Async[F].delay(d.close()))
+      _        <- Resource.eval(Async[F].delay(device.open()) *> Async[F].delay(println("Device ready...")))
       receiver <- Resource.make(Async[F].delay(device.getReceiver))(r => Async[F].delay(r.close()))
-      queues   <- Resource.eval(midiStreams.traverse(_ => Queue.unbounded[F, Option[MidiMessage]]))
+      queues   <- Resource.eval(midiStreams.traverse(_ => Queue.unbounded[F, Option[Stream[F, MidiMessage]]]))
     } yield {
       // Each stream puts messages into its own queue
       val inputStreams = midiStreams.zip(queues).map { case (stream, queue) =>
-        stream.evalMap(msg => queue.offer(Some(msg)))
+        stream.evalMap(s => queue.offer(Some(s)))
       }
       // Queue streams consume messages and send them to the synthesizer
       val queueStreams = queues.map { queue =>
-        Stream.fromQueueNoneTerminated(queue).evalMap(msg => Async[F].delay { receiver.send(msg, -1) })
+        Stream
+          .fromQueueNoneTerminated(queue)
+          .evalMap( /* stream -> IO */ stream =>
+            Spawn[F].start(stream.evalMap(msg => Async[F].delay(receiver.send(msg, -1))).compile.drain).void
+          )
       }
       // Start all streams (can be merged or run in parallel)
       val all = Stream(inputStreams: _*).parJoinUnbounded.merge(Stream(queueStreams: _*).parJoinUnbounded)

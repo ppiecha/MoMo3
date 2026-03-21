@@ -3,7 +3,6 @@ package app.midi
 import javax.sound.midi
 import javax.sound.midi.*
 import javax.sound.midi.ShortMessage.{CONTROL_CHANGE, PROGRAM_CHANGE, NOTE_OFF, NOTE_ON}
-import app.MidiStream
 import cats.effect.*
 import fs2.*
 import scala.concurrent.duration.FiniteDuration

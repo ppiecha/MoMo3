@@ -41,10 +41,10 @@ object Generator {
   def doubleToTime[F[_]: Async](d: Double): App[F, IsValid[Time]] =
     (doubleToFiniteDuration(d), doubleToTick(d)).mapN((x, y) => (x, y).mapN(Time.apply))  
 
-  def parse[F[_]: Async, A](seq: Generator[A]): App[F, Stream[Pure, IsValid[A]]] =
+  def parse[F[_]: Async, A](seq: Generator[A]): App[F, LazyList[IsValid[A]]] =
     seq match {
-      case TimeGen(s)     => s.traverse(doubleToTime).map(Stream.emits(_))
-      case NoteGen(s)     => liftFPure(Stream.emits(s.map(MidiValue.from)))
-      case DurationGen(s) => s.traverse(doubleToTime).map(Stream.emits(_))
+      case TimeGen(s)     => s.traverse(doubleToTime).map(LazyList.from(_))
+      case NoteGen(s)     => liftFPure(LazyList.from(s.map(MidiValue.from)))
+      case DurationGen(s) => s.traverse(doubleToTime).map(LazyList.from(_))
     }
 }

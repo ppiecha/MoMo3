@@ -19,8 +19,8 @@ This project now uses Scala CLI instead of sbt.
 Run loopMIDI first, then start FluidSynth from `C:\tools\fluidsynth\bin`:
 
 ```powershell
-.\fluidsynth.exe -h
-.\fluidsynth.exe -o help
+fluidsynth -h
+fluidsynth -o help
 fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:loopMIDI Port" C:\tools\fluidsynth\soundfonts\soundfont.sf2
 ```
 

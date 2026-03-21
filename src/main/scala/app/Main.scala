@@ -10,7 +10,6 @@ import app.model.given
 import app.model.*
 
 // change queue to run each event on separated fiber
-// scala cli migration
 // complete readme
 // to stop app send to all queues None
 
@@ -18,8 +17,8 @@ object Main extends IOApp.Simple {
 
   def program[F[_]: Async](tracks: List[Track])= for {
     env     <- ask
-    streams <- tracks.traverse(_.eventStream[F])
-  } yield ReactiveSynth.resource[F](streams, env.soundFontPath) 
+    streams <- tracks.traverse(_.midiStream[F])
+  } yield ReactiveSynth.resource[F](streams, env.loopMidiPortName) 
 
   def run: IO[Unit] = {
     

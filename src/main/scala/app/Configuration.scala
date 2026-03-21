@@ -4,7 +4,7 @@ import app.midi.*
 import cats.data.{NonEmptyChain, Reader, ValidatedNec}
 import scala.io.StdIn
 import fs2.*
-import javax.sound.midi.*
+//import javax.sound.midi.*
 import cats.data.*
 import cats.effect.*
 
@@ -22,17 +22,12 @@ def liftFPure[F[_]: Async, A](a: A): App[F, A] = EitherT.liftF(ReaderT.liftF(Asy
 
 def raise[F[_]: Async](e: DomainError): App[F, Nothing] = EitherT.leftT(e) 
 
-type EventStream[F[_]] = Stream[F, Event]
-type MidiEventStream[F[_]] = Stream[F, MidiEvent]
-type MidiMesageStream[F[_]] = Stream[F, MidiMessage]
-type MidiStream[F[_]] = Stream[F, MidiMesageStream[F]]
-
 case class Env(
   ppq: Ppq, 
   bpm: Bpm, 
   console: Console, 
   soundFontPath: String = "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2",
-  loopMidiPortName: String = "0:loopMIDI Port"
+  loopMidiPortName: String = "loopMIDI Port"
 )
 
 trait Console {
