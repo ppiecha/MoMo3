@@ -25,18 +25,15 @@ def raise[F[_]: Async](e: DomainError): App[F, Nothing] = EitherT.leftT(e)
 case class Env(
   ppq: Ppq, 
   bpm: Bpm, 
-  console: Console, 
+  input: Input,
   soundFontPath: String = "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2",
-  loopMidiPortName: String = "loopMIDI Port"
+  loopMidiPortName: String = "ScalaToFluid"
 )
 
-trait Console {
-  val debug = true
-  def println(msg: String): Unit
+trait Input {
   def readLine(): String
 }
 
-val consoleImpl = new Console {
-  override def println(msg: String): Unit = if debug then Predef.println(msg)
+val stdInput = new Input {
   override def readLine(): String         = StdIn.readLine()
 }

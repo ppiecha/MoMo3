@@ -13,7 +13,7 @@ enum Message {
   case ProgramMessage(bank: Bank, program: Program)
   case ControlMessage(control: Control, value: MidiValue) 
 
-  def toMidiMessages(channel: Channel): Seq[MidiMessage] = this match {
+  def toMidiMessages(channel: Channel): Seq[ShortMessage] = this match {
     case NoteMessage(note, duration, velocity) =>
       Seq(
         makeMidiMessage(MidiValue.unsafe(NOTE_ON), channel, note.value, velocity.value),
@@ -37,4 +37,20 @@ object Message {
     msg.setMessage(command.value, channel.value, data1, data2)
     msg
   }
+
+  def fromShortMessage(msg: ShortMessage): String = {
+    msg.getCommand match {
+      case NOTE_ON =>
+        s"Note On: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
+      case NOTE_OFF =>
+        s"Note Off: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
+      case CONTROL_CHANGE =>
+        s"Control Change: ${MidiValue.unsafe(msg.getData1)} Value: ${MidiValue.unsafe(msg.getData2)} Channel: ${msg.getChannel}"
+      case PROGRAM_CHANGE =>
+        s"Program Change: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
+      case _ =>
+        throw new RuntimeException(s"Unsupported MIDI command: ${msg.getCommand}")
+    }
+  }
+
 }

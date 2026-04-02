@@ -7,14 +7,10 @@ import app.model.Generator
 import cats.syntax.all.*
 import cats.data.Validated
 import cats.data.Validated.{Invalid, Valid}
-// import javax.sound.midi
-// import javax.sound.midi.{Sequence, ShortMessage, MidiEvent}
-// import javax.sound.midi.ShortMessage.{CONTROL_CHANGE, PROGRAM_CHANGE, NOTE_OFF, NOTE_ON}
 import scala.concurrent.duration.*
 import cats.effect.kernel.*
 import fs2.*
-import javax.sound.midi.MidiMessage
-import javax.sound.midi.MidiEvent
+import javax.sound.midi.*
 
 case class Track(
     channel: Channel,
@@ -56,27 +52,30 @@ case class Track(
         }
     }
 
+  def eventListToString[F[_]: Async]: App[F, String] = ???  
+
   def eventListToOutput[F[_]: Async](eventList: LazyList[Event]): TrackOutput[F] = {
-    val midiStream: Stream[F, Stream[F, MidiMessage]] =
-      eventList
-        .traverse(e => Stream(e.streamOfMidiMessages[F]) ++ Stream.sleep_[F](e.time.duration))
-        .map(Stream.emits(_))
-        .flatten
+    val midiStream: Stream[F, Stream[F, ShortMessage]] =
+      Stream.emits(eventList)
+        .flatMap(e => Stream(e.streamOfMidiMessages[F]) ++ Stream.sleep_[F](e.time.duration))
     val midiEventList: LazyList[MidiEvent] = eventList.flatMap(_.listOfMidiEvents)
     TrackOutput(midiStream, midiEventList)
   }
 
   def output[F[_]: Async]: App[F, TrackOutput[F]] = eventList.map(eventListToOutput)
 
-  def midiStream[F[_]: Async]: App[F, Stream[F, Stream[F, MidiMessage]]]                 = output.map(_.midiStream)
-  override def midiStreams[F[_]: Async]: App[F, List[Stream[F, Stream[F, MidiMessage]]]] = midiStream[F].map(List(_))
+  def midiStream[F[_]: Async]: App[F, Stream[F, Stream[F, ShortMessage]]]                 = output.map(_.midiStream)
+  override def midiStreams[F[_]: Async]: App[F, List[Stream[F, Stream[F, ShortMessage]]]] = midiStream[F].map(List(_))
 
 }
 
 case class TrackOutput[F[_]: Async](
-    midiStream: Stream[F, Stream[F, MidiMessage]],
+    midiStream: Stream[F, Stream[F, ShortMessage]],
     midiEventList: LazyList[MidiEvent]
-)
+) {
+
+  def toMidiFile = ???
+}
 
 object Track {
   def fromFile[F[_]: Async](filePath: String): App[F, Track] =
