@@ -2,9 +2,9 @@ package app.midi
 
 import cats.data.*
 import cats.effect._
-import cats.effect.std.Queue
 import cats.syntax.all._
 import fs2.Stream
+import fs2.concurrent.{Channel => Fs2Channel}
 import javax.sound.midi._
 import app.*
 import cats.MonadThrow
@@ -85,22 +85,24 @@ object ReactiveSynth {
   def resource[F[_]: Async: Concurrent: Logger](
       midiStreams: List[Stream[F, Stream[F, ShortMessage]]],
       portName: String
-  ): Resource[F, (List[Queue[F, Option[Stream[F, ShortMessage]]]], Stream[F, Unit])] =
+  ): Resource[F, (List[Fs2Channel[F, Stream[F, ShortMessage]]], Stream[F, Unit])] =
     for {
       device <- Resource.make(loadDevice(portName))(d => Async[F].delay(d.close()))
-      _      <- Resource.eval(Logger[F].info(s"Opening MIDI device: ${device.getDeviceInfo.getName}") *> Async[F].delay(device.open()))
+      _ <- Resource.eval(
+        Logger[F].info(s"Opening MIDI device: ${device.getDeviceInfo.getName}") *> Async[F].delay(device.open())
+      )
       receiver <- Resource.make(Async[F].delay(device.getReceiver))(r =>
         sendCleanupMessages(r).attempt.void *> Async[F].delay(r.close())
       )
-      queues <- Resource.eval(midiStreams.traverse(_ => Queue.unbounded[F, Option[Stream[F, ShortMessage]]]))
+      channels <- Resource.eval(midiStreams.traverse(_ => Fs2Channel.unbounded[F, Stream[F, ShortMessage]]))
     } yield {
-      // Each stream puts messages into its own queue
-      val inputStreams = midiStreams.zip(queues).map { case (stream, queue) =>
-        stream.evalMap(s => queue.offer(Some(s))) // .onFinalize(queue.offer(None))
+      // Each stream sends nested MIDI streams into its own channel and closes it when done.
+      val inputStreams = midiStreams.zip(channels).map { case (stream, channel) =>
+        stream.through(channel.sendAll)
       }
-      // Queue streams consume messages and send them to the synthesizer
-      val queueStreams = queues.map { queue =>
-        Stream.fromQueueNoneTerminated(queue).evalMap { stream =>
+      // Channel streams consume nested streams and send messages to the synthesizer.
+      val channelStreams = channels.map { channel =>
+        channel.stream.evalMap { stream =>
           Spawn[F]
             .start(
               stream
@@ -114,9 +116,8 @@ object ReactiveSynth {
             .void
         }
       }
-      // Start all streams (can be merged or run in parallel)
-      val all = Stream(inputStreams: _*).parJoinUnbounded.merge(Stream(queueStreams: _*).parJoinUnbounded)
-      (queues, all)
+      val all = Stream(inputStreams: _*).parJoinUnbounded.merge(Stream(channelStreams: _*).parJoinUnbounded)
+      (channels, all)
     }
 
   def midiStreamFromFile[F[_]: Async](filePath: String): Stream[F, MidiMessage] =

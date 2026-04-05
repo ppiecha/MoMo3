@@ -52,12 +52,14 @@ case class Track(
         }
     }
 
-  def eventListToString[F[_]: Async]: App[F, String] = ???  
+  def eventListToString[F[_]: Async](number: Int): App[F, String] = eventList.map { events =>
+    s"List(${events.take(number).map(_.toString).mkString("\n  ", ",\n  ", "\n")}${if (events.size > number) ", ..." else ""})"
+  }
 
   def eventListToOutput[F[_]: Async](eventList: LazyList[Event]): TrackOutput[F] = {
     val midiStream: Stream[F, Stream[F, ShortMessage]] =
       Stream.emits(eventList)
-        .flatMap(e => Stream(e.streamOfMidiMessages[F]) ++ Stream.sleep_[F](e.time.duration))
+        .flatMap(e => Stream(Stream.sleep_[F](e.time.duration) ++ e.streamOfMidiMessages[F]))
     val midiEventList: LazyList[MidiEvent] = eventList.flatMap(_.listOfMidiEvents)
     TrackOutput(midiStream, midiEventList)
   }

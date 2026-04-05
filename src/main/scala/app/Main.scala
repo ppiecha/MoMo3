@@ -10,8 +10,12 @@ import app.model.given
 import app.model.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import scala.concurrent.duration.DurationInt
 
+// logger only w main, not in ReactiveSynth, to avoid dependency on log4cats in that module
+// modify main to print/play list of tracks stopping after longest track
 // complete readme
+// fix duration test
 
 object Main extends IOApp.Simple {
 
@@ -56,13 +60,18 @@ object Main extends IOApp.Simple {
       )
 
       val env = Env(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
-      program[IO](List(track4)).value.run(env).flatMap {
+      val print = track4.eventListToString[IO](10).value.run(env).flatMap {
+        case Left(e) => logger.error(s"Error: $e")
+        case Right(str) => logger.info(s"Event list:\n$str")
+      }
+      val play = program[IO](List(track4)).value.run(env).flatMap {
         case Left(e) => logger.error(s"Error: $e")
         case Right((synth, outputs)) =>
           outputs.toList
             .traverse_(o => o.midiEventList.take(10).toList.traverse_(e => logger.info(s"Track event: ${e.toString2}"))) *>
-            synth.use { case (_, all) => all.compile.drain }
+            synth.use { case (_, all) => all.compile.drain *> IO.sleep(2.second) }
       }
+      print *> play
     }
   }
 }

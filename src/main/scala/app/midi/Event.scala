@@ -11,6 +11,7 @@ extension (event: MidiEvent) {
 }
 
 case class Event(channel: Channel, message: Message, time: Time) {
+
   def streamOfMidiMessages[F[_]: Async]: Stream[F, ShortMessage] = {
     val midiMessages = message.toMidiMessages(channel)
     message match
@@ -31,10 +32,15 @@ case class Event(channel: Channel, message: Message, time: Time) {
             new MidiEvent(midiMessages.head, time.tick.value),
             new MidiEvent(midiMessages.tail.head, time.tick.value + duration.tick.value)
           )
-        else throw new RuntimeException(s"NoteMessage should produce exactly 2 MIDI messages (NOTE_ON and NOTE_OFF) but got ${midiMessages}")
+        else
+          throw new RuntimeException(
+            s"NoteMessage should produce exactly 2 MIDI messages (NOTE_ON and NOTE_OFF) but got ${midiMessages}"
+          )
       }
       case _ => throw new RuntimeException("Only NoteMessage are supported in listOfMidiEvents for now")
-  }    
+  }
+
+  override def toString: String = s"Event(channel: $channel, message: $message, time: ${time})"
 
 }
 
