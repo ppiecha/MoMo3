@@ -10,7 +10,6 @@ import app.*
 import cats.MonadThrow
 import java.nio.file.Paths
 import scala.concurrent.duration.*
-import org.typelevel.log4cats.Logger
 
 object ReactiveSynth {
 
@@ -82,15 +81,13 @@ object ReactiveSynth {
         )
     }
 
-  def resource[F[_]: Async: Concurrent: Logger](
+  def resource[F[_]: Async: Concurrent](
       midiStreams: List[Stream[F, Stream[F, ShortMessage]]],
-      portName: String
-  ): Resource[F, (List[Fs2Channel[F, Stream[F, ShortMessage]]], Stream[F, Unit])] =
+      env: Environment
+  ): Resource[F, (List[Fs2Channel[F, Stream[F, ShortMessage]]], Stream[F, Stream[F, ShortMessage]])] =
     for {
-      device <- Resource.make(loadDevice(portName))(d => Async[F].delay(d.close()))
-      _ <- Resource.eval(
-        Logger[F].info(s"Opening MIDI device: ${device.getDeviceInfo.getName}") *> Async[F].delay(device.open())
-      )
+      device <- Resource.make(loadDevice(env.loopMidiPortName))(d => Async[F].delay(d.close()))
+      _      <- Resource.eval(Async[F].delay(device.open()))
       receiver <- Resource.make(Async[F].delay(device.getReceiver))(r =>
         sendCleanupMessages(r).attempt.void *> Async[F].delay(r.close())
       )
@@ -98,7 +95,7 @@ object ReactiveSynth {
     } yield {
       // Each stream sends nested MIDI streams into its own channel and closes it when done.
       val inputStreams = midiStreams.zip(channels).map { case (stream, channel) =>
-        stream.through(channel.sendAll)
+        stream.observe(channel.sendAll)
       }
       // Channel streams consume nested streams and send messages to the synthesizer.
       val channelStreams = channels.map { channel =>
@@ -106,20 +103,23 @@ object ReactiveSynth {
           Spawn[F]
             .start(
               stream
-                .evalMap(msg =>
-                  Logger[F].debug(Message.fromShortMessage(msg)) *> Async[F]
-                    .delay(receiver.send(msg, -1))
-                )
+                .evalMap(msg => Async[F].delay(receiver.send(msg, -1)))
                 .compile
                 .drain
             )
             .void
         }
       }
-      val all = Stream(inputStreams: _*).parJoinUnbounded.merge(Stream(channelStreams: _*).parJoinUnbounded)
+      val all = Stream(inputStreams: _*).parJoinUnbounded.concurrently(Stream(channelStreams: _*).parJoinUnbounded)
       (channels, all)
     }
 
+// val lastF: F[Int] =
+//   source
+//     .observe(channel.sendAll)
+//     .compile
+//     .lastOrError
+  
   def midiStreamFromFile[F[_]: Async](filePath: String): Stream[F, MidiMessage] =
     Stream
       .awakeEvery[F](1.second) // co sekundę

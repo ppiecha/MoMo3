@@ -19,7 +19,7 @@ case class Track(
     noteGen: Generator[Note]
 ) extends Playable {
 
-  private def parsedTime[F[_]: Async]: App[F, LazyList[IsValid[Time]]] = {
+  def parsedTime[F[_]: Async]: App[F, LazyList[IsValid[Time]]] = {
     val app = Generator.parse(timeGen)
     app.flatMap { ll =>
       liftFPure(
@@ -59,7 +59,7 @@ case class Track(
   def eventListToOutput[F[_]: Async](eventList: LazyList[Event]): TrackOutput[F] = {
     val midiStream: Stream[F, Stream[F, ShortMessage]] =
       Stream.emits(eventList)
-        .flatMap(e => Stream(Stream.sleep_[F](e.time.duration) ++ e.streamOfMidiMessages[F]))
+        .flatMap(event => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration))
     val midiEventList: LazyList[MidiEvent] = eventList.flatMap(_.listOfMidiEvents)
     TrackOutput(midiStream, midiEventList)
   }

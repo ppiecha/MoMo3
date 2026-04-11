@@ -10,7 +10,7 @@ import scala.concurrent.duration.*
 class GeneratorSpec extends CatsEffectSuite {
 
   test("doubleToFiniteDuration should convert double note duration to finite duration in millis based on BPM") {
-    val testEnv = Env(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
+    val testEnv = Environment(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
     val result = doubleToFiniteDuration[IO](8).value.run(testEnv).map {
       case Right(validated)  => validated
       case Left(domainError) => throw new RuntimeException(domainError.toString)

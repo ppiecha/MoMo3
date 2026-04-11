@@ -1,33 +1,16 @@
 package app.model
 
 import munit.CatsEffectSuite
-import Generator.*
 import app.midi.*
-import app.*
 import javax.sound.midi.ShortMessage
 import javax.sound.midi.ShortMessage.{CONTROL_CHANGE, PROGRAM_CHANGE, NOTE_OFF, NOTE_ON}
 import cats.effect.*
 import cats.effect.testkit.TestControl
 import fs2.*
 import scala.concurrent.duration.*
+import TestTracks.*
 
 class TrackSpec extends CatsEffectSuite {
-
-  val testEnv = Env(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
-
-  val oneNoteTrack = Track(
-    channel = Channel.unsafe(0),
-    TimeGen(LazyList(4)),
-    DurationGen(LazyList(4)),
-    NoteGen(LazyList(60))
-  )
-
-    val twoNotesTrack = Track(
-    channel = Channel.unsafe(0),
-    TimeGen(LazyList(4, 4)),
-    DurationGen(LazyList(1, 1)),
-    NoteGen(LazyList(60, 62))
-  )
 
   private def gaps[A](s: Stream[IO, A]): IO[List[FiniteDuration]] =
   s.evalMap(a => IO.monotonic.map(t => (a, t)))
@@ -36,6 +19,12 @@ class TrackSpec extends CatsEffectSuite {
     .map { xs =>
       xs.map(_._2).sliding(2).collect { case List(a, b) => b - a }.toList
     }
+
+  private def times[A](s: Stream[IO, A]): IO[List[FiniteDuration]] =
+    s.evalMap(a => IO.monotonic.map(t => (a, t)))
+      .compile
+      .toList
+      .map { xs => xs.map(_._2) }
 
   test("One note track midi stream should produce NoteOn and NoteOff message") {
     oneNoteTrack
@@ -74,7 +63,7 @@ class TrackSpec extends CatsEffectSuite {
         assertEquals(noteOn.getShortMessage.getCommand(), ShortMessage.NOTE_ON)
         assertEquals(noteOff.getShortMessage.getCommand(), ShortMessage.NOTE_OFF)
         assertEquals(noteOn.getTick, 0L)
-        assertEquals(noteOff.getTick, 960L)
+        assertEquals(noteOff.getTick, 480L)
       }
   }
 
@@ -89,7 +78,7 @@ class TrackSpec extends CatsEffectSuite {
           case Left(domainError) => IO.raiseError(new RuntimeException(domainError.toString))
         }
         .map { measured =>
-          assertEquals(measured, List(1000.millis))
+          assertEquals(measured.map(_.toMillis), List(0L, 1000L))
         }
     }
   }

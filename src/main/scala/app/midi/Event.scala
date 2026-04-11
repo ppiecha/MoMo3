@@ -15,9 +15,9 @@ case class Event(channel: Channel, message: Message, time: Time) {
   def streamOfMidiMessages[F[_]: Async]: Stream[F, ShortMessage] = {
     val midiMessages = message.toMidiMessages(channel)
     message match
-      case Message.NoteMessage(_, duration, _) => {
+      case Message.NoteMessage(_, time, _) => {
         if midiMessages.length == 2 then
-          Stream(midiMessages.head) ++ Stream.sleep_[F](duration.duration) ++ Stream(midiMessages.tail.head)
+          Stream(midiMessages.head) ++ Stream.sleep_[F](time.duration) ++ Stream(midiMessages.tail.head)
         else throw new RuntimeException("NoteMessage should produce exactly 2 MIDI messages (NOTE_ON and NOTE_OFF)")
       }
       case _ => Stream.emits(midiMessages)
