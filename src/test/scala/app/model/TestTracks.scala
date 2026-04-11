@@ -15,10 +15,18 @@ object TestTracks {
     NoteGen(LazyList(60))
   )
 
-    val twoNotesTrack = Track(
+  val twoNotesTrack = Track(
     channel = Channel.unsafe(0),
     TimeGen(LazyList(4, 4)),
     DurationGen(LazyList(1, 1)),
     NoteGen(LazyList(60, 62))
   )  
+
+  val threeNotesTrack = Track(
+    channel = Channel.unsafe(0),
+    TimeGen(LazyList(4, 4, 2)),
+    DurationGen(LazyList(1, 4/3, 2)),
+    NoteGen(LazyList(60, 64, 67))
+  )
+
 }

@@ -46,7 +46,7 @@ case class Event(channel: Channel, message: Message, time: Time) {
 
 object Event {
   def makeList(channel: Channel, time: Time, note: Note, duration: Time): LazyList[Event] = {
-    val noteEvent = Event(channel, Message.NoteMessage(note, duration, MidiValue.unsafe(100)), time)
+    val noteEvent = Event(channel, Message.NoteMessage(note, duration, MidiValue.unsafe(127)), time)
     LazyList(noteEvent)
   }
 }

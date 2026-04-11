@@ -25,8 +25,11 @@ case class Track(
       liftFPure(
         ll.scan(Time.zero.validNec[ValidationError])((acc, time) =>
           (acc, time).mapN((a, t) => Time(t.duration, a.tick + t.tick))
-        )
-      )
+        ).sliding(2).map(l2 => l2.toList match {
+          case List(t1, t2) => (t1, t2).mapN((curr, next) => Time(next.duration, curr.tick))
+          case List(t2) => t2                 
+          case _ => throw new RuntimeException("Empty list in sliding window, this should never happen")
+        }).to(LazyList))
     }
   }
   // private def accumulatedTime[F[_]: Async]: App[F, Stream[Pure, IsValid[FiniteDuration]]] =

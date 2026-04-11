@@ -78,9 +78,25 @@ class TrackSpec extends CatsEffectSuite {
           case Left(domainError) => IO.raiseError(new RuntimeException(domainError.toString))
         }
         .map { measured =>
-          assertEquals(measured.map(_.toMillis), List(0L, 1000L))
+          assertEquals(measured.map(_.toMillis), List(1000L))
         }
     }
   }
+
+  test("Keeps 1000 ms between three notes") {
+    TestControl.executeEmbed {
+      threeNotesTrack
+        .midiStream[IO]
+        .value
+        .run(testEnv)
+        .flatMap {
+          case Right(stream)     => gaps(stream)
+          case Left(domainError) => IO.raiseError(new RuntimeException(domainError.toString))
+        }
+        .map { measured =>
+          assertEquals(measured.map(_.toMillis), List(1000L, 1000L))
+        }
+    }
+  }  
 
 }
