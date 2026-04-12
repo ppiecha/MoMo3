@@ -13,6 +13,9 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scala.concurrent.duration.DurationInt
 
 // modify main to print/play list of tracks stopping after longest track
+// print tracks - use logger to print events to string
+// api to work with outputs - can be done later
+// test multiple tracks
 // complete readme
 
 object Main extends IOApp.Simple {
@@ -45,23 +48,9 @@ object Main extends IOApp.Simple {
       val play = program[IO](List(track4)).value.run(env).flatMap {
         case Left(e)                 => logger.error(s"Error: $e")
         case Right((synth, outputs)) =>
-          // outputs.toList
-          //   .traverse_(o =>
-          //     o.midiEventList.take(10).toList.traverse_(e => logger.info(s"Track event: ${e.toString2}"))
-          //   ) *>
           synth.use { case (_, all) =>
             logger.info("Playing...") *>
               all
-                .evalMap(s =>
-                  logger.info(s"Playing external stream") *> s
-                    .evalMap(m =>
-                      if m.getCommand == ShortMessage.NOTE_ON then
-                        logger.info(s"Sending MIDI message: ${Message.fromShortMessage(m)}")
-                      else IO.unit
-                    )
-                    .compile
-                    .drain
-                )
                 .compile
                 .drain *>
               IO.sleep(2.second)

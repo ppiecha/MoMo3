@@ -32,10 +32,6 @@ case class Track(
         }).to(LazyList))
     }
   }
-  // private def accumulatedTime[F[_]: Async]: App[F, Stream[Pure, IsValid[FiniteDuration]]] =
-  //   parsedTime[F].map(_.scan(0.millis.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _)))
-  // private def startTime[F[_]: Async]: App[F, Stream[Pure, IsValid[FiniteDuration]]] =
-  //   parsedTime[F].map(s => Stream(0.millis.validNec[ValidationError]) ++ s)
 
   def eventList[F[_]: Async]: App[F, LazyList[Event]] =
     for {
