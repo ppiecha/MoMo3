@@ -13,7 +13,7 @@ object Tick {
   def unsafe(value: Int): Tick = value
 
   extension (tick: Tick) {
-    def value: Int = tick
+    def value: Int           = tick
     def +(other: Tick): Tick = Tick.unsafe(tick + other)
   }
 }

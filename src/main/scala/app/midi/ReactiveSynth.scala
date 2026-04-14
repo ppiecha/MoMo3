@@ -113,23 +113,4 @@ object ReactiveSynth {
       val all = Stream(inputStreams: _*).parJoinUnbounded.concurrently(Stream(channelStreams: _*).parJoinUnbounded)
       (channels, all)
     }
-
-// val lastF: F[Int] =
-//   source
-//     .observe(channel.sendAll)
-//     .compile
-//     .lastOrError
-  
-  def midiStreamFromFile[F[_]: Async](filePath: String): Stream[F, MidiMessage] =
-    Stream
-      .awakeEvery[F](1.second) // co sekundę
-      .evalMap { _ =>
-        Async[F].blocking {
-          // wczytaj plik, sparsuj i zwróć listę wiadomości MIDI
-          val messages: List[MidiMessage] = ??? // parseMidiFile(filePath)
-          messages
-        }
-      }
-      .flatMap(Stream.emits) // emituj każdą wiadomość osobno
-
 }

@@ -1,4 +1,4 @@
-package app.model
+package app.domain
 
 import cats.data.Kleisli
 import cats.syntax.all.*

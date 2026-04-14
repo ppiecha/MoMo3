@@ -4,7 +4,7 @@ import javax.sound.midi._
 
 import app.*
 import app.midi.*
-import app.model.Track
+import app.domain.Track
 
 import cats.syntax.all.*
 
@@ -46,13 +46,11 @@ object Main extends IOApp.Simple {
       //   case Right(str) => logger.info(s"Event list:\n$str")
       // }
       val play = program[IO](List(track4)).value.run(env).flatMap {
-        case Left(e)                 => logger.error(s"Error: $e")
+        case Left(e) => logger.error(s"Error: $e")
         case Right((synth, outputs)) =>
           synth.use { case (_, all) =>
             logger.info("Playing...") *>
-              all
-                .compile
-                .drain *>
+              all.compile.drain *>
               IO.sleep(2.second)
           }
       }

@@ -22,4 +22,3 @@ type Velocity = MidiValue
 type Bank     = MidiValue
 type Program  = MidiValue
 type Control  = MidiValue
-

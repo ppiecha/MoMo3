@@ -7,10 +7,12 @@ import app.midi.*
 import scala.concurrent.duration.*
 
 class TrackEventsSpec extends CatsEffectSuite {
-  
+
   test("One note track produces one event") {
 
-    oneNoteTrack.eventList[IO].value
+    oneNoteTrack
+      .eventList[IO]
+      .value
       .map {
         case Right(events)     => events
         case Left(domainError) => throw new RuntimeException(domainError.toString)
@@ -26,13 +28,15 @@ class TrackEventsSpec extends CatsEffectSuite {
             assertEquals(time.duration, 500.millis)
           case _ => fail("Expected a NoteMessage")
         }
-        
+
       }
   }
 
   test("Two notes track produces two events with correct timing") {
-    
-    twoNotesTrack.eventList[IO].value
+
+    twoNotesTrack
+      .eventList[IO]
+      .value
       .map {
         case Right(events)     => events
         case Left(domainError) => throw new RuntimeException(domainError.toString)
@@ -60,8 +64,10 @@ class TrackEventsSpec extends CatsEffectSuite {
   }
 
   test("Three notes track produces three events with correct timing") {
-    
-    threeNotesTrack.eventList[IO].value
+
+    threeNotesTrack
+      .eventList[IO]
+      .value
       .map {
         case Right(events)     => events
         case Left(domainError) => throw new RuntimeException(domainError.toString)

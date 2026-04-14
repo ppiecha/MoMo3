@@ -4,14 +4,14 @@ import javax.sound.midi.Soundbank
 sealed trait DomainError extends Product with Serializable
 
 enum ValidationError extends DomainError {
-  case InvalidPpq(value: Int) extends ValidationError
-  case InvalidBpm(value: Int) extends ValidationError
-  case InvalidTick(value: Int) extends ValidationError
-  case InvalidMidiValue(value: Int) extends ValidationError
-  case InvalidChannel(value: Int) extends ValidationError
+  case InvalidPpq(value: Int)        extends ValidationError
+  case InvalidBpm(value: Int)        extends ValidationError
+  case InvalidTick(value: Int)       extends ValidationError
+  case InvalidMidiValue(value: Int)  extends ValidationError
+  case InvalidChannel(value: Int)    extends ValidationError
   case InvalidTimeValue(value: Long) extends ValidationError
   case InvalidMessage(error: String) extends ValidationError
-  //case InvalidEvents(errors: List[InvalidEvent]) extends ValidationError
+  // case InvalidEvents(errors: List[InvalidEvent]) extends ValidationError
 }
 
 enum FileError extends DomainError {
@@ -20,6 +20,6 @@ enum FileError extends DomainError {
 
 enum MidiError extends DomainError {
   case SoundbankObjectNotDefined(sb: Soundbank) extends MidiError
-  case SoundbankNotSupported(sb: Soundbank) extends MidiError
-  case SoundbankLoadFailed(sb: Soundbank) extends MidiError
+  case SoundbankNotSupported(sb: Soundbank)     extends MidiError
+  case SoundbankLoadFailed(sb: Soundbank)       extends MidiError
 }

@@ -11,7 +11,7 @@ enum Message {
   import Message.*
   case NoteMessage(note: Note, duration: Time, velocity: Velocity)
   case ProgramMessage(bank: Bank, program: Program)
-  case ControlMessage(control: Control, value: MidiValue) 
+  case ControlMessage(control: Control, value: MidiValue)
 
   def toMidiMessages(channel: Channel): Seq[ShortMessage] = this match {
     case NoteMessage(note, duration, velocity) =>

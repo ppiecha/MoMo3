@@ -1,7 +1,7 @@
-import app.model.Generator.*
-import app.model.given
+import app.domain.Generator.*
+import app.domain.given
 import app.midi.*
-import app.model.*
+import app.domain.*
 
 object Tracks {
 
@@ -31,7 +31,7 @@ object Tracks {
   val track4 = Track(
     channel = Channel.unsafe(0),
     TimeGen(LazyList(4, 4, 2).repeatN(repeatCount)),
-    DurationGen(LazyList(1, 4/3, 2).repeatN(repeatCount)),
+    DurationGen(LazyList(1, 4 / 3, 2).repeatN(repeatCount)),
     NoteGen(LazyList(60, 64, 67).repeatN(repeatCount))
   )
 }

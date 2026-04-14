@@ -13,12 +13,12 @@ import TestTracks.*
 class TrackSpec extends CatsEffectSuite {
 
   private def gaps[A](s: Stream[IO, A]): IO[List[FiniteDuration]] =
-  s.evalMap(a => IO.monotonic.map(t => (a, t)))
-    .compile
-    .toList
-    .map { xs =>
-      xs.map(_._2).sliding(2).collect { case List(a, b) => b - a }.toList
-    }
+    s.evalMap(a => IO.monotonic.map(t => (a, t)))
+      .compile
+      .toList
+      .map { xs =>
+        xs.map(_._2).sliding(2).collect { case List(a, b) => b - a }.toList
+      }
 
   private def times[A](s: Stream[IO, A]): IO[List[FiniteDuration]] =
     s.evalMap(a => IO.monotonic.map(t => (a, t)))
@@ -97,6 +97,6 @@ class TrackSpec extends CatsEffectSuite {
           assertEquals(measured.map(_.toMillis), List(1000L, 1000L))
         }
     }
-  }  
+  }
 
 }
