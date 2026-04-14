@@ -1,3 +1,5 @@
+package app.demo
+
 import cats.effect._
 import fs2.Stream
 import javax.sound.midi._

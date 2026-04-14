@@ -4,7 +4,7 @@ import cats.effect.*
 import cats.syntax.all.*
 import cats.data.Validated.{Invalid, Valid}
 
-import app.*
+import app.config.*
 import app.midi.*
 import app.domain.*
 import javax.sound.midi.MidiEvent

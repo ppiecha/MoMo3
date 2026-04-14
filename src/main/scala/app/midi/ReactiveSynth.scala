@@ -6,7 +6,7 @@ import cats.syntax.all._
 import fs2.Stream
 import fs2.concurrent.{Channel => Fs2Channel}
 import javax.sound.midi._
-import app.*
+import app.config.*
 import cats.MonadThrow
 import java.nio.file.Paths
 import scala.concurrent.duration.*

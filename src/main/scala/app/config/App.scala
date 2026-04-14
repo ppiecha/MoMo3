@@ -1,6 +1,6 @@
-package app
+package app.config
 
-import app.midi.*
+import app.domain.*
 import cats.data.{NonEmptyChain, Reader, ValidatedNec}
 import scala.io.StdIn
 import fs2.*
@@ -21,18 +21,4 @@ def liftFPure[F[_]: Async, A](a: A): App[F, A] = EitherT.liftF(ReaderT.liftF(Asy
 
 def raise[F[_]: Async](e: DomainError): App[F, Nothing] = EitherT.leftT(e)
 
-case class Environment(
-    ppq: Ppq,
-    bpm: Bpm,
-    input: Input,
-    soundFontPath: String = "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2",
-    loopMidiPortName: String = "ScalaToFluid"
-)
 
-trait Input {
-  def readLine(): String
-}
-
-val stdInput = new Input {
-  override def readLine(): String = StdIn.readLine()
-}

@@ -1,4 +1,4 @@
-package app
+package app.domain
 
 import javax.sound.midi.Soundbank
 sealed trait DomainError extends Product with Serializable

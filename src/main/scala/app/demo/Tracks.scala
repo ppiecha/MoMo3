@@ -1,3 +1,5 @@
+package app.demo
+
 import app.domain.Generator.*
 import app.domain.given
 import app.midi.*

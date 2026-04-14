@@ -3,7 +3,7 @@ package app.application
 import cats.effect.*
 import fs2.*
 
-import app.*
+import app.config.*
 import app.midi.ReactiveSynth
 
 object PlaybackService {

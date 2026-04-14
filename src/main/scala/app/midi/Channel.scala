@@ -1,7 +1,7 @@
 package app.midi
 
-import app.*
-import app.ValidationError
+import app.config.*
+import app.domain.*
 import cats.syntax.all.*
 
 opaque type Channel = Int

@@ -4,7 +4,7 @@ import cats.effect.*
 import cats.syntax.all.*
 import fs2.*
 import app.midi.*
-import app.*
+import app.config.*
 import scala.concurrent.duration.*
 
 given Conversion[LazyList[Int], LazyList[Double]] with
