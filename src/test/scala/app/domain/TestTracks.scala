@@ -1,6 +1,6 @@
-package app.model
+package app.domain
 
-import app.*
+import app.config.*
 import app.midi.*
 import Generator.*
 
@@ -25,7 +25,7 @@ object TestTracks {
   val threeNotesTrack = Track(
     channel = Channel.unsafe(0),
     TimeGen(LazyList(4, 4, 2)),
-    DurationGen(LazyList(1, 4 / 3, 2)),
+    DurationGen(LazyList(1, 4d/3, 2)),
     NoteGen(LazyList(60, 64, 67))
   )
 

@@ -33,7 +33,7 @@ object Tracks {
   val track4 = Track(
     channel = Channel.unsafe(0),
     TimeGen(LazyList(4, 4, 2).repeatN(repeatCount)),
-    DurationGen(LazyList(1, 4 / 3, 2).repeatN(repeatCount)),
+    DurationGen(LazyList(1, 4d / 3, 2).repeatN(repeatCount)),
     NoteGen(LazyList(60, 64, 67).repeatN(repeatCount))
   )
 }

@@ -5,14 +5,18 @@ import fs2.*
 
 import app.config.*
 import app.midi.ReactiveSynth
+import javax.sound.midi.ShortMessage
 
 object PlaybackService {
+
+  def compiledTrackToStream[F[_]: Async](compiledTrack: CompiledTrack): Stream[F, Stream[F, ShortMessage]] = {
+    Stream
+      .emits(compiledTrack.events)
+      .flatMap(event => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration))
+  }
+
   def play[F[_]: Async](compiledTracks: List[CompiledTrack], env: Environment): F[Unit] = {
-    val midiStreams = compiledTracks.map { ct =>
-      Stream
-        .emits(ct.events)
-        .flatMap(event => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration))
-    }
+    val midiStreams = compiledTracks.map(compiledTrackToStream)
     ReactiveSynth.resource(midiStreams, env).use { case (_, all) =>
       all.compile.drain
     }

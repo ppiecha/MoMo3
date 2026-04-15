@@ -4,8 +4,9 @@ import cats.effect._
 import fs2.Stream
 import javax.sound.midi._
 
-import app.*
+import app.config.*
 import app.midi.*
+import app.application.*
 import app.domain.Track
 
 import cats.syntax.all.*
@@ -13,10 +14,9 @@ import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 import scala.concurrent.duration.DurationInt
+import app.application.TrackCompiler
 
 // modify main to print/play list of tracks stopping after longest track
-// print tracks - use logger to print events to string
-// api to work with outputs - can be done later
 // test multiple tracks
 // complete readme
 
@@ -27,37 +27,13 @@ object Main extends IOApp.Simple {
     System.setProperty("org.slf4j.simpleLogger.dateTimeFormat", "HH:mm:ss.SSS")
   }
 
-  def program[F[_]: Async](tracks: List[Track]) = for {
-    env     <- ask
-    outputs <- tracks.traverse(_.output[F])
-    // events  <- liftF(Async[F].delay(outputs.flatMap(_.midiEventList.toList)))
-  } yield (ReactiveSynth.resource[F](outputs.map(_.midiStream), env), outputs)
-
   def run: IO[Unit] = {
     import Tracks.*
     configureLogging()
     Slf4jLogger.create[IO].flatMap { logger =>
       given Logger[IO] = logger
-
-      val repeatCount = 1
-
-      val env = Environment(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
-
-      // val print = track4.eventListToString[IO](10).value.run(env).flatMap {
-      //   case Left(e) => logger.error(s"Error: $e")
-      //   case Right(str) => logger.info(s"Event list:\n$str")
-      // }
-      val play = program[IO](List(track4)).value.run(env).flatMap {
-        case Left(e) => logger.error(s"Error: $e")
-        case Right((synth, outputs)) =>
-          synth.use { case (_, all) =>
-            logger.info("Playing...") *>
-              all.compile.drain *>
-              IO.sleep(2.second)
-          }
-      }
-      // print *>
-      play
+      val env          = Environment(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
+      PlaybackService.play[IO](List(track4).map(track => TrackCompiler.compile(track, env)), env)
     }
   }
 }
