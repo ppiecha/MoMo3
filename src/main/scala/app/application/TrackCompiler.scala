@@ -9,10 +9,9 @@ import app.midi.*
 import app.domain.*
 import javax.sound.midi.MidiEvent
 
-case class CompiledTrack(
-    events: LazyList[Event],
-    midiEvents: LazyList[MidiEvent]
-)
+case class CompiledTrack(events: LazyList[Event]) {
+  def listOfMidiEvents: LazyList[MidiEvent] = events.flatMap(_.listOfMidiEvents)
+}
 
 object TrackCompiler {
 
@@ -49,9 +48,7 @@ object TrackCompiler {
   }
 
   def compile(track: Track, env: Environment): CompiledTrack = {
-    val events     = eventList(track, env)
-    val midiEvents = events.flatMap(_.listOfMidiEvents)
-    CompiledTrack(events, midiEvents)
+    CompiledTrack(eventList(track, env))
   }
 
 }

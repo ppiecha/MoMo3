@@ -41,7 +41,7 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("One note track midi event list should produce NoteOn and NoteOff message with proper ticks") {
-    val events = TrackCompiler.compile(oneNoteTrack, testEnv).midiEvents.toList
+    val events = TrackCompiler.compile(oneNoteTrack, testEnv).listOfMidiEvents.toList
     assertEquals(events.size, 2)
     val List(noteOn, noteOff) = events
     assertEquals(noteOn.getShortMessage.getCommand(), ShortMessage.NOTE_ON)
