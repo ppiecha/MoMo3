@@ -10,6 +10,7 @@ import app.config.*
 import cats.MonadThrow
 import java.nio.file.Paths
 import scala.concurrent.duration.*
+import app.domain.MidiError
 
 object ReactiveSynth {
 
@@ -58,28 +59,16 @@ object ReactiveSynth {
       }
     info.toString()
 
-  def loadSynthesizer[F[_]: Async: MonadThrow](soundFontPath: String): F[Synthesizer] =
-    for {
-      synth     <- Async[F].delay(MidiSystem.getSynthesizer)
-      sfFile    <- Async[F].blocking(Paths.get(soundFontPath).toFile)
-      soundBank <- Async[F].delay(MidiSystem.getSoundbank(sfFile))
-      supported <- Async[F].delay(synth.isSoundbankSupported(soundBank))
-      _ <-
-        if supported then Async[F].unit
-        else MonadThrow[F].raiseError(new Exception(s"Soundbank not supported: $soundFontPath"))
-      loaded <- Async[F].delay(synth.loadAllInstruments(soundBank))
-    } yield synth
-
   def loadDevice[F[_]: Async](portName: String): F[MidiDevice] =
     Async[F].delay {
       val infos = MidiSystem.getMidiDeviceInfo
-      infos
-        .map(MidiSystem.getMidiDevice)
-        .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
-        .getOrElse(
-          throw new Exception(s"MIDI device with port name '$portName' not found\n\n${getMidiDeviceInfo(infos)}")
-        )
-    }
+      val maybeDevice =
+        infos
+          .map(MidiSystem.getMidiDevice)
+          .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
+
+      maybeDevice.toRight(MidiError.PortNotFound(portName))
+    }.flatMap(_.leftMap(err => new RuntimeException(err.toString)).liftTo[F])
 
   def resource[F[_]: Async: Concurrent](
       midiStreams: List[Stream[F, Stream[F, ShortMessage]]],

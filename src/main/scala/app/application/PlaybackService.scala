@@ -12,7 +12,10 @@ object PlaybackService {
   def compiledTrackToStream[F[_]: Async](compiledTrack: CompiledTrack): Stream[F, Stream[F, ShortMessage]] = {
     Stream
       .emits(compiledTrack.events)
-      .flatMap(event => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration))
+      .flatMap{
+        case Left(error) => Stream.raiseError[F](new RuntimeException(error.toString))
+        case Right(event) => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration)
+      }
   }
 
   def play[F[_]: Async](compiledTracks: List[CompiledTrack], env: Environment): F[Unit] = {

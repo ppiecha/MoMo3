@@ -1,17 +1,19 @@
 package app.domain
 
-import javax.sound.midi.Soundbank
+import cats.data.NonEmptyList
+
 sealed trait DomainError extends Product with Serializable
 
 enum ValidationError extends DomainError {
-  case InvalidPpq(value: Int)        extends ValidationError
-  case InvalidBpm(value: Int)        extends ValidationError
-  case InvalidTick(value: Int)       extends ValidationError
-  case InvalidMidiValue(value: Int)  extends ValidationError
-  case InvalidChannel(value: Int)    extends ValidationError
-  case InvalidTimeValue(value: Long) extends ValidationError
-  case InvalidMessage(error: String) extends ValidationError
-  // case InvalidEvents(errors: List[InvalidEvent]) extends ValidationError
+  case InvalidPpq(value: Int)                           
+  case InvalidBpm(value: Int)                           
+  case InvalidTick(value: Int)                          
+  case InvalidMidiValue(value: Int)                     
+  case InvalidChannel(value: Int)                       
+  case InvalidTimeValue(value: Long)                    
+  case InvalidMessage(error: String)                    
+  case InvalidEvent(error: String)                      
+  case EmptyListInSlidingWindow                         
 }
 
 enum FileError extends DomainError {
@@ -19,7 +21,5 @@ enum FileError extends DomainError {
 }
 
 enum MidiError extends DomainError {
-  case SoundbankObjectNotDefined(sb: Soundbank) extends MidiError
-  case SoundbankNotSupported(sb: Soundbank)     extends MidiError
-  case SoundbankLoadFailed(sb: Soundbank)       extends MidiError
+  case PortNotFound(portName: String)
 }

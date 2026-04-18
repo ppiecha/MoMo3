@@ -44,10 +44,20 @@ class TrackSpec extends CatsEffectSuite {
     val events = TrackCompiler.compile(oneNoteTrack, testEnv).listOfMidiEvents.toList
     assertEquals(events.size, 2)
     val List(noteOn, noteOff) = events
-    assertEquals(noteOn.getShortMessage.getCommand(), ShortMessage.NOTE_ON)
-    assertEquals(noteOff.getShortMessage.getCommand(), ShortMessage.NOTE_OFF)
-    assertEquals(noteOn.getTick, 0L)
-    assertEquals(noteOff.getTick, 480L)
+    noteOn match {
+      case Left(error) => fail(s"Expected first event to be a NoteMessage, but got error: $error")
+      case Right(noteOn)   => {
+        assertEquals(noteOn.getShortMessage.getCommand(), ShortMessage.NOTE_ON)
+        assertEquals(noteOn.getTick, 0L)
+      }
+    }
+    noteOff match {
+      case Left(error) => fail(s"Expected second event to be a NoteMessage, but got error: $error")
+      case Right(noteOff)   => {
+        assertEquals(noteOff.getShortMessage.getCommand(), ShortMessage.NOTE_OFF)
+        assertEquals(noteOff.getTick, 480L)
+      }
+    }
   }
 
   test("Keeps 1000 ms between two notes") {

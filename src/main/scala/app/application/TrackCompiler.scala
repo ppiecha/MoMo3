@@ -9,10 +9,6 @@ import app.midi.*
 import app.domain.*
 import javax.sound.midi.MidiEvent
 
-case class CompiledTrack(events: LazyList[Event]) {
-  def listOfMidiEvents: LazyList[MidiEvent] = events.flatMap(_.listOfMidiEvents)
-}
-
 object TrackCompiler {
 
   def accumulateTimes(track: Track, env: Environment): LazyList[IsValid[Time]] =
@@ -26,29 +22,26 @@ object TrackCompiler {
         l2.toList match {
           case List(t1, t2) => (t1, t2).mapN((curr, next) => Time(next.duration, curr.tick))
           case List(t2)     => t2
-          case _            => throw new RuntimeException("Empty list in sliding window, this should never happen")
+          case _            => ValidationError.EmptyListInSlidingWindow.invalidNec[Time]
         }
       )
       .to(LazyList)
 
-  def eventList(track: Track, env: Environment): LazyList[Event] = {
+  def eventList(track: Track, env: Environment): LazyList[IsValid[Event]] = {
     val time     = accumulateTimes(track, env)
     val note     = Generator.parse(track.noteGen, env)
     val duration = Generator.parse(track.durGen, env)
     time
       .zip(note)
       .zip(duration)
-      .flatMap { case ((t, n), d) =>
-        (t, n, d)
-          .mapN((time, note, duration) => Event.makeList(track.channel, time, note, duration)) match {
-          case Valid(events) => events
-          case Invalid(nec)  => throw new RuntimeException("Invalid MIDI message: " + nec.toList.mkString(", "))
-        }
-      }
+      .map { case ((t, n), d) => (t, n, d).mapN((time, note, duration) => Event(track.channel, time, note, duration)) }
   }
 
   def compile(track: Track, env: Environment): CompiledTrack = {
-    CompiledTrack(eventList(track, env))
+    CompiledTrack(eventList(track, env).map {
+      case Valid(event)    => Right(event)
+      case Invalid(errors) => Left(ValidationError.InvalidEvent(errors.toList.map(_.toString).mkString(", ")))
+    })
   }
 
 }

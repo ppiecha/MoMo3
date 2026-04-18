@@ -9,6 +9,8 @@ import cats.effect.*
 
 type IsValid[A] = ValidatedNec[ValidationError, A]
 
+type ErrorOr[A] = Either[DomainError, A]
+
 // env => F[Either[DomainError, A]]
 type App[F[_], A] = EitherT[[X] =>> ReaderT[F, Environment, X], DomainError, A]
 

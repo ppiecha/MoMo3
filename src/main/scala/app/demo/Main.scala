@@ -8,7 +8,7 @@ import app.application.*
 import app.domain.Track
 import app.application.TrackCompiler
 
-
+// logger to env
 // modify main to print/play list of tracks stopping after longest track
 // test multiple tracks
 // complete readme

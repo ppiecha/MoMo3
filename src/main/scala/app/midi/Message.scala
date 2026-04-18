@@ -13,20 +13,20 @@ enum Message {
   case ProgramMessage(bank: Bank, program: Program)
   case ControlMessage(control: Control, value: MidiValue)
 
-  def toMidiMessages(channel: Channel): Seq[ShortMessage] = this match {
+  def toMidiMessages(channel: Channel): List[ShortMessage] = this match {
     case NoteMessage(note, duration, velocity) =>
-      Seq(
+      List(
         makeMidiMessage(MidiValue.unsafe(NOTE_ON), channel, note.value, velocity.value),
         makeMidiMessage(MidiValue.unsafe(NOTE_OFF), channel, note.value, 0)
       )
     case ProgramMessage(bank, program) =>
-      Seq(
+      List(
         makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, 0, bank.value >> 7),
         makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, 32, bank.value & 0x7f),
         makeMidiMessage(MidiValue.unsafe(PROGRAM_CHANGE), channel, program.value, 0)
       )
     case ControlMessage(control, value) =>
-      Seq(makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, control.value, value.value))
+      List(makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, control.value, value.value))
 
   }
 }
@@ -49,7 +49,7 @@ object Message {
       case PROGRAM_CHANGE =>
         s"Program Change: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
       case _ =>
-        throw new RuntimeException(s"Unsupported MIDI command: ${msg.getCommand}")
+        s"Unsupported MIDI command: ${msg.getCommand}"
     }
   }
 

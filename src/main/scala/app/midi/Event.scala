@@ -10,43 +10,35 @@ extension (event: MidiEvent) {
   def getShortMessage: ShortMessage = event.getMessage.asInstanceOf[ShortMessage]
 }
 
-case class Event(channel: Channel, message: Message, time: Time) {
+case class Event(channel: Channel, message: GeneratedMessage, time: Time) {
 
   def streamOfMidiMessages[F[_]: Async]: Stream[F, ShortMessage] = {
-    val midiMessages = message.toMidiMessages(channel)
-    message match
-      case Message.NoteMessage(_, time, _) => {
-        if midiMessages.length == 2 then
-          Stream(midiMessages.head) ++ Stream.sleep_[F](time.duration) ++ Stream(midiMessages.tail.head)
-        else throw new RuntimeException("NoteMessage should produce exactly 2 MIDI messages (NOTE_ON and NOTE_OFF)")
-      }
-      case _ => Stream.emits(midiMessages)
+    val List(noteOn, noteOff) = message.toMidiMessages(channel)
+    Stream(noteOn) ++ Stream.sleep_[F](message.note.duration.duration) ++ Stream(noteOff)
   }
 
   val listOfMidiEvents: LazyList[MidiEvent] = {
-    val midiMessages = message.toMidiMessages(channel)
-    message match
-      case Message.NoteMessage(_, duration, _) => {
-        if midiMessages.length == 2 then
-          LazyList(
-            new MidiEvent(midiMessages.head, time.tick.value),
-            new MidiEvent(midiMessages.tail.head, time.tick.value + duration.tick.value)
-          )
-        else
-          throw new RuntimeException(
-            s"NoteMessage should produce exactly 2 MIDI messages (NOTE_ON and NOTE_OFF) but got ${midiMessages}"
-          )
-      }
-      case _ => throw new RuntimeException("Only NoteMessage are supported in listOfMidiEvents for now")
-  }
+    val List(noteOn, noteOff) = message.toMidiMessages(channel)
+    LazyList(
+      new MidiEvent(noteOn, time.tick.value),
+      new MidiEvent(noteOff, time.tick.value + message.note.duration.tick.value)
+    )
+  } 
 
-  override def toString: String = s"Event(channel: $channel, message: $message, time: ${time})"
+  override def toString: String = s"Event(channel: $channel, messages: $message, time: ${time})"
 
 }
 
 object Event {
-  def makeList(channel: Channel, time: Time, note: Note, duration: Time): LazyList[Event] = {
-    val noteEvent = Event(channel, Message.NoteMessage(note, duration, MidiValue.unsafe(127)), time)
-    LazyList(noteEvent)
+  def apply(channel: Channel, time: Time, note: Note, duration: Time): Event = {
+    Event(
+      channel, 
+      GeneratedMessage(
+        Message.NoteMessage(note, duration, MidiValue.unsafe(127)),
+        None,
+        None
+      ),
+      time
+    )
   }
 }
