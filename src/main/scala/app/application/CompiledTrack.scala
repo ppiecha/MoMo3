@@ -1,8 +1,8 @@
 package app.application
 
-import app.midi.*
+import app.shared.ErrorOr
+import app.midi.Event
 import javax.sound.midi.MidiEvent
-import app.config.ErrorOr
 
 final case class CompiledTrack(events: LazyList[ErrorOr[Event]]) {
   def listOfMidiEvents: LazyList[ErrorOr[MidiEvent]] =

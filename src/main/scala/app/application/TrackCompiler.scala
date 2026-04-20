@@ -1,13 +1,12 @@
 package app.application
 
-import cats.effect.*
 import cats.syntax.all.*
 import cats.data.Validated.{Invalid, Valid}
 
 import app.config.*
+import app.shared.*
 import app.midi.*
 import app.domain.*
-import javax.sound.midi.MidiEvent
 
 object TrackCompiler {
 
@@ -40,7 +39,7 @@ object TrackCompiler {
   def compile(track: Track, env: Environment): CompiledTrack = {
     CompiledTrack(eventList(track, env).map {
       case Valid(event)    => Right(event)
-      case Invalid(errors) => Left(ValidationError.InvalidEvent(errors.toList.map(_.toString).mkString(", ")))
+      case Invalid(errors) => Left(ValidationError.InvalidEvent(errors.toList))
     })
   }
 

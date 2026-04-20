@@ -3,7 +3,7 @@ package app.application
 import cats.effect.*
 import fs2.*
 
-import app.config.*
+import app.config.{DomainException, Environment}
 import app.midi.ReactiveSynth
 import javax.sound.midi.ShortMessage
 
@@ -13,7 +13,7 @@ object PlaybackService {
     Stream
       .emits(compiledTrack.events)
       .flatMap{
-        case Left(error) => Stream.raiseError[F](new RuntimeException(error.toString))
+        case Left(domainError) => Stream.raiseError[F](DomainException(domainError))
         case Right(event) => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration)
       }
   }

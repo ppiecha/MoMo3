@@ -1,6 +1,7 @@
 package app.midi
 
 import app.config.*
+import app.shared.*
 import app.domain.*
 import cats.syntax.all.*
 

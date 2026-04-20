@@ -1,15 +1,9 @@
-package app.config
+package app.shared
 
 import app.domain.*
-import cats.data.{NonEmptyChain, Reader, ValidatedNec}
-import scala.io.StdIn
-import fs2.*
+import app.config.Environment
 import cats.data.*
 import cats.effect.*
-
-type IsValid[A] = ValidatedNec[ValidationError, A]
-
-type ErrorOr[A] = Either[DomainError, A]
 
 // env => F[Either[DomainError, A]]
 type App[F[_], A] = EitherT[[X] =>> ReaderT[F, Environment, X], DomainError, A]

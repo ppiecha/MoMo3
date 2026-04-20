@@ -1,15 +1,11 @@
 package app.midi
 
-import cats.data.*
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import fs2.Stream
 import fs2.concurrent.{Channel => Fs2Channel}
-import javax.sound.midi._
-import app.config.*
-import cats.MonadThrow
-import java.nio.file.Paths
-import scala.concurrent.duration.*
+import javax.sound.midi.*
+import app.config.{DomainException, Environment}
 import app.domain.MidiError
 
 object ReactiveSynth {
@@ -68,7 +64,7 @@ object ReactiveSynth {
           .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
 
       maybeDevice.toRight(MidiError.PortNotFound(portName))
-    }.flatMap(_.leftMap(err => new RuntimeException(err.toString)).liftTo[F])
+    }.flatMap(_.leftMap(DomainException.apply).liftTo[F])
 
   def resource[F[_]: Async: Concurrent](
       midiStreams: List[Stream[F, Stream[F, ShortMessage]]],

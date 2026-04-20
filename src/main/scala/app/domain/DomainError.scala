@@ -1,7 +1,5 @@
 package app.domain
 
-import cats.data.NonEmptyList
-
 sealed trait DomainError extends Product with Serializable
 
 enum ValidationError extends DomainError {
@@ -12,7 +10,7 @@ enum ValidationError extends DomainError {
   case InvalidChannel(value: Int)                       
   case InvalidTimeValue(value: Long)                    
   case InvalidMessage(error: String)                    
-  case InvalidEvent(error: String)                      
+  case InvalidEvent(errors: List[ValidationError])                   
   case EmptyListInSlidingWindow                         
 }
 
