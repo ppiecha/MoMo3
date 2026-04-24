@@ -1,8 +1,7 @@
-package app.midi
+package app.domain
 
 import app.config.*
 import app.shared.*
-import app.domain.*
 import cats.syntax.all.*
 
 opaque type Tick = Int

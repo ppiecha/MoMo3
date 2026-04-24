@@ -1,15 +1,14 @@
-package app.midi
+package app.domain
 
-import app.midi.Message.* 
-import javax.sound.midi.ShortMessage
+import Message.*
 
 final case class GeneratedMessage(
-  note: NoteMessage,
+  note: Option[NoteMessage],
   program: Option[ProgramMessage],
   control: Option[ControlMessage]
 ) {
-  def toMidiMessages(channel: Channel): List[ShortMessage] = 
-    program.toList.flatMap(_.toMidiMessages(channel)) ++
-    control.toList.flatMap(_.toMidiMessages(channel)) ++
-    note.toMidiMessages(channel)
+  def toCommands(channel: Channel): List[MidiCommand] = 
+    program.toList.flatMap(_.toCommands(channel)) ++
+    control.toList.flatMap(_.toCommands(channel)) ++
+    note.toList.flatMap(_.toCommands(channel))
 }

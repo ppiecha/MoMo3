@@ -47,14 +47,14 @@ class TrackSpec extends CatsEffectSuite {
     noteOn match {
       case Left(error) => fail(s"Expected first event to be a NoteMessage, but got error: $error")
       case Right(noteOn)   => {
-        assertEquals(noteOn.getShortMessage.getCommand(), ShortMessage.NOTE_ON)
+        assertEquals(noteOn.getMessage.asInstanceOf[ShortMessage].getCommand(), ShortMessage.NOTE_ON)
         assertEquals(noteOn.getTick, 0L)
       }
     }
     noteOff match {
       case Left(error) => fail(s"Expected second event to be a NoteMessage, but got error: $error")
       case Right(noteOff)   => {
-        assertEquals(noteOff.getShortMessage.getCommand(), ShortMessage.NOTE_OFF)
+        assertEquals(noteOff.getMessage.asInstanceOf[ShortMessage].getCommand(), ShortMessage.NOTE_OFF)
         assertEquals(noteOff.getTick, 480L)
       }
     }

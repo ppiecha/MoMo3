@@ -1,4 +1,4 @@
-package app.midi
+package app.domain
 
 import scala.concurrent.duration.*
 

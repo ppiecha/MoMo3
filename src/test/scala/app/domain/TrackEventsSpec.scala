@@ -15,8 +15,8 @@ class TrackEventsSpec extends FunSuite {
     event match {
       case Left(error) => fail(s"Expected event to be a NoteMessage, but got error: $error")
       case Right(ev)   => {
-        assertEquals(ev.message.note.note, MidiValue.unsafe(60))
-        assertEquals(ev.message.note.duration, Time(500.millis, Tick.unsafe(480)))
+        assertEquals(ev.message.note.get.note, MidiValue.unsafe(60))
+        assertEquals(ev.message.note.get.duration, Time(500.millis, Tick.unsafe(480)))
       }
     }
   }
@@ -30,8 +30,8 @@ class TrackEventsSpec extends FunSuite {
       case Right(ev)   => {
         assertEquals(ev.channel, Channel.unsafe(0))
         assertEquals(ev.time, Time(1.second, Tick.unsafe(0)))
-        assertEquals(ev.message.note.note, MidiValue.unsafe(60))
-        assertEquals(ev.message.note.duration, Time(4.second, Tick.unsafe(3840)))
+        assertEquals(ev.message.note.get.note, MidiValue.unsafe(60))
+        assertEquals(ev.message.note.get.duration, Time(4.second, Tick.unsafe(3840)))
       }
     }
     event2 match {
@@ -39,8 +39,8 @@ class TrackEventsSpec extends FunSuite {
       case Right(ev)   => {
         assertEquals(ev.channel, Channel.unsafe(0))
         assertEquals(ev.time, Time(1.second, Tick.unsafe(960)))
-        assertEquals(ev.message.note.note, MidiValue.unsafe(62))
-        assertEquals(ev.message.note.duration, Time(4.second, Tick.unsafe(3840)))
+        assertEquals(ev.message.note.get.note, MidiValue.unsafe(62))
+        assertEquals(ev.message.note.get.duration, Time(4.second, Tick.unsafe(3840)))
       }
     }
   }
@@ -54,8 +54,8 @@ class TrackEventsSpec extends FunSuite {
       case Right(ev)   => {
         assertEquals(ev.channel, Channel.unsafe(0))
         assertEquals(ev.time, Time(1.second, Tick.unsafe(0)))
-        assertEquals(ev.message.note.note, MidiValue.unsafe(60))
-        assertEquals(ev.message.note.duration, Time(4.second, Tick.unsafe(3840)))
+        assertEquals(ev.message.note.get.note, MidiValue.unsafe(60))
+        assertEquals(ev.message.note.get.duration, Time(4.second, Tick.unsafe(3840)))
       }
     } 
       event2 match {
@@ -63,8 +63,8 @@ class TrackEventsSpec extends FunSuite {
       case Right(ev)   => {
         assertEquals(ev.channel, Channel.unsafe(0))
         assertEquals(ev.time, Time(1.second, Tick.unsafe(960)))
-        assertEquals(ev.message.note.note, MidiValue.unsafe(64))
-        assertEquals(ev.message.note.duration, Time(3.second, Tick.unsafe(2880))) 
+        assertEquals(ev.message.note.get  .note, MidiValue.unsafe(64))
+        assertEquals(ev.message.note.get.duration, Time(3.second, Tick.unsafe(2880))) 
       }
     }
     event3 match {
@@ -72,8 +72,8 @@ class TrackEventsSpec extends FunSuite {
       case Right(ev)   => {
         assertEquals(ev.channel, Channel.unsafe(0))
         assertEquals(ev.time, Time(2.seconds, Tick.unsafe(1920)))
-        assertEquals(ev.message.note.note, MidiValue.unsafe(67))
-        assertEquals(ev.message.note.duration, Time(2.seconds, Tick.unsafe(1920)))
+        assertEquals(ev.message.note.get.note, MidiValue.unsafe(67))
+        assertEquals(ev.message.note.get.duration, Time(2.seconds, Tick.unsafe(1920)))
       }
     }
   }

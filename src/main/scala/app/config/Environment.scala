@@ -1,6 +1,6 @@
 package app.config
 
-import app.midi.*
+import app.domain.*
 import scala.io.StdIn
 
 case class Environment(

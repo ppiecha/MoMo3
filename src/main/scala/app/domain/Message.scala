@@ -1,11 +1,4 @@
-package app.midi
-
-import javax.sound.midi
-import javax.sound.midi.*
-import javax.sound.midi.ShortMessage.{CONTROL_CHANGE, PROGRAM_CHANGE, NOTE_OFF, NOTE_ON}
-import cats.effect.*
-import fs2.*
-import scala.concurrent.duration.FiniteDuration
+package app.domain
 
 enum Message {
   import Message.*
@@ -13,44 +6,16 @@ enum Message {
   case ProgramMessage(bank: Bank, program: Program)
   case ControlMessage(control: Control, value: MidiValue)
 
-  def toMidiMessages(channel: Channel): List[ShortMessage] = this match {
+  def toCommands(channel: Channel): List[MidiCommand] = this match {
     case NoteMessage(note, duration, velocity) =>
       List(
-        makeMidiMessage(MidiValue.unsafe(NOTE_ON), channel, note.value, velocity.value),
-        makeMidiMessage(MidiValue.unsafe(NOTE_OFF), channel, note.value, 0)
+        MidiCommand.NoteOn(channel, note, velocity),
+        MidiCommand.NoteOff(channel, note)
       )
     case ProgramMessage(bank, program) =>
-      List(
-        makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, 0, bank.value >> 7),
-        makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, 32, bank.value & 0x7f),
-        makeMidiMessage(MidiValue.unsafe(PROGRAM_CHANGE), channel, program.value, 0)
-      )
+      List(MidiCommand.ProgramChange(channel, bank, program))
     case ControlMessage(control, value) =>
-      List(makeMidiMessage(MidiValue.unsafe(CONTROL_CHANGE), channel, control.value, value.value))
+      List(MidiCommand.ControlChange(channel, control, value))
 
   }
-}
-
-object Message {
-  def makeMidiMessage(command: MidiValue, channel: Channel, data1: Int, data2: Int): ShortMessage = {
-    val msg = new ShortMessage()
-    msg.setMessage(command.value, channel.value, data1, data2)
-    msg
-  }
-
-  def fromShortMessage(msg: ShortMessage): String = {
-    msg.getCommand match {
-      case NOTE_ON =>
-        s"Note On: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
-      case NOTE_OFF =>
-        s"Note Off: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
-      case CONTROL_CHANGE =>
-        s"Control Change: ${MidiValue.unsafe(msg.getData1)} Value: ${MidiValue.unsafe(msg.getData2)} Channel: ${msg.getChannel}"
-      case PROGRAM_CHANGE =>
-        s"Program Change: ${MidiValue.unsafe(msg.getData1)} Channel: ${msg.getChannel}"
-      case _ =>
-        s"Unsupported MIDI command: ${msg.getCommand}"
-    }
-  }
-
 }

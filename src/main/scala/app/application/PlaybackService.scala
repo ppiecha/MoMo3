@@ -6,6 +6,7 @@ import fs2.*
 import app.config.{DomainException, Environment}
 import app.midi.ReactiveSynth
 import javax.sound.midi.ShortMessage
+import app.midi.EventConverter
 
 object PlaybackService {
 
@@ -14,7 +15,7 @@ object PlaybackService {
       .emits(compiledTrack.events)
       .flatMap{
         case Left(domainError) => Stream.raiseError[F](DomainException(domainError))
-        case Right(event) => Stream(event.streamOfMidiMessages[F]) ++ Stream.sleep_[F](event.time.duration)
+        case Right(event) => Stream(EventConverter.eventToStreamOfMidiMessages[F](event)) ++ Stream.sleep_[F](event.time.duration)
       }
   }
 
