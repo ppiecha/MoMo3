@@ -23,23 +23,11 @@ enum Generator[A] {
 
 object Generator {
 
-  def doubleToFiniteDuration(d: Double, env: Environment): IsValid[FiniteDuration] =
-    val value = (4 * 60000 / (d * env.bpm.value)).toLong
-    if value >= 0 then value.millis.validNec[ValidationError]
-    else ValidationError.InvalidTimeValue(value).invalidNec[FiniteDuration]
-
-  def doubleToTick(d: Double, env: Environment): IsValid[Tick] =
-    val value = if d == 0.0 then 0L else ((env.ppq.value.toDouble * 4) / d.toDouble).toLong
-    if value >= 0 then Tick.fromInt(value.toInt)
-    else ValidationError.InvalidTick(value.toInt).invalidNec[Tick]
-
-  def doubleToTime(d: Double, env: Environment): IsValid[Time] =
-    (doubleToFiniteDuration(d, env), doubleToTick(d, env)).mapN(Time.apply)
-
   def parse[A](seq: Generator[A], env: Environment): LazyList[IsValid[A]] =
     seq match {
       case TimeGen(s)     => s.map(d => Tick.fromDouble(d, env.ppq))
       case NoteGen(s)     => s.map(MidiValue.from)
       case DurationGen(s) => s.map(d => Tick.fromDouble(d, env.ppq))
     }
+
 }
