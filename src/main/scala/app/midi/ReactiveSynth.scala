@@ -3,8 +3,7 @@ package app.midi
 import cats.effect.*
 import cats.syntax.all.*
 import fs2.Stream
-import fs2.concurrent.{Channel => Fs2Channel}
-import javax.sound.midi.*
+import javax.sound.midi.{Receiver, ShortMessage, MidiDevice, MidiSystem}
 import app.config.{DomainException, Environment}
 import app.domain.MidiError
 
@@ -66,36 +65,16 @@ object ReactiveSynth {
       maybeDevice.toRight(MidiError.PortNotFound(portName))
     }.flatMap(_.leftMap(DomainException.apply).liftTo[F])
 
-  def resource[F[_]: Async: Concurrent](
-      midiStreams: List[Stream[F, Stream[F, ShortMessage]]],
-      env: Environment
-  ): Resource[F, (List[Fs2Channel[F, Stream[F, ShortMessage]]], Stream[F, Stream[F, ShortMessage]])] =
+  def outputResource[F[_]: Async](
+    env: Environment
+  ): Resource[F, List[ShortMessage] => F[Unit]] =
     for {
       device <- Resource.make(loadDevice(env.loopMidiPortName))(d => Async[F].delay(d.close()))
       _      <- Resource.eval(Async[F].delay(device.open()))
       receiver <- Resource.make(Async[F].delay(device.getReceiver))(r =>
         sendCleanupMessages(r).attempt.void *> Async[F].delay(r.close())
       )
-      channels <- Resource.eval(midiStreams.traverse(_ => Fs2Channel.unbounded[F, Stream[F, ShortMessage]]))
-    } yield {
-      // Each stream sends nested MIDI streams into its own channel and closes it when done.
-      val inputStreams = midiStreams.zip(channels).map { case (stream, channel) =>
-        stream.observe(channel.sendAll)
-      }
-      // Channel streams consume nested streams and send messages to the synthesizer.
-      val channelStreams = channels.map { channel =>
-        channel.stream.evalMap { stream =>
-          Spawn[F]
-            .start(
-              stream
-                .evalMap(msg => Async[F].delay(receiver.send(msg, -1)))
-                .compile
-                .drain
-            )
-            .void
-        }
-      }
-      val all = Stream(inputStreams: _*).parJoinUnbounded.concurrently(Stream(channelStreams: _*).parJoinUnbounded)
-      (channels, all)
-    }
+    } yield { messages =>
+      Async[F].delay(messages.foreach(msg => receiver.send(msg, -1)))
+    }  
 }

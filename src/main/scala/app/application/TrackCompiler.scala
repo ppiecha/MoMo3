@@ -7,33 +7,38 @@ import app.config.*
 import app.shared.*
 import app.midi.*
 import app.domain.*
+import app.domain.MidiCommand.*
 
 object TrackCompiler {
 
-  def accumulateTimes(track: Track, env: Environment): LazyList[IsValid[Time]] =
+  def accumulateTimes(track: Track, env: Environment): LazyList[IsValid[Tick]] =
     Generator
       .parse(track.timeGen, env)
-      .scan(Time.zero.validNec[ValidationError])((acc, time) =>
-        (acc, time).mapN((a, t) => Time(t.duration, a.tick + t.tick))
-      )
-      .sliding(2)
-      .map(l2 =>
-        l2.toList match {
-          case List(t1, t2) => (t1, t2).mapN((curr, next) => Time(next.duration, curr.tick))
-          case List(t2)     => t2
-          case _            => ValidationError.EmptyListInSlidingWindow.invalidNec[Time]
-        }
-      )
-      .to(LazyList)
+      .scan(Tick.zero.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _))
 
-  def eventList(track: Track, env: Environment): LazyList[IsValid[Event]] = {
-    val time     = accumulateTimes(track, env)
+  def eventList(track: Track, env: Environment): LazyList[IsValid[AbsoluteMidiEvent]] = {
+    val at       = accumulateTimes(track, env)
     val note     = Generator.parse(track.noteGen, env)
     val duration = Generator.parse(track.durGen, env)
-    time
+
+    at
       .zip(note)
       .zip(duration)
-      .map { case ((t, n), d) => (t, n, d).mapN((time, note, duration) => Event(track.channel, time, note, duration)) }
+      .flatMap { case ((t, n), d) =>
+        val events: IsValid[(AbsoluteMidiEvent, AbsoluteMidiEvent)] =
+          (t, n, d).mapN { (at, note, duration) =>
+            val nextAt = at + duration
+            (
+              AbsoluteMidiEvent(at, NoteOn(track.channel, note, MidiValue.unsafe(100))),
+              AbsoluteMidiEvent(nextAt, NoteOff(track.channel, note))
+            )
+          }
+
+        events.fold(
+          errors => LazyList(errors.invalid),
+          { case (on, off) => LazyList(on.validNec, off.validNec) }
+        )
+      }
   }
 
   def compile(track: Track, env: Environment): CompiledTrack = {

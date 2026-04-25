@@ -16,9 +16,9 @@ extension [A](ll: LazyList[A]) {
 }
 
 enum Generator[A] {
-  case TimeGen(s: LazyList[Double])     extends Generator[Time]
+  case TimeGen(s: LazyList[Double])     extends Generator[Tick]
   case NoteGen(s: LazyList[Int])        extends Generator[Note]
-  case DurationGen(s: LazyList[Double]) extends Generator[Time]
+  case DurationGen(s: LazyList[Double]) extends Generator[Tick]
 }
 
 object Generator {
@@ -30,7 +30,7 @@ object Generator {
 
   def doubleToTick(d: Double, env: Environment): IsValid[Tick] =
     val value = if d == 0.0 then 0L else ((env.ppq.value.toDouble * 4) / d.toDouble).toLong
-    if value >= 0 then Tick.from(value.toInt)
+    if value >= 0 then Tick.fromInt(value.toInt)
     else ValidationError.InvalidTick(value.toInt).invalidNec[Tick]
 
   def doubleToTime(d: Double, env: Environment): IsValid[Time] =
@@ -38,8 +38,8 @@ object Generator {
 
   def parse[A](seq: Generator[A], env: Environment): LazyList[IsValid[A]] =
     seq match {
-      case TimeGen(s)     => s.map(d => doubleToTime(d, env))
+      case TimeGen(s)     => s.map(d => Tick.fromDouble(d, env.ppq))
       case NoteGen(s)     => s.map(MidiValue.from)
-      case DurationGen(s) => s.map(d => doubleToTime(d, env))
+      case DurationGen(s) => s.map(d => Tick.fromDouble(d, env.ppq))
     }
 }

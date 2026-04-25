@@ -5,7 +5,7 @@ import app.domain.Generator
 
 case class Track(
     channel: Channel,
-    timeGen: Generator[Time],
-    durGen: Generator[Time],
+    timeGen: Generator[Tick],
+    durGen: Generator[Tick],
     noteGen: Generator[Note]
 )
