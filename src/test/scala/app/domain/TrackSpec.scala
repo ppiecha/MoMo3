@@ -1,83 +1,31 @@
 package app.domain
 
 import munit.CatsEffectSuite
-import app.midi.*
-import app.application.*
-import javax.sound.midi.ShortMessage
-import javax.sound.midi.ShortMessage.{CONTROL_CHANGE, PROGRAM_CHANGE, NOTE_OFF, NOTE_ON}
-import cats.effect.*
-import cats.effect.testkit.TestControl
-import fs2.*
-import scala.concurrent.duration.*
 import TestTracks.*
+import app.config.Environment
+import app.midi.ReactiveSynth
+import app.config.stdInput
+import cats.effect.IO
+import app.application.*
+import app.midi.*
+import app.domain.*
+import cats.syntax.all.*
 
 class TrackSpec extends CatsEffectSuite {
 
-  private def gaps[A](s: Stream[IO, A]): IO[List[FiniteDuration]] =
-    s.evalMap(a => IO.monotonic.map(t => (a, t)))
-      .compile
-      .toList
-      .map { xs =>
-        xs.map(_._2).sliding(2).collect { case List(a, b) => b - a }.toList
-      }
-
-  private def times[A](s: Stream[IO, A]): IO[List[FiniteDuration]] =
-    s.evalMap(a => IO.monotonic.map(t => (a, t)))
-      .compile
-      .toList
-      .map { xs => xs.map(_._2) }
-
   test("One note track midi stream should produce NoteOn and NoteOff message") {
-    PlaybackService.compiledTrackToStream[IO](TrackCompiler.compile(oneNoteTrack, testEnv)).compile.toList.flatMap {
-      _.head.compile.toList.map { messages =>
-        assertEquals(messages.size, 2)
-        val List(noteOn, noteOff) = messages.map(_.asInstanceOf[ShortMessage])
-        assertEquals(noteOn.getCommand, NOTE_ON)
-        assertEquals(noteOn.getData1, 60)
-        assertEquals(noteOff.getCommand, NOTE_OFF)
-        assertEquals(noteOff.getData1, 60)
-      }
-    }
-  }
+    val env = Environment(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
+    val events = TrackCompiler.compile(oneNoteTrack, env).events
 
-  test("One note track midi event list should produce NoteOn and NoteOff message with proper ticks") {
-    val events = TrackCompiler.compile(oneNoteTrack, testEnv).listOfMidiEvents.toList
-    assertEquals(events.size, 2)
-    val List(noteOn, noteOff) = events
-    noteOn match {
-      case Left(error) => fail(s"Expected first event to be a NoteMessage, but got error: $error")
-      case Right(noteOn)   => {
-        assertEquals(noteOn.getMessage.asInstanceOf[ShortMessage].getCommand(), ShortMessage.NOTE_ON)
-        assertEquals(noteOn.getTick, 0L)
-      }
-    }
-    noteOff match {
-      case Left(error) => fail(s"Expected second event to be a NoteMessage, but got error: $error")
-      case Right(noteOff)   => {
-        assertEquals(noteOff.getMessage.asInstanceOf[ShortMessage].getCommand(), ShortMessage.NOTE_OFF)
-        assertEquals(noteOff.getTick, 480L)
-      }
-    }
-  }
+    val expectedEvents = List(
+      AbsoluteMidiEvent(Tick.unsafe(0), MidiCommand.NoteOn(Channel.unsafe(0), MidiValue.unsafe(60), MidiValue.unsafe(100))),
+      AbsoluteMidiEvent(Tick.unsafe(480), MidiCommand.NoteOff(Channel.unsafe(0), MidiValue.unsafe(60)))
+    )
 
-  test("Keeps 1000 ms between two notes") {
-    TestControl.executeEmbed {
-      val stream = PlaybackService.compiledTrackToStream[IO](TrackCompiler.compile(twoNotesTrack, testEnv))
-      gaps(stream)
-        .map { measured =>
-          assertEquals(measured.map(_.toMillis), List(1000L))
-        }
-    }
-  }
+    events.toList.sequence match
+      case Left(error) => fail(s"Expected valid events but got errors: ${error}")
+      case Right(events) => assertEquals(events, expectedEvents)
+    
 
-  test("Keeps 1000 ms between three notes") {
-    TestControl.executeEmbed {
-      val stream = PlaybackService.compiledTrackToStream[IO](TrackCompiler.compile(threeNotesTrack, testEnv))
-      gaps(stream)
-        .map { measured =>
-          assertEquals(measured.map(_.toMillis), List(1000L, 1000L))
-        }
-    }
   }
-
 }

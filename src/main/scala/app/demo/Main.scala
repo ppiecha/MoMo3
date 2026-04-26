@@ -14,6 +14,8 @@ import app.application.TrackCompiler
 // on start kill the process if running and start it
 // play in a loop and update tracks online
 // test multiple tracks
+// kolejnosc eventow w tym samym czasie
+// program change -3 event dopiero podczas translacji do javax.sound.midi
 // complete readme
 
 import Tracks.*
