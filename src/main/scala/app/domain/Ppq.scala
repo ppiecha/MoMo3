@@ -1,6 +1,5 @@
 package app.domain
 
-import app.config.*
 import app.shared.*
 import cats.syntax.all.*
 

@@ -3,8 +3,6 @@ package app.domain
 import cats.effect.*
 import cats.syntax.all.*
 import fs2.*
-import app.midi.*
-import app.config.*
 import app.shared.*
 import scala.concurrent.duration.*
 
@@ -23,11 +21,11 @@ enum Generator[A] {
 
 object Generator {
 
-  def parse[A](seq: Generator[A], env: Environment): LazyList[IsValid[A]] =
+  def parse[A](seq: Generator[A], ppq: Ppq): LazyList[IsValid[A]] =
     seq match {
-      case TimeGen(s)     => s.map(d => Tick.fromDouble(d, env.ppq))
+      case TimeGen(s)     => s.map(d => Tick.fromDouble(d, ppq))
       case NoteGen(s)     => s.map(MidiValue.from)
-      case DurationGen(s) => s.map(d => Tick.fromDouble(d, env.ppq))
+      case DurationGen(s) => s.map(d => Tick.fromDouble(d, ppq))
     }
 
 }

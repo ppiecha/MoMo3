@@ -52,5 +52,5 @@ object PlaybackService {
         (e.at, acc :+ (delta -> e))
       }
       ._2
-      .map { case (tick, event) => (tick.toMillis(env), event) }
+      .map { case (tick, event) => (tick.toMillis(env.ppq, env.bpm), event) }
 }

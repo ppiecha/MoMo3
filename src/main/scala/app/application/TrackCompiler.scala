@@ -13,13 +13,13 @@ object TrackCompiler {
 
   def accumulateTimes(track: Track, env: Environment): LazyList[IsValid[Tick]] =
     Generator
-      .parse(track.timeGen, env)
+      .parse(track.timeGen, env.ppq)
       .scan(Tick.zero.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _))
 
   def eventList(track: Track, env: Environment): LazyList[IsValid[AbsoluteMidiEvent]] = {
     val at       = accumulateTimes(track, env)
-    val note     = Generator.parse(track.noteGen, env)
-    val duration = Generator.parse(track.durGen, env)
+    val note     = Generator.parse(track.noteGen, env.ppq)
+    val duration = Generator.parse(track.durGen, env.ppq)
 
     at
       .zip(note)

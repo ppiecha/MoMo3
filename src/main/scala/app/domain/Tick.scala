@@ -1,6 +1,5 @@
 package app.domain
 
-import app.config.*
 import app.shared.*
 import cats.syntax.all.*
 import scala.concurrent.duration.*
@@ -24,7 +23,7 @@ object Tick {
     def value: Int           = tick
     def +(other: Tick): Tick = Tick.unsafe(tick + other)
     def -(other: Tick): Tick = Tick.unsafe(tick - other)
-    def toMillis(env: Environment): FiniteDuration =
-      ((tick.toDouble / env.ppq.value.toDouble) * (60000.0 / env.bpm.value.toDouble)).millis      
+    def toMillis(ppq: Ppq, bpm: Bpm): FiniteDuration =
+      ((tick.toDouble / ppq.value.toDouble) * (60000.0 / bpm.value.toDouble)).millis      
   }
 }
