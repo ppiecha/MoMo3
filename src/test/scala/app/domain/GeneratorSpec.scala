@@ -18,7 +18,7 @@ class GeneratorSpec extends FunSuite {
 
   test("toMillis should convert 4d/3 double note duration to finite duration in millis based on BPM") {
     val testEnv   = Environment(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
-    val validated = Tick.fromDouble(4d/3, testEnv.ppq).map(_.toMillis(testEnv))
+    val validated = Tick.fromDouble(4d/3, testEnv.ppq).map(_.toMillis(testEnv.ppq, testEnv.bpm))
     assert(validated.isValid)
     assertEquals(validated, 3.seconds.validNec[ValidationError])
   }
