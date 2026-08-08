@@ -1,20 +1,22 @@
 package app.config
 
 import app.domain.*
-import scala.io.StdIn
+import app.shared.IsValid
+import cats.effect.IO
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-case class Environment(
-    ppq: Ppq,
-    bpm: Bpm,
-    input: Input,
-    soundFontPath: String = "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2",
-    loopMidiPortName: String = "ScalaToFluid"
+case class Environment private(
+                                timingContext: TimingContext,
+                                input: ConsoleInput = stdInput,
+                                synthConfig: SynthConfig = SynthConfig(),
+                                midiOutputConfig: MidiOutputConfig = MidiOutputConfig()
+                                //    logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 )
 
-trait Input {
-  def readLine(): String
-}
-
-val stdInput = new Input {
-  override def readLine(): String = StdIn.readLine()
+object Environment {
+  def from(bpm: Int, ppq: Int = Ppq.DEFAULT_VALUE, input: ConsoleInput = stdInput): IsValid[Environment] = {
+    val timingContext = TimingContext.from(ppq, bpm)
+    timingContext.map(tc => Environment(tc, input))
+  }
 }

@@ -17,6 +17,7 @@ enum Generator[A] {
   case TimeGen(s: LazyList[Double])     extends Generator[Tick]
   case NoteGen(s: LazyList[Int])        extends Generator[Note]
   case DurationGen(s: LazyList[Double]) extends Generator[Tick]
+  case VelocityGen(s: LazyList[Int]) extends Generator[Velocity]
 }
 
 object Generator {
@@ -26,6 +27,7 @@ object Generator {
       case TimeGen(s)     => s.map(d => Tick.fromDouble(d, ppq))
       case NoteGen(s)     => s.map(MidiValue.from)
       case DurationGen(s) => s.map(d => Tick.fromDouble(d, ppq))
+      case VelocityGen(s) => s.map(Velocity.from)
     }
 
 }

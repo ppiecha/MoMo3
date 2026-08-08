@@ -1,12 +1,13 @@
 package app.demo
 
-import cats.effect._
-
+import cats.effect.*
 import app.config.*
 import app.midi.*
 import app.application.*
-import app.domain.Track
 import app.application.TrackCompiler
+import cats.syntax.all.*
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 // logger to env
 // fluidsynth to env
@@ -22,11 +23,30 @@ import Tracks.*
 import app.domain.*
 
 object Main extends IOApp.Simple {
-  def run: IO[Unit] = {
-    val env = Environment(ppq = Ppq.unsafe(960), bpm = Bpm.unsafe(60), input = stdInput)
-    val compiledTracks = List(TrackCompiler.compile(track4, env))
-    ReactiveSynth.outputResource[IO](env).use { send =>
-      PlaybackService.play(compiledTracks, env, event => send(event.command.toMidiMessages))
-    }
+
+  def program: IO[Either[ValidationError, Unit]] = {
+    Environment
+      .from(bpm = 60)
+      .toEither
+      .leftMap(errors => ValidationError.InvalidConfig(errors.toNonEmptyList))
+      .traverse { env =>
+        val compiledTracks = List(TrackCompiler.compile(track4, env.timingContext))
+        ReactiveSynth.outputResource[IO](env.midiOutputConfig).use { send =>
+          PlaybackService.play(
+            compiledTracks,
+            env.timingContext,
+            event => send(event.command.toMidiMessages)
+          )
+        }
+      }
   }
+
+  def run: IO[Unit] = {
+    val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+    program.flatTap {
+      case Left(err) => logger.error(s"Playback failed: $err")
+      case Right(_) => logger.info("Playback finished")
+    }.void
+  }
+
 }

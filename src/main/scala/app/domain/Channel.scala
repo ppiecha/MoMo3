@@ -10,8 +10,6 @@ object Channel {
     if value >= 0 && value <= 15 then value.validNec[ValidationError]
     else ValidationError.InvalidChannel(value).invalidNec[Channel]
 
-  def unsafe(value: Int): Channel = value
-
   extension (ch: Channel) {
     def value: Int = ch
   }

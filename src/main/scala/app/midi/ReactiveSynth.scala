@@ -3,8 +3,9 @@ package app.midi
 import cats.effect.*
 import cats.syntax.all.*
 import fs2.Stream
-import javax.sound.midi.{Receiver, ShortMessage, MidiDevice, MidiSystem}
-import app.config.{DomainException, Environment}
+
+import javax.sound.midi.{MidiDevice, MidiSystem, Receiver, ShortMessage}
+import app.config.{DomainException, Environment, MidiOutputConfig}
 import app.domain.MidiError
 
 object ReactiveSynth {
@@ -55,26 +56,26 @@ object ReactiveSynth {
     info.toString()
 
   def loadDevice[F[_]: Async](portName: String): F[MidiDevice] =
-    Async[F].delay {
-      val infos = MidiSystem.getMidiDeviceInfo
-      val maybeDevice =
-        infos
-          .map(MidiSystem.getMidiDevice)
-          .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
+    Async[F]
+      .delay {
+        val infos = MidiSystem.getMidiDeviceInfo
+        val maybeDevice =
+          infos
+            .map(MidiSystem.getMidiDevice)
+            .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
 
-      maybeDevice.toRight(MidiError.PortNotFound(portName))
-    }.flatMap(_.leftMap(DomainException.apply).liftTo[F])
+        maybeDevice.toRight(MidiError.PortNotFound(portName))
+      }
+      .flatMap(_.leftMap(DomainException.apply).liftTo[F])
 
-  def outputResource[F[_]: Async](
-    env: Environment
-  ): Resource[F, List[ShortMessage] => F[Unit]] =
+  def outputResource[F[_] : Async](midiOutputConfig: MidiOutputConfig): Resource[F, List[ShortMessage] => F[Unit]] =
     for {
-      device <- Resource.make(loadDevice(env.loopMidiPortName))(d => Async[F].delay(d.close()))
+      device <- Resource.make(loadDevice(midiOutputConfig.loopMidiPortName))(d => Async[F].delay(d.close()))
       _      <- Resource.eval(Async[F].delay(device.open()))
       receiver <- Resource.make(Async[F].delay(device.getReceiver))(r =>
         sendCleanupMessages(r).attempt.void *> Async[F].delay(r.close())
       )
     } yield { messages =>
       Async[F].delay(messages.foreach(msg => receiver.send(msg, -1)))
-    }  
+    }
 }

@@ -3,11 +3,10 @@ package app.application
 import cats.effect.*
 import cats.syntax.all.*
 import fs2.*
-
-import app.config.{DomainException, Environment}
-import app.midi.ReactiveSynth
+import app.config.{DomainException, Environment, TimingContext}
 import app.domain.*
 import app.shared.ErrorOr
+
 import scala.concurrent.duration.*
 
 object PlaybackService {
@@ -16,19 +15,19 @@ object PlaybackService {
     compiledTrack.events.toList.sequence
 
   def toPlaybackPlan(
-      compiledTracks: List[CompiledTrack]
+                      compiledTracks: List[CompiledTrack]
   ): ErrorOr[List[AbsoluteMidiEvent]] =
     compiledTracks.traverse(compiledTrackToAbsoluteEvents).map(_.flatten)
 
   def play[F[_]: Temporal](
-      compiledTracks: List[CompiledTrack],
-      env: Environment,
-      send: AbsoluteMidiEvent => F[Unit]
+                            compiledTracks: List[CompiledTrack],
+                            timingContext: TimingContext,
+                            send: AbsoluteMidiEvent => F[Unit]
   ): F[Unit] =
     compiledTracks
       .traverse(compiledTrackToAbsoluteEvents)
       .map(_.flatten)
-      .map(toTimedEvents(_, env))
+      .map(toTimedEvents(_, timingContext))
       .leftMap(DomainException.apply)
       .liftTo[F]
       .flatMap { events =>
@@ -42,9 +41,9 @@ object PlaybackService {
       }
 
   private def toTimedEvents(
-      events: List[AbsoluteMidiEvent],
-      env: Environment
-  ): List[(FiniteDuration, AbsoluteMidiEvent)] =
+                             events: List[AbsoluteMidiEvent],
+                             timingContext: TimingContext
+                           ): List[(FiniteDuration, AbsoluteMidiEvent)] = {
     events
       .sortBy(_.at.value)
       .foldLeft((Tick.zero, List.empty[(Tick, AbsoluteMidiEvent)])) { case ((prev, acc), e) =>
@@ -52,5 +51,6 @@ object PlaybackService {
         (e.at, acc :+ (delta -> e))
       }
       ._2
-      .map { case (tick, event) => (tick.toMillis(env.ppq, env.bpm), event) }
+      .map { case (tick, event) => (tick.toMillis(timingContext.ppq, timingContext.bpm), event) }
+  }
 }
