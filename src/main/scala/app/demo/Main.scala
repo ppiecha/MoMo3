@@ -9,15 +9,13 @@ import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-// logger to env
-// fluidsynth to env
-// split env
+// complete readme - add 
 // on start kill the process if running and start it
 // play in a loop and update tracks online
 // test multiple tracks
 // kolejnosc eventow w tym samym czasie
 // program change -3 event dopiero podczas translacji do javax.sound.midi
-// complete readme
+
 
 import Tracks.*
 import app.domain.*
