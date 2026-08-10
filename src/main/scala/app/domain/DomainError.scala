@@ -2,9 +2,7 @@ package app.domain
 
 import cats.data.NonEmptyList
 
-sealed trait DomainError extends Product with Serializable
-
-enum ValidationError extends DomainError {
+enum ValidationError {
   case InvalidPpq(value: Int)
   case InvalidBpm(value: Int)
   case InvalidTick(value: Int)
@@ -15,13 +13,13 @@ enum ValidationError extends DomainError {
   case InvalidMessage(error: String)
   case InvalidEvent(errors: List[ValidationError])
   case InvalidConfig(errors: NonEmptyList[ValidationError])
+  case InvalidPort(portName: String)
   case EmptyListInSlidingWindow
 }
 
-enum FileError extends DomainError {
-  case FileNotFound(path: String) extends FileError
-}
+enum DomainError {
+  case ValidationFailed(err: ValidationError)
+  case TrackCompilationFailed(err: ValidationError)
+  case PlaybackFailed(msg: String)
 
-enum MidiError extends DomainError {
-  case PortNotFound(portName: String)
 }

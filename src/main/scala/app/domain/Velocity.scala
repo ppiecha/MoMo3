@@ -1,6 +1,6 @@
 package app.domain
 
-import app.shared.*
+import cats.data.ValidatedNec
 import cats.implicits.catsSyntaxValidatedIdBinCompat0
 
 opaque type Velocity = Int
@@ -8,7 +8,7 @@ object Velocity {
 
   val DEFAULT_VALUE = 100
 
-  def from(value: Int): IsValid[Velocity] =
+  def from(value: Int): ValidatedNec[ValidationError, Velocity] =
     if value >= 0 && value <= 127 then value.validNec[ValidationError]
     else ValidationError.InvalidVelocity(value).invalidNec[Velocity]
 

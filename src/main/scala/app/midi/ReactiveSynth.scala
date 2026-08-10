@@ -5,8 +5,9 @@ import cats.syntax.all.*
 import fs2.Stream
 
 import javax.sound.midi.{MidiDevice, MidiSystem, Receiver, ShortMessage}
-import app.config.{DomainException, Environment, MidiOutputConfig}
-import app.domain.MidiError
+import app.config.{Environment, MidiOutputConfig}
+import app.domain.{DomainError, ValidationError}
+import cats.data.EitherT
 
 object ReactiveSynth {
 
@@ -55,7 +56,7 @@ object ReactiveSynth {
       }
     info.toString()
 
-  def loadDevice[F[_]: Async](portName: String): F[MidiDevice] =
+  def loadDevice[F[_]: Async](portName: String): F[Either[DomainError, MidiDevice]] =
     Async[F]
       .delay {
         val infos = MidiSystem.getMidiDeviceInfo
@@ -64,18 +65,22 @@ object ReactiveSynth {
             .map(MidiSystem.getMidiDevice)
             .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
 
-        maybeDevice.toRight(MidiError.PortNotFound(portName))
+        maybeDevice.toRight(DomainError.ValidationFailed(ValidationError.InvalidPort(portName)))
       }
-      .flatMap(_.leftMap(DomainException.apply).liftTo[F])
 
-  def outputResource[F[_] : Async](midiOutputConfig: MidiOutputConfig): Resource[F, List[ShortMessage] => F[Unit]] =
+  def outputResource[F[_]: Async](
+    cfg: MidiOutputConfig
+  ): Resource[[A] =>> EitherT[F, DomainError, A], List[ShortMessage] => EitherT[F, DomainError, Unit]] =
     for {
-      device <- Resource.make(loadDevice(midiOutputConfig.loopMidiPortName))(d => Async[F].delay(d.close()))
-      _      <- Resource.eval(Async[F].delay(device.open()))
-      receiver <- Resource.make(Async[F].delay(device.getReceiver))(r =>
-        sendCleanupMessages(r).attempt.void *> Async[F].delay(r.close())
-      )
-    } yield { messages =>
-      Async[F].delay(messages.foreach(msg => receiver.send(msg, -1)))
+      device <- Resource.eval(EitherT(loadDevice[F](cfg.loopMidiPortName)))
+      _      <- Resource.eval(EitherT.liftF(Async[F].delay(device.open())))
+      receiver <- Resource.make[[A] =>> EitherT[F, DomainError, A], Receiver](
+        EitherT.liftF(Async[F].delay(device.getReceiver))
+      ) { r =>
+        EitherT.liftF(sendCleanupMessages(r) *> Async[F].delay(r.close()))
+      }
+    } yield { (messages: List[ShortMessage]) =>
+      EitherT.liftF(Async[F].delay(messages.foreach(msg => receiver.send(msg, -1))))
     }
+
 }

@@ -1,16 +1,16 @@
 package app.domain
 
-import app.shared.*
+import cats.data.ValidatedNec
 import cats.syntax.all.*
 import scala.concurrent.duration.*
 
 opaque type Tick = Int
 object Tick {
-  def fromInt(value: Int): IsValid[Tick] =
+  def fromInt(value: Int): ValidatedNec[ValidationError, Tick] =
     if value >= 0 then value.validNec[ValidationError]
     else ValidationError.InvalidTick(value).invalidNec[Tick]
 
-  def fromDouble(d: Double, ppq: Ppq): IsValid[Tick] =
+  def fromDouble(d: Double, ppq: Ppq): ValidatedNec[ValidationError, Tick] =
     val value = if d == 0.0 then 0L else ((ppq.value.toDouble * 4) / d).toLong
     if value >= 0 then Tick.fromInt(value.toInt)
     else ValidationError.InvalidTick(value.toInt).invalidNec[Tick]

@@ -3,22 +3,25 @@ package app.application
 import cats.syntax.all.*
 import cats.data.Validated.{Invalid, Valid}
 import app.config.*
-import app.shared.*
 import app.midi.*
 import app.domain.*
 import app.domain.Generator.VelocityGen
 import app.domain.MidiCommand.*
+import cats.data.ValidatedNec
 
 object TrackCompiler {
 
-  def accumulateTimes(track: Track, timingContext: TimingContext): LazyList[IsValid[Tick]] =
+  def accumulateTimes(track: Track, timingContext: TimingContext): LazyList[ValidatedNec[ValidationError, Tick]] =
     Generator
       .parse(track.timeGen, timingContext.ppq)
       .scan(Tick.zero.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _))
 
-  def eventList(track: Track, timingContext: TimingContext): LazyList[IsValid[AbsoluteMidiEvent]] = {
-    val at = accumulateTimes(track, timingContext)
-    val note = Generator.parse(track.noteGen, timingContext.ppq)
+  def eventList(
+    track: Track,
+    timingContext: TimingContext
+  ): LazyList[ValidatedNec[ValidationError, AbsoluteMidiEvent]] = {
+    val at       = accumulateTimes(track, timingContext)
+    val note     = Generator.parse(track.noteGen, timingContext.ppq)
     val duration = Generator.parse(track.durGen, timingContext.ppq)
     val velocity = Generator.parse(track.velGen.getOrElse(VelocityGen(Velocity.infinityFromDefault)), timingContext.ppq)
 
@@ -27,7 +30,7 @@ object TrackCompiler {
       .zip(duration)
       .zip(velocity)
       .flatMap { case (((t, n), d), v) =>
-        val events: IsValid[(AbsoluteMidiEvent, AbsoluteMidiEvent)] =
+        val events: ValidatedNec[ValidationError, (AbsoluteMidiEvent, AbsoluteMidiEvent)] =
           (track.channel, t, n, d, v).mapN { (ch, at, note, duration, velocity) =>
             val nextAt = at + duration
             (
@@ -46,7 +49,7 @@ object TrackCompiler {
   def compile(track: Track, timingContext: TimingContext): CompiledTrack = {
     CompiledTrack(eventList(track, timingContext).map {
       case Valid(event)    => Right(event)
-      case Invalid(errors) => Left(ValidationError.InvalidEvent(errors.toList))
+      case Invalid(errors) => Left(DomainError.TrackCompilationFailed(ValidationError.InvalidEvent(errors.toList)))
     })
   }
 

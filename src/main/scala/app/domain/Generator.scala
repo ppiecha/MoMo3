@@ -1,9 +1,10 @@
 package app.domain
 
+import cats.data.ValidatedNec
 import cats.effect.*
 import cats.syntax.all.*
 import fs2.*
-import app.shared.*
+
 import scala.concurrent.duration.*
 
 given Conversion[LazyList[Int], LazyList[Double]] with
@@ -17,12 +18,12 @@ enum Generator[A] {
   case TimeGen(s: LazyList[Double])     extends Generator[Tick]
   case NoteGen(s: LazyList[Int])        extends Generator[Note]
   case DurationGen(s: LazyList[Double]) extends Generator[Tick]
-  case VelocityGen(s: LazyList[Int]) extends Generator[Velocity]
+  case VelocityGen(s: LazyList[Int])    extends Generator[Velocity]
 }
 
 object Generator {
 
-  def parse[A](seq: Generator[A], ppq: Ppq): LazyList[IsValid[A]] =
+  def parse[A](seq: Generator[A], ppq: Ppq): LazyList[ValidatedNec[ValidationError, A]] =
     seq match {
       case TimeGen(s)     => s.map(d => Tick.fromDouble(d, ppq))
       case NoteGen(s)     => s.map(MidiValue.from)
