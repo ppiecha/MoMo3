@@ -33,20 +33,6 @@ object Main extends IOApp.Simple {
           .leftMap(DomainError.ValidationFailed.apply)
       )
 
-      //      _ <- EitherT(
-      //        ReactiveSynth
-      //          .outputResource[IO](env.midiOutputConfig)
-      //          .use { send =>
-      //            PlaybackService
-      //              .play(
-      //                List(TrackCompiler.compile(track4, env.timingContext)),
-      //                env.timingContext,
-      //                event => send(event.command.toMidiMessages)
-      //              )
-      //          }
-      //          .attempt
-      //          .map(_.leftMap(e => DomainError.PlaybackFailed(e.getMessage)))
-      //      )
       _ <- ReactiveSynth
         .outputResource[IO](env.midiOutputConfig)
         .use { send =>
