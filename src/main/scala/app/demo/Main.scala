@@ -15,7 +15,6 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 // play in a loop and update tracks online
 // test multiple tracks
 // kolejnosc eventow w tym samym czasie
-// program change -3 event dopiero podczas translacji do javax.sound.midi
 
 import Tracks.*
 import app.domain.*
@@ -33,15 +32,20 @@ object Main extends IOApp.Simple {
           .leftMap(DomainError.ValidationFailed.apply)
       )
 
+      playbackPlan <- EitherT.fromEither[IO](
+        PlaybackService.toPlaybackPlan(
+          List(TrackCompiler.compile(track4, env.timingContext)),
+          env.timingContext
+        )
+      )
+
       _ <- ReactiveSynth
         .outputResource[IO](env.midiOutputConfig)
         .use { send =>
-          PlaybackService
-            .play(
-              List(TrackCompiler.compile(track4, env.timingContext)),
-              env.timingContext,
-              event => send(event.command.toMidiMessages)
-            )
+          PlaybackService.executePlaybackPlan(
+            playbackPlan,
+            event => send(event.command.toMidiMessages)
+          )
         }
 
     } yield ()
