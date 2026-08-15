@@ -11,7 +11,7 @@ import cats.data.ValidatedNec
 
 object TrackCompiler {
 
-  def accumulateTimes(track: Track, timingContext: TimingContext): LazyList[ValidatedNec[ValidationError, Tick]] =
+  def accumulateTimes(track: Track, timingContext: TimingContext): Seq[ValidatedNec[ValidationError, Tick]] =
     Generator
       .parse(track.timeGen, timingContext.ppq)
       .scan(Tick.zero.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _))
@@ -19,7 +19,7 @@ object TrackCompiler {
   def eventList(
     track: Track,
     timingContext: TimingContext
-  ): LazyList[ValidatedNec[ValidationError, AbsoluteMidiEvent]] = {
+  ): Seq[ValidatedNec[ValidationError, AbsoluteMidiEvent]] = {
     val at       = accumulateTimes(track, timingContext)
     val note     = Generator.parse(track.noteGen, timingContext.ppq)
     val duration = Generator.parse(track.durGen, timingContext.ppq)
@@ -40,8 +40,8 @@ object TrackCompiler {
           }
 
         events.fold(
-          errors => LazyList(errors.invalid),
-          { case (on, off) => LazyList(on.validNec, off.validNec) }
+          errors => Seq(errors.invalid),
+          { case (on, off) => Seq(on.validNec, off.validNec) }
         )
       }
   }

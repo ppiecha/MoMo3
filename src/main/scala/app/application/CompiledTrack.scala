@@ -2,4 +2,4 @@ package app.application
 
 import app.domain.*
 
-final case class CompiledTrack(events: LazyList[Either[DomainError, AbsoluteMidiEvent]])
+final case class CompiledTrack(events: Seq[Either[DomainError, AbsoluteMidiEvent]])

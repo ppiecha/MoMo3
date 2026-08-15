@@ -15,15 +15,15 @@ extension [A](ll: LazyList[A]) {
 }
 
 enum Generator[A] {
-  case TimeGen(s: LazyList[Double])     extends Generator[Tick]
-  case NoteGen(s: LazyList[Int])        extends Generator[Note]
-  case DurationGen(s: LazyList[Double]) extends Generator[Tick]
-  case VelocityGen(s: LazyList[Int])    extends Generator[Velocity]
+  case TimeGen(s: Seq[Double])     extends Generator[Tick]
+  case NoteGen(s: Seq[Int])        extends Generator[Note]
+  case DurationGen(s: Seq[Double]) extends Generator[Tick]
+  case VelocityGen(s: Seq[Int])    extends Generator[Velocity]
 }
 
 object Generator {
 
-  def parse[A](seq: Generator[A], ppq: Ppq): LazyList[ValidatedNec[ValidationError, A]] =
+  def parse[A](seq: Generator[A], ppq: Ppq): Seq[ValidatedNec[ValidationError, A]] =
     seq match {
       case TimeGen(s)     => s.map(d => Tick.fromDouble(d, ppq))
       case NoteGen(s)     => s.map(MidiValue.from)

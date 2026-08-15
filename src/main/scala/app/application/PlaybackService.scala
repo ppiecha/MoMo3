@@ -11,18 +11,18 @@ import scala.concurrent.duration.*
 object PlaybackService {
 
   case class TimedEvent(delay: FiniteDuration, event: AbsoluteMidiEvent)
-  case class PlaybackPlan(events: List[TimedEvent])
+  case class PlaybackPlan(events: Seq[TimedEvent])
 
-  def compiledTrackToAbsoluteEvents(compiledTrack: CompiledTrack): Either[DomainError, List[AbsoluteMidiEvent]] =
-    compiledTrack.events.toList.sequence
+  def compiledTrackToAbsoluteEvents(compiledTrack: CompiledTrack): Either[DomainError, Seq[AbsoluteMidiEvent]] =
+    compiledTrack.events.sequence
 
   def toTimedEvents(
-    events: List[AbsoluteMidiEvent],
+    events: Seq[AbsoluteMidiEvent],
     timingContext: TimingContext
-  ): List[TimedEvent] = {
+  ): Seq[TimedEvent] = {
     events
       .sortBy(_.at.value)
-      .foldLeft((Tick.zero, List.empty[(Tick, AbsoluteMidiEvent)])) { case ((prev, acc), e) =>
+      .foldLeft((Tick.zero, Vector.empty[(Tick, AbsoluteMidiEvent)])) { case ((prev, acc), e) =>
         val delta = e.at - prev
         (e.at, acc :+ (delta -> e))
       }
@@ -31,7 +31,7 @@ object PlaybackService {
   }
 
   def toPlaybackPlan(
-    compiledTracks: List[CompiledTrack],
+    compiledTracks: Seq[CompiledTrack],
     timingContext: TimingContext
   ): Either[DomainError, PlaybackPlan] =
     compiledTracks
