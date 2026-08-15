@@ -2,7 +2,6 @@ package app.midi
 
 import cats.effect.*
 import cats.syntax.all.*
-import fs2.Stream
 
 import javax.sound.midi.{MidiDevice, MidiSystem, Receiver, ShortMessage}
 import app.config.{Environment, MidiOutputConfig}
