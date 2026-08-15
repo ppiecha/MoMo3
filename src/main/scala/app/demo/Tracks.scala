@@ -1,8 +1,7 @@
 package app.demo
 
 import app.domain.Generator.*
-import app.domain.given
-import app.midi.*
+import app.syntax.Conversions.{repeatN, given}
 import app.domain.*
 
 object Tracks {
@@ -13,9 +12,9 @@ object Tracks {
 
   val track1 = Track(
     channel = Channel.from(9),
-    timeGen = TimeGen(LazyList(8, 8, 4).repeatN(repeatCount)),
-    durGen = DurationGen(LazyList(8, 8, 8).repeatN(repeatCount)),
-    noteGen = NoteGen(LazyList(36, 36, 39).repeatN(repeatCount))
+    timeGen = TimeGen(Seq(8, 8, 4).repeatN(repeatCount)),
+    durGen = DurationGen(Seq(8, 8, 8).repeatN(repeatCount)),
+    noteGen = NoteGen(Seq(36, 36, 39).repeatN(repeatCount))
   )
 
   val track2 = Track(
