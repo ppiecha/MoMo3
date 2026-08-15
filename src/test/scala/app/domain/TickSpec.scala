@@ -1,6 +1,5 @@
 package app.domain
 
-import app.midi.*
 import app.config.*
 import app.domain.*
 import cats.data.Validated
@@ -9,7 +8,7 @@ import scala.concurrent.duration.*
 import munit.FunSuite
 import cats.syntax.all.*
 
-class GeneratorSpec extends FunSuite {
+class TickSpec extends FunSuite {
 
   test("Tick.fromDouble should convert 8 double note duration to ticks based on PPQ") {
     val testEnv = Environment.from(bpm = 60)
