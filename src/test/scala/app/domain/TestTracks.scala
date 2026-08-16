@@ -8,23 +8,23 @@ object TestTracks {
 
   val oneNoteTrack = Track(
     channel = Channel.from(0),
-    timeGen = TimeGen(LazyList(4)),
-    durGen = DurationGen(LazyList(8)),
-    noteGen = NoteGen(LazyList(60))
+    timeGen = TimeGen(Seq(4)),
+    durGen = DurationGen(Seq(8)),
+    noteGen = NoteGen(Seq(60))
   )
 
   val twoNotesTrack = Track(
     channel = Channel.from(0),
-    timeGen = TimeGen(LazyList(4, 4)),
-    durGen = DurationGen(LazyList(1, 1)),
-    noteGen = NoteGen(LazyList(60, 62))
+    timeGen = TimeGen(Seq(4, 4)),
+    durGen = DurationGen(Seq(1, 1)),
+    noteGen = NoteGen(Seq(60, 62))
   )
 
   val threeNotesTrack = Track(
     channel = Channel.from(0),
-    timeGen = TimeGen(LazyList(4, 4, 2)),
-    durGen = DurationGen(LazyList(1, 4d / 3, 2)),
-    noteGen = NoteGen(LazyList(60, 64, 67))
+    timeGen = TimeGen(Seq(4, 4, 2)),
+    durGen = DurationGen(Seq(1, 4d / 3, 2)),
+    noteGen = NoteGen(Seq(60, 64, 67))
   )
 
 }

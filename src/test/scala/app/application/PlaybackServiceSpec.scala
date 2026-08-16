@@ -1,7 +1,7 @@
 package app.application
 
 import app.config.TimingContext
-import app.domain.*
+import app.domain.{given, *}
 import cats.effect.IO
 import cats.effect.Ref
 import cats.effect.testkit.TestControl
@@ -27,11 +27,17 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     val failure = DomainError.PlaybackFailed("boom")
     val first = AbsoluteMidiEvent(
       Tick.zero,
-      MidiCommand.NoteOff(PlaybackServiceSpec.valid(Channel.from(0)), PlaybackServiceSpec.valid(MidiValue.from(60)))
+      MidiCommand.NoteOff(
+        PlaybackServiceSpec.valid(Channel.from(0)),
+        PlaybackServiceSpec.valid(MidiValue[NoteTag](60))
+      )
     )
     val second = AbsoluteMidiEvent(
       Tick.zero,
-      MidiCommand.NoteOff(PlaybackServiceSpec.valid(Channel.from(1)), PlaybackServiceSpec.valid(MidiValue.from(61)))
+      MidiCommand.NoteOff(
+        PlaybackServiceSpec.valid(Channel.from(1)),
+        PlaybackServiceSpec.valid(MidiValue[NoteTag](61))
+      )
     )
 
     val compiled = CompiledTrack(Vector(Right(first), Left(failure), Right(second)))
@@ -88,13 +94,13 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
       Tick.zero,
       MidiCommand.NoteOn(
         PlaybackServiceSpec.valid(Channel.from(0)),
-        PlaybackServiceSpec.valid(MidiValue.from(60)),
-        PlaybackServiceSpec.valid(Velocity.from(100))
+        PlaybackServiceSpec.valid(MidiValue[NoteTag](60)),
+        PlaybackServiceSpec.valid(MidiValue[VelocityTag](100))
       )
     )
     val second = AbsoluteMidiEvent(
       PlaybackServiceSpec.valid(Tick.fromInt(480)),
-      MidiCommand.NoteOff(PlaybackServiceSpec.valid(Channel.from(0)), PlaybackServiceSpec.valid(MidiValue.from(60)))
+      MidiCommand.NoteOff(PlaybackServiceSpec.valid(Channel.from(0)), PlaybackServiceSpec.valid(MidiValue[NoteTag](60)))
     )
     val plan = PlaybackService.PlaybackPlan(
       Vector(
@@ -136,11 +142,11 @@ object PlaybackServiceSpec {
   val genChannel: Gen[Channel] =
     Gen.chooseNum(0, 15).map(value => valid(Channel.from(value)))
 
-  val genMidiValue: Gen[MidiValue] =
-    Gen.chooseNum(0, 127).map(value => valid(MidiValue.from(value)))
+  val genMidiValue: Gen[Note] =
+    Gen.chooseNum(0, 127).map(value => valid(MidiValue[NoteTag](value)))
 
   val genVelocity: Gen[Velocity] =
-    Gen.chooseNum(0, 127).map(value => valid(Velocity.from(value)))
+    Gen.chooseNum(0, 127).map(value => valid(MidiValue[VelocityTag](value)))
 
   val genMidiCommand: Gen[MidiCommand] =
     for {
@@ -148,7 +154,8 @@ object PlaybackServiceSpec {
       note      <- genMidiValue
       velocity  <- genVelocity
       useNoteOn <- Gen.oneOf(true, false)
-    } yield if useNoteOn then MidiCommand.NoteOn(channel, note, velocity) else MidiCommand.NoteOff(channel, note)
+    } yield
+      if useNoteOn then MidiCommand.NoteOn(channel, note, velocity) else MidiCommand.NoteOff(channel, note, velocity)
 
   val genAbsoluteMidiEvent: Gen[AbsoluteMidiEvent] =
     for {

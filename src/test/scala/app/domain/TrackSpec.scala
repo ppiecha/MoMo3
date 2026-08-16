@@ -22,8 +22,8 @@ class TrackSpec extends CatsEffectSuite {
         Ppq.from(960),
         Bpm.from(60),
         Channel.from(0),
-        MidiValue.from(60),
-        Velocity.from(100)
+        MidiValue[NoteTag](60),
+        MidiValue[VelocityTag](100)
       ).mapN((p, b, c, n, v) => (p, b, c, n, v))
     )
 

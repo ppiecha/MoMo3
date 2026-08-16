@@ -8,7 +8,7 @@ extension (mc: MidiCommand) {
   def toMidiMessages: List[ShortMessage] = mc match
     case NoteOn(channel, note, velocity) =>
       List(new ShortMessage(ShortMessage.NOTE_ON, channel.value, note.value, velocity.value))
-    case NoteOff(channel, note) =>
+    case NoteOff(channel, note, velocity) =>
       List(new ShortMessage(ShortMessage.NOTE_OFF, channel.value, note.value, 0))
     case ProgramChange(channel, bank, program) =>
       val msb = bank.value / 128

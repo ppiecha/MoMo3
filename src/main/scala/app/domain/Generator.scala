@@ -14,9 +14,9 @@ object Generator {
   def parse[A](seq: Generator[A], ppq: Ppq): Seq[ValidatedNec[ValidationError, A]] =
     seq match {
       case TimeGen(s)     => s.map(d => Tick.fromDouble(d, ppq))
-      case NoteGen(s)     => s.map(MidiValue.from)
+      case NoteGen(s)     => s.map(MidiValue[NoteTag])
       case DurationGen(s) => s.map(d => Tick.fromDouble(d, ppq))
-      case VelocityGen(s) => s.map(Velocity.from)
+      case VelocityGen(s) => s.map(MidiValue[VelocityTag])
     }
 
 }

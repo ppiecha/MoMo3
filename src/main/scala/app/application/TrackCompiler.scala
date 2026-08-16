@@ -23,7 +23,10 @@ object TrackCompiler {
     val at       = accumulateTimes(track, timingContext)
     val note     = Generator.parse(track.noteGen, timingContext.ppq)
     val duration = Generator.parse(track.durGen, timingContext.ppq)
-    val velocity = Generator.parse(track.velGen.getOrElse(VelocityGen(Velocity.infinityFromDefault)), timingContext.ppq)
+    val velocity = Generator.parse(
+      track.velGen.getOrElse(VelocityGen(Seq.fill(note.length)(VelocityTag.DEFAULT_VALUE))),
+      timingContext.ppq
+    )
 
     at
       .zip(note)

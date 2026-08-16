@@ -8,8 +8,6 @@ object Tracks {
 
   val repeatCount = 2
 
-  given velocityGen: Option[Generator[Velocity]] = None
-
   val track1 = Track(
     channel = Channel.from(9),
     timeGen = TimeGen(Seq(8, 8, 4).repeatN(repeatCount)),
