@@ -1,6 +1,5 @@
 package app.domain
 
-import app.midi.*
 import app.domain.Generator
 import cats.data.ValidatedNec
 import app.domain.ValidationError
