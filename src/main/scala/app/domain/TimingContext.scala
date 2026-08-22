@@ -1,4 +1,4 @@
-package app.config
+package app.domain
 
 import app.domain.{Bpm, Ppq, ValidationError}
 import cats.data.ValidatedNec

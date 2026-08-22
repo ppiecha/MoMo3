@@ -1,7 +1,7 @@
-package app.application
+package app.playback
 
-import app.config.TimingContext
-import app.domain.{given, *}
+import app.application.CompiledTrack
+import app.domain.{*, given}
 import cats.effect.IO
 import cats.effect.Ref
 import cats.effect.testkit.TestControl
@@ -19,7 +19,7 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     forAll(PlaybackServiceSpec.genAbsoluteMidiEvents) { events =>
       val compiled = CompiledTrack(events.map(Right(_)))
 
-      assertEquals(PlaybackService.compiledTrackToAbsoluteEvents(compiled), Right(events))
+      assertEquals(PlaybackPlan.compiledTrackToAbsoluteEvents(compiled), Right(events))
     }
   }
 
@@ -42,20 +42,20 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
 
     val compiled = CompiledTrack(Vector(Right(first), Left(failure), Right(second)))
 
-    assertEquals(PlaybackService.compiledTrackToAbsoluteEvents(compiled), Left(failure))
+    assertEquals(PlaybackPlan.compiledTrackToAbsoluteEvents(compiled), Left(failure))
   }
 
-  property("toTimedEvents preserves cardinality") {
+  property("fromAbsoluteEvents preserves cardinality") {
     forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
-      val timed = PlaybackService.toTimedEvents(events, timingContext)
+      val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
 
       assertEquals(timed.size, events.size)
     }
   }
 
-  property("toTimedEvents sorts events by their absolute time") {
+  property("fromAbsoluteEvents sorts events by their absolute time") {
     forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
-      val timed = PlaybackService.toTimedEvents(events, timingContext)
+      val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
       val times = timed.map(_.event.at.value)
 
       assertEquals(times, times.sorted)
@@ -63,27 +63,27 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     }
   }
 
-  property("toTimedEvents computes delay deltas from consecutive timestamps") {
+  property("fromAbsoluteEvents computes delay deltas from consecutive timestamps") {
     forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
       val sorted   = events.sortBy(_.at.value)
-      val timed    = PlaybackService.toTimedEvents(events, timingContext)
+      val timed    = TimedEvent.fromAbsoluteEvents(events, timingContext)
       val expected = PlaybackServiceSpec.expectedDelays(sorted, timingContext)
 
       assertEquals(timed.map(_.delay), expected)
     }
   }
 
-  property("toTimedEvents returns an empty sequence for empty input") {
+  property("fromAbsoluteEvents returns an empty sequence for empty input") {
     forAll(PlaybackServiceSpec.genTimingContext) { timingContext =>
-      assertEquals(PlaybackService.toTimedEvents(Vector.empty, timingContext), Vector.empty)
+      assertEquals(TimedEvent.fromAbsoluteEvents(Vector.empty, timingContext), Vector.empty)
     }
   }
 
-  property("toPlaybackPlan flattens tracks and times the combined events") {
+  property("fromCompiledTracks flattens tracks and times the combined events") {
     forAll(PlaybackServiceSpec.genCompiledTracks, PlaybackServiceSpec.genTimingContext) { (tracks, timingContext) =>
-      val plan      = PlaybackService.toPlaybackPlan(tracks, timingContext)
+      val plan      = PlaybackPlan.fromCompiledTracks(tracks, timingContext)
       val flattened = tracks.flatMap(_.events.collect { case Right(event) => event })
-      val expected  = PlaybackService.PlaybackPlan(PlaybackService.toTimedEvents(flattened, timingContext))
+      val expected  = PlaybackPlan(TimedEvent.fromAbsoluteEvents(flattened, timingContext))
 
       assertEquals(plan, Right(expected))
     }
@@ -102,10 +102,10 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
       PlaybackServiceSpec.valid(Tick.fromInt(480)),
       MidiCommand.NoteOff(PlaybackServiceSpec.valid(Channel.from(0)), PlaybackServiceSpec.valid(MidiValue[NoteTag](60)))
     )
-    val plan = PlaybackService.PlaybackPlan(
+    val plan = PlaybackPlan(
       Vector(
-        PlaybackService.TimedEvent(0.seconds, first),
-        PlaybackService.TimedEvent(10.millis, second)
+        TimedEvent(0.seconds, first),
+        TimedEvent(10.millis, second)
       )
     )
 
