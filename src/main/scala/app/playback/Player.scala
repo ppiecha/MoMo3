@@ -1,20 +1,17 @@
 package app.playback
 
 import app.domain.{AbsoluteMidiEvent, DomainError, PlaybackPlan, TimingContext, Track}
-import cats.data.EitherT
 import cats.effect.Temporal
+import cats.syntax.all.*
 
 final class Player[F[_]: Temporal](
   pipeline: PlaybackPipeline,
   send: AbsoluteMidiEvent => F[Unit]
 ) {
   def play(tracks: List[Track], timing: TimingContext): F[Either[DomainError, Unit]] =
-    pipeline.build(tracks, timing) match {
-      case Left(err)   => Temporal[F].pure(Left(err))
-      case Right(plan) => play(plan)
-    }
+    pipeline.build(tracks, timing).fold(err => Temporal[F].pure(Left(err)), plan => play(plan).map(Right(_)))
 
-  private def play(plan: PlaybackPlan): F[Either[DomainError, Unit]] =
+  private def play(plan: PlaybackPlan): F[Unit] =
     PlaybackService.executePlaybackPlan(plan, send)
 }
 

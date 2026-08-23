@@ -14,11 +14,9 @@ object Main extends IOApp.Simple {
   def program: IO[Either[DomainError, Unit]] =
     Environment
       .from(bpm = 60)
-      .toEither
-      .leftMap(errors => DomainError.ValidationFailed(ValidationError.InvalidConfig(errors.toNonEmptyList)))
       .fold(
         err => IO.pure(Left(err)),
-        env => PlaybackRunner.live(env).run(List(track4), env.timingContext)
+        env => PlaybackRunner.live(env).run(List(track4))
       )
 
   def run: IO[Unit] = {

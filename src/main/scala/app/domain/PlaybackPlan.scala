@@ -1,7 +1,6 @@
 package app.domain
 
 import cats.syntax.all.*
-import app.application.CompiledTrack
 
 case class PlaybackPlan(events: Seq[TimedEvent])
 

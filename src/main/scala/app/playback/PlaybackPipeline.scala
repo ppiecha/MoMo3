@@ -10,7 +10,7 @@ object PlaybackPipeline {
   val live: PlaybackPipeline = new PlaybackPipeline {
     override def build(tracks: List[Track], timing: TimingContext): Either[DomainError, PlaybackPlan] =
       PlaybackPlan.fromCompiledTracks(
-        tracks.map(track => app.application.TrackCompiler.compile(track, timing)),
+        tracks.map(track => TrackCompiler.compile(track, timing)),
         timing
       )
   }

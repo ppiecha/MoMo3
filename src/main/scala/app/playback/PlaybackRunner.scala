@@ -7,12 +7,12 @@ import cats.data.EitherT
 import cats.effect.IO
 
 trait PlaybackRunner {
-  def run(tracks: List[Track], timing: TimingContext): IO[Either[DomainError, Unit]]
+  def run(tracks: List[Track]): IO[Either[DomainError, Unit]]
 }
 
 object PlaybackRunner {
   def live(env: Environment): PlaybackRunner = new PlaybackRunner {
-    override def run(tracks: List[Track], timing: TimingContext): IO[Either[DomainError, Unit]] =
+    override def run(tracks: List[Track]): IO[Either[DomainError, Unit]] =
       ReactiveSynth
         .outputResource[IO](env.midiOutputConfig)
         .use { sendMidi =>

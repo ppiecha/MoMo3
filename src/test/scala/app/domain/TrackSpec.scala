@@ -3,12 +3,17 @@ package app.domain
 import munit.CatsEffectSuite
 import TestTracks.*
 import app.config.Environment
-import app.application.*
 import app.domain.*
 import cats.data.{Validated, ValidatedNec}
 import cats.syntax.all.*
+import app.playback.TrackCompiler
 
 class TrackSpec extends CatsEffectSuite {
+
+  def validOrFail[A](validated: Either[DomainError, A]): A = validated match {
+    case Right(value) => value
+    case Left(errors) => fail(s"Expected valid value but got errors: $errors")
+  }
 
   def validOrFail[A](validated: ValidatedNec[ValidationError, A]): A = validated match {
     case Validated.Valid(value)    => value

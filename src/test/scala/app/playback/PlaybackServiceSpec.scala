@@ -1,6 +1,5 @@
 package app.playback
 
-import app.application.CompiledTrack
 import app.domain.{*, given}
 import cats.effect.IO
 import cats.effect.Ref
@@ -117,7 +116,7 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
 
     val (result, events) = TestControl.executeEmbed(io).unsafeRunSync()
 
-    assertEquals(result, Right(()))
+    assertEquals(result, ())
     assertEquals(events, Vector(first, second))
   }
 }

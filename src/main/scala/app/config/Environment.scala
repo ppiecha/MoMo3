@@ -4,6 +4,7 @@ import app.domain.*
 import cats.data.ValidatedNec
 import app.domain.ValidationError
 import cats.effect.IO
+import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
@@ -20,8 +21,11 @@ object Environment {
     bpm: Int,
     ppq: Int = Ppq.DEFAULT_VALUE,
     input: ConsoleInput = stdInput
-  ): ValidatedNec[ValidationError, Environment] = {
-    val timingContext = TimingContext.from(ppq, bpm)
-    timingContext.map(tc => Environment(tc, input))
+  ): Either[DomainError, Environment] = {
+    TimingContext
+      .from(ppq, bpm)
+      .map(tc => Environment(tc, input))
+      .toEither
+      .leftMap(errors => DomainError.ValidationFailed(ValidationError.InvalidConfig(errors.toNonEmptyList)))
   }
 }

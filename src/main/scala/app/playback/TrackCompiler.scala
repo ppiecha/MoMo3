@@ -1,13 +1,11 @@
-package app.application
+package app.playback
 
-import cats.syntax.all.*
-import cats.data.Validated.{Invalid, Valid}
-import app.config.*
-import app.midi.*
 import app.domain.*
 import app.domain.Generator.VelocityGen
 import app.domain.MidiCommand.*
+import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNec
+import cats.syntax.all.*
 
 object TrackCompiler {
 
