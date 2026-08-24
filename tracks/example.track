@@ -1,0 +1,17 @@
+# Example track file for MoMo3
+# All fields except 'velocity' are required.
+
+# MIDI channel (0-15); channel 9 is the standard percussion channel
+channel=0
+
+# Time intervals between note onsets, in quarter-note units (comma-separated)
+time=4,4,2
+
+# Note durations, in quarter-note units (comma-separated)
+duration=1,1,2
+
+# MIDI note numbers (0-127, comma-separated)
+notes=60,64,67
+
+# Velocities (0-127, comma-separated); optional - remove line to use default
+velocity=80,80,80
