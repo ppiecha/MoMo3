@@ -58,7 +58,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
 
   test("directory monitor discovers scala tracks and compiles them") {
     val directory = Files.createTempDirectory("track-monitor")
-    Files.writeString(directory.resolve("track-a.scala"), "channel=0\ntime=1,2\nduration=1\nnote=60\nvelocity=100\n")
+    Files.writeString(directory.resolve("track-a.track"), "channel=0\ntime=1,2\nduration=1\nnote=60\nvelocity=100\n")
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()

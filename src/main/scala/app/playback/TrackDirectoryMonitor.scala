@@ -62,7 +62,7 @@ object TrackDirectoryMonitor {
             .list(directory)
             .iterator()
             .asScala
-            .filter(path => path.getFileName.toString.endsWith(".scala"))
+            .filter(path => path.getFileName.toString.endsWith(".track"))
             .toList
             .foldLeft((List.empty[(Path, Track)], List.empty[Track])) { case ((pathTracks, tracks), path) =>
               parser(path) match {

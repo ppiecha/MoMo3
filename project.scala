@@ -1,4 +1,5 @@
 //> using scala "3.3.7"
+//> using dep "org.scala-lang::scala3-compiler:3.3.7"
 //> using dep "co.fs2::fs2-core:3.13.0"
 //> using dep "co.fs2::fs2-io:3.13.0"
 //> using dep "org.typelevel::log4cats-core:2.8.0"

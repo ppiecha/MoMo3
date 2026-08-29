@@ -28,7 +28,7 @@ object TrackDirectoryDemo {
           val controller = PlaybackController.live(send, logger)
           val monitor = TrackDirectoryMonitor.live(
             directory = Paths.get(directory),
-            parser = TrackFileCompiler.compile,
+            parser = TrackFileCompiler.compileAndEvaluateFile,
             compiler = track => app.playback.TrackCompiler.compile(track, env.timingContext),
             playback = controller,
             timing = env.timingContext,
