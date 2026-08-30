@@ -13,22 +13,6 @@ object Main extends IOApp {
 
   private val DemoDirName = "demo-tracks"
 
-  private val DemoTrackOne =
-    """channel=0
-      |time=1,1,1,1
-      |duration=1,1,1,1
-      |note=60,62,64,67
-      |velocity=100,100,100,100
-      |""".stripMargin
-
-  private val DemoTrackTwo =
-    """channel=0
-      |time=2,2,2,2
-      |duration=1,1,1,1
-      |note=67,64,62,60
-      |velocity=90,90,90,90
-      |""".stripMargin
-
   override def run(args: List[String]): IO[ExitCode] = {
     val logger = Slf4jLogger.getLogger[IO]
     val directoryPath = args.headOption
@@ -37,7 +21,6 @@ object Main extends IOApp {
 
     val program =
       for {
-        _   <- ensureDemoFiles(directoryPath)
         env <- IO.fromEither(Environment.from(bpm = 120).left.map(err => new RuntimeException(err.toString)))
         _ <- ReactiveSynth
           .outputResource[IO](env.midiOutputConfig)
@@ -80,13 +63,6 @@ object Main extends IOApp {
       logger.error(error)(s"Main failed: ${error.getMessage}") *> IO.pure(ExitCode.Error)
     }
   }
-
-  private def ensureDemoFiles(directory: Path): IO[Unit] =
-    IO.blocking {
-      Files.createDirectories(directory)
-      writeIfMissing(directory.resolve("track-a.track"), DemoTrackOne)
-      writeIfMissing(directory.resolve("track-b.track"), DemoTrackTwo)
-    }
 
   private def writeIfMissing(path: Path, content: String): Unit =
     if (!Files.exists(path)) {

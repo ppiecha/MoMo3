@@ -5,7 +5,6 @@ import cats.data.{NonEmptyChain, Validated, ValidatedNec}
 import dotty.tools.dotc.*
 import dotty.tools.dotc.reporting.*
 import dotty.tools.dotc.core.Contexts.*
-import cats.effect.*
 import cats.syntax.all.*
 
 import java.nio.file.{Files, Paths}
