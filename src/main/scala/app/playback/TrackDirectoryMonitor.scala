@@ -58,13 +58,20 @@ object TrackDirectoryMonitor {
           logger.warn(s"Track directory does not exist: $directory")
           (List.empty[(Path, Track)], List.empty[Track])
         } else {
-          Files
+          val trackFiles = Files
             .list(directory)
             .iterator()
             .asScala
-            .filter(path => path.getFileName.toString.endsWith(".track"))
+            .filter(path => path.getFileName.toString.endsWith(".scala"))
             .toList
+
+          if (trackFiles.isEmpty) {
+            logger.info(s"No .track files found in $directory")
+          }
+
+          trackFiles
             .foldLeft((List.empty[(Path, Track)], List.empty[Track])) { case ((pathTracks, tracks), path) =>
+              logger.info(s"Found track file: ${path.getFileName}")
               parser(path) match {
                 case Valid(track) =>
                   compiler(track) match {
@@ -93,7 +100,8 @@ object TrackDirectoryMonitor {
       }
 
     override def start: IO[Unit] =
-      runningRef.set(true) *>
+      logger.info(s"Starting track monitor for $directory (poll interval: $pollInterval)") *>
+        runningRef.set(true) *>
         IO.async_[Unit] { callback =>
           val watcherThread = new Thread(
             () => {
@@ -105,6 +113,7 @@ object TrackDirectoryMonitor {
                   StandardWatchEventKinds.ENTRY_MODIFY,
                   StandardWatchEventKinds.ENTRY_DELETE
                 )
+                logger.info(s"Watch service registered for $directory")
 
                 while (runningRef.get.unsafeRunSync()) {
                   val key: WatchKey               = watchService.take()

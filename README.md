@@ -22,5 +22,5 @@ This project now uses Scala CLI instead of sbt.
 4. Start FluidSynth with the following command, replacing the path to your soundfont file as
 
 ```powershell
-fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
+.\fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
 ```

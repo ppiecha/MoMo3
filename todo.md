@@ -8,7 +8,4 @@
 
 ### 3. App
 - on start restart fluidsynth process if not running
-- play in a loop and update tracks online
 
-### 4. Playback
-- add player to play tracks in a loop

@@ -21,7 +21,7 @@ object Main extends IOApp {
 
     val program =
       for {
-        env <- IO.fromEither(Environment.from(bpm = 120).left.map(err => new RuntimeException(err.toString)))
+        env <- IO.fromEither(Environment.from(bpm = 60).left.map(err => new RuntimeException(err.toString)))
         _ <- ReactiveSynth
           .outputResource[IO](env.midiOutputConfig)
           .use { sendMidi =>

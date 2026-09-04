@@ -82,8 +82,16 @@ object TrackFileCompiler {
     requireTypeable[A]
     val tempDir = outDir.fold(_(), identity)
     compileFile(scalaFile, tempDir, classpath) match {
-      case Validated.Valid(tempDir) => evaluate[A](className, methodName, tempDir).validNec[String]
-      case Validated.Invalid(e)     => e.invalid
+      case Validated.Valid(compiledDir) =>
+        Validated
+          .catchNonFatal(evaluate[A](className, methodName, compiledDir))
+          .leftMap { e =>
+            NonEmptyChain.one(
+              s"Evaluation failed for file '$scalaFile', class '$className', method '$methodName': ${e.getClass.getSimpleName}: ${e.getMessage}"
+            )
+          }
+      case Validated.Invalid(e) =>
+        e.invalid
     }
   }
 
