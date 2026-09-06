@@ -7,17 +7,18 @@ import dotty.tools.dotc.reporting.*
 import dotty.tools.dotc.core.Contexts.*
 import cats.syntax.all.*
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Paths, Path}
 import scala.reflect.Typeable
 import scala.compiletime.summonFrom
 import scala.compiletime.error
 
 object TrackFileCompiler {
 
-  def createTempDir(): String = {
-    val dir = Files.createTempDirectory(null)
-    dir.toFile.deleteOnExit()
-    dir.toString
+  def classNameFromFilePath(path: Path): String = {
+    val fileName = path.getFileName.toString
+    val dotIndex = fileName.lastIndexOf('.')
+    if (dotIndex == -1) fileName
+    else fileName.substring(0, dotIndex)
   }
 
   def compileFile(
@@ -54,7 +55,22 @@ object TrackFileCompiler {
     val loader = new java.net.URLClassLoader(
       Array(new java.io.File(outDir).toURI.toURL),
       getClass.getClassLoader
-    )
+    ) {
+      override protected def loadClass(name: String, resolve: Boolean): Class[?] = synchronized {
+        val loaded = findLoadedClass(name)
+        val cls =
+          if loaded != null then loaded
+          else {
+            try findClass(name)
+            catch {
+              case _: ClassNotFoundException => super.loadClass(name, false)
+            }
+          }
+
+        if resolve then resolveClass(cls)
+        cls
+      }
+    }
     val cls    = loader.loadClass(className + "$")
     val module = cls.getField("MODULE$").get(null)
     val method = cls.getMethod(methodName)
@@ -76,11 +92,10 @@ object TrackFileCompiler {
     scalaFile: String,
     className: String,
     methodName: String,
-    outDir: Either[() => String, String] = Left(createTempDir),
     classpath: String = sys.props("java.class.path")
   )(using Typeable[A]): ValidatedNec[String, A] = {
     requireTypeable[A]
-    val tempDir = outDir.fold(_(), identity)
+    val tempDir = Files.createTempDirectory("track-compile").toString
     compileFile(scalaFile, tempDir, classpath) match {
       case Validated.Valid(compiledDir) =>
         Validated
@@ -98,7 +113,7 @@ object TrackFileCompiler {
   inline def compileAndEvaluateFile(scalaFile: java.nio.file.Path): ValidatedNec[String, Track] =
     compileAndEvaluateFile[Track](
       scalaFile = scalaFile.toString,
-      className = "Music",
+      className = classNameFromFilePath(scalaFile),
       methodName = "play"
     )
 

@@ -1,7 +1,7 @@
 import app.config.Environment
 import app.midi.ReactiveSynth
 import app.midi.toMidiMessages
-import app.playback.{PlaybackController, PlaybackRepeatPolicy, TrackCompiler, TrackDirectoryMonitor, TrackFileCompiler}
+import app.playback.{PlaybackController, RepeatPolicy, TrackCompiler, TrackDirectoryMonitor, TrackFileCompiler}
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.all.*
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -37,7 +37,7 @@ object Main extends IOApp {
               compiler = track => TrackCompiler.compile(track, env.timingContext),
               playback = controller,
               timing = env.timingContext,
-              policy = PlaybackRepeatPolicy.forever,
+              policy = RepeatPolicy.forever,
               logger = logger,
               pollInterval = 300.millis
             )

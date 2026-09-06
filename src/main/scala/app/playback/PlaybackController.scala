@@ -15,16 +15,12 @@ trait PlaybackController {
   def play(
     tracks: List[Track],
     timing: TimingContext,
-    policy: PlaybackRepeatPolicy = PlaybackRepeatPolicy.none
+    policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit]
   def pause: IO[Unit]
   def resume: IO[Unit]
   def stop: IO[Unit]
-  def replace(
-    tracks: List[Track],
-    timing: TimingContext,
-    policy: PlaybackRepeatPolicy = PlaybackRepeatPolicy.none
-  ): IO[Unit]
+  def replace(tracks: List[Track], timing: TimingContext, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
 }
 
@@ -34,12 +30,23 @@ object PlaybackController {
     logger: Logger[IO] = Slf4jLogger.getLogger[IO]
   ): PlaybackController =
     new LivePlaybackController(send, logger)
+
+  private[playback] def nextRepeat(
+    repeatedPlan: PlaybackPlan,
+    policy: RepeatPolicy
+  ): Option[(PlaybackPlan, RepeatPolicy)] =
+    policy match {
+      case RepeatPolicy.None                       => None
+      case RepeatPolicy.Fixed(count) if count <= 0 => None
+      case RepeatPolicy.Fixed(count)               => Some(repeatedPlan -> RepeatPolicy.Fixed(count - 1))
+      case RepeatPolicy.Forever                    => Some(repeatedPlan -> RepeatPolicy.Forever)
+    }
 }
 
 private final case class PlaybackState(
   activePlan: Option[PlaybackPlan] = None,
   elapsed: FiniteDuration = FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS),
-  policy: PlaybackRepeatPolicy = PlaybackRepeatPolicy.none,
+  policy: RepeatPolicy = RepeatPolicy.none,
   fiber: Option[FiberIO[Unit]] = None
 )
 
@@ -53,7 +60,7 @@ private final class LivePlaybackController(
   override def play(
     tracks: List[Track],
     timing: TimingContext,
-    policy: PlaybackRepeatPolicy = PlaybackRepeatPolicy.none
+    policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit] =
     buildPlan(tracks, timing).flatMap {
       case Left(err) =>
@@ -91,7 +98,7 @@ private final class LivePlaybackController(
   override def replace(
     tracks: List[Track],
     timing: TimingContext,
-    policy: PlaybackRepeatPolicy = PlaybackRepeatPolicy.none
+    policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit] =
     stateRef.get.flatMap { state =>
       buildPlan(tracks, timing).flatMap {
@@ -115,55 +122,47 @@ private final class LivePlaybackController(
 
   private def start(
     plan: PlaybackPlan,
-    policy: PlaybackRepeatPolicy,
+    policy: RepeatPolicy,
     elapsed: FiniteDuration
   ): IO[Unit] = {
     val adjustedPlan =
       if (elapsed <= FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)) plan
       else PlaybackPlanResume.resumeFrom(plan, elapsed)
 
-    val task: IO[Unit] = repeatLoop(adjustedPlan, policy, elapsed)
+    val task: IO[Unit] = repeatLoop(adjustedPlan, plan, policy, elapsed)
 
+    // logger.info(s"plan: $plan \nadjustedPlan: $adjustedPlan") *>
     task.start.flatMap { fiber =>
       stateRef.update(_.copy(activePlan = Some(plan), elapsed = elapsed, policy = policy, fiber = Some(fiber)))
     }
   }
 
   private def repeatLoop(
-    plan: PlaybackPlan,
-    policy: PlaybackRepeatPolicy,
+    initialPlan: PlaybackPlan,
+    repeatedPlan: PlaybackPlan,
+    policy: RepeatPolicy,
     baselineElapsed: FiniteDuration
   ): IO[Unit] = {
-    def loop(currentPlan: PlaybackPlan, currentPolicy: PlaybackRepeatPolicy): IO[Unit] =
-      currentPolicy match {
-        case PlaybackRepeatPolicy.None =>
-          stateRef.update(_.copy(elapsed = baselineElapsed, fiber = None, activePlan = Some(currentPlan))).void
+    def loop(
+      currentPlan: PlaybackPlan,
+      currentPolicy: RepeatPolicy,
+      currentBaselineElapsed: FiniteDuration
+    ): IO[Unit] =
+      PlaybackExecution
+        .executeWithProgress(
+          currentPlan,
+          send,
+          progress => stateRef.update(_.copy(elapsed = currentBaselineElapsed + progress))
+        )
+        .flatMap { _ =>
+          PlaybackController.nextRepeat(repeatedPlan, currentPolicy) match {
+            case Some((nextPlan, nextPolicy)) =>
+              loop(nextPlan, nextPolicy, 0.millis)
+            case None =>
+              stateRef.update(_.copy(elapsed = currentBaselineElapsed, fiber = None, activePlan = None)).void
+          }
+        }
 
-        case PlaybackRepeatPolicy.Fixed(count) if count <= 0 =>
-          stateRef.update(_.copy(elapsed = baselineElapsed, fiber = None, activePlan = Some(currentPlan))).void
-
-        case PlaybackRepeatPolicy.Fixed(count) =>
-          PlaybackExecution
-            .executeWithProgress(
-              currentPlan,
-              send,
-              progress => stateRef.update(_.copy(elapsed = baselineElapsed + progress))
-            )
-            .flatMap { _ =>
-              if (count > 1) loop(currentPlan, PlaybackRepeatPolicy.fixed(count - 1))
-              else stateRef.update(_.copy(elapsed = baselineElapsed, fiber = None, activePlan = None)).void
-            }
-
-        case PlaybackRepeatPolicy.Forever =>
-          PlaybackExecution
-            .executeWithProgress(
-              currentPlan,
-              send,
-              progress => stateRef.update(_.copy(elapsed = baselineElapsed + progress))
-            )
-            .flatMap(_ => loop(currentPlan, PlaybackRepeatPolicy.Forever))
-      }
-
-    loop(plan, policy)
+    loop(initialPlan, policy, baselineElapsed)
   }
 }

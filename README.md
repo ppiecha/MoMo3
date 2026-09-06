@@ -14,6 +14,10 @@ This project now uses Scala CLI instead of sbt.
 - Test: `scala-cli test .`
 - REPL: `scala-cli repl .`
 
+## Track files
+
+Tracks in a monitored directory must be `.scala` files. Each file must define `object Music` with a `def play(): Track` method.
+
 ## FluidSynth on Windows
 
 1. Install fluid-synth from https://www.fluidsynth.org/wiki/Download/#distributions \
@@ -22,5 +26,5 @@ This project now uses Scala CLI instead of sbt.
 4. Start FluidSynth with the following command, replacing the path to your soundfont file as
 
 ```powershell
-.\fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
+fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
 ```
