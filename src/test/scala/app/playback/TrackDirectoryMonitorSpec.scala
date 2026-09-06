@@ -2,14 +2,14 @@ package app.playback
 
 import app.domain.*
 import app.domain.given
+import app.playback.TrackFileCompiler.classNameFromFilePath
 import cats.data.Validated.{Invalid, Valid}
-import cats.data.ValidatedNec
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
 import munit.FunSuite
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, StandardWatchEventKinds, WatchEvent}
 import scala.concurrent.duration.*
 
 class TrackDirectoryMonitorSpec extends FunSuite {
@@ -52,34 +52,30 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   }
 
   test("repeat policy supports fixed and infinite loops") {
-    assertEquals(PlaybackRepeatPolicy.fixed(3).remaining, 3)
-    assertEquals(PlaybackRepeatPolicy.forever.remaining, Int.MaxValue)
+    assertEquals(RepeatPolicy.fixed(3).remaining, 3)
+    assertEquals(RepeatPolicy.forever.remaining, Int.MaxValue)
+  }
+
+  test("watch events trigger scans only for Scala files or overflow") {
+    assert(!TrackDirectoryMonitor.requiresScan(List(watchEvent("notes.txt"))))
+    assert(TrackDirectoryMonitor.requiresScan(List(watchEvent("track.scala"))))
+    assert(TrackDirectoryMonitor.requiresScan(List(overflowEvent)))
   }
 
   test("directory monitor discovers scala tracks and compiles them") {
     val directory = Files.createTempDirectory("track-monitor")
-    Files.writeString(directory.resolve("scala.track"), "channel=0\ntime=1,2\nduration=1\nnote=60\nvelocity=100\n")
+    writeMusic(directory.resolve("track.scala"), 60)
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
-    val parser: Path => ValidatedNec[String, Track] = _ =>
-      Valid(
-        Track(
-          valid(Channel.from(0)).validNec,
-          Generator.TimeGen(Seq(1.0, 2.0)),
-          Generator.DurationGen(Seq(1.0)),
-          Generator.NoteGen(Seq(60)),
-          Some(Generator.VelocityGen(Seq(100)))
-        )
-      )
 
     val monitor = TrackDirectoryMonitor.live(
       directory = directory,
-      parser = parser,
+      parser = TrackFileCompiler.compileAndEvaluateFile,
       compiler = track => TrackCompiler.compile(track, timing),
       playback = harness,
       timing = timing,
-      policy = PlaybackRepeatPolicy.none,
+      policy = RepeatPolicy.none,
       pollInterval = 10.millis
     )
 
@@ -88,7 +84,117 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assertEquals(harness.playCalls.size, 1)
   }
 
+  test("thesis 1: without another scan after save, playback still uses old parsed track") {
+    val directory = Files.createTempDirectory("track-monitor-thesis1")
+    val trackFile = directory.resolve("Track1.scala")
+    writeMusic(trackFile, 38)
+
+    val timing  = valid(TimingContext.from(480, 120))
+    val harness = new TrackDirectoryMonitorTestHarness()
+
+    val monitor = TrackDirectoryMonitor.live(
+      directory = directory,
+      parser = TrackFileCompiler.compileAndEvaluateFile,
+      compiler = track => TrackCompiler.compile(track, timing),
+      playback = harness,
+      timing = timing,
+      policy = RepeatPolicy.none,
+      pollInterval = 10.millis
+    )
+
+    monitor.scanOnce.unsafeRunSync()
+    assertEquals(extractSingleNote(harness.playCalls.last.head), 38)
+
+    writeMusic(trackFile, 40)
+    assertEquals(extractSingleNote(harness.playCalls.last.head), 38)
+  }
+
+  test("thesis 2: after save and rescan, parser reads updated file contents") {
+    val directory = Files.createTempDirectory("track-monitor-thesis2")
+    val trackFile = directory.resolve("Track1.scala")
+    writeMusic(trackFile, 38)
+
+    val timing  = valid(TimingContext.from(480, 120))
+    val harness = new TrackDirectoryMonitorTestHarness()
+
+    val monitor = TrackDirectoryMonitor.live(
+      directory = directory,
+      parser = TrackFileCompiler.compileAndEvaluateFile,
+      compiler = track => TrackCompiler.compile(track, timing),
+      playback = harness,
+      timing = timing,
+      policy = RepeatPolicy.none,
+      pollInterval = 10.millis
+    )
+
+    monitor.scanOnce.unsafeRunSync()
+    writeMusic(trackFile, 40)
+    monitor.scanOnce.unsafeRunSync()
+
+    assertEquals(extractSingleNote(harness.playCalls.last.head), 40)
+  }
+
+  test("thesis 3: TrackFileCompiler returns updated note after file change") {
+    val directory = Files.createTempDirectory("track-file-compiler-thesis3")
+    val scalaFile = directory.resolve("Track1.scala")
+
+    writeMusic(scalaFile, 38)
+    val first = TrackFileCompiler.compileAndEvaluateFile(scalaFile)
+    writeMusic(scalaFile, 40)
+    val second = TrackFileCompiler.compileAndEvaluateFile(scalaFile)
+
+    assertEquals(extractSingleNoteFromCompiledTrack(validString(first)), 38)
+    assertEquals(extractSingleNoteFromCompiledTrack(validString(second)), 40)
+  }
+
   private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+    case Valid(value) => value
+    case Invalid(_)   => throw new IllegalStateException("invalid test value")
+  }
+
+  private def writeMusic(path: Path, note: Int): Unit =
+    Files.writeString(
+      path,
+      s"""import app.domain.*
+         |import app.domain.Generator.*
+         |
+         |object ${classNameFromFilePath(path)} {
+         |  def play(): Track = Track(
+         |    channel = Channel.from(0),
+         |    timeGen = TimeGen(Seq(1)),
+         |    durGen = DurationGen(Seq(1)),
+         |    noteGen = NoteGen(Seq($note))
+         |  )
+         |}
+         |""".stripMargin
+    )
+
+  private def watchEvent(fileName: String): WatchEvent[Path] =
+    new WatchEvent[Path] {
+      override def kind: WatchEvent.Kind[Path] = StandardWatchEventKinds.ENTRY_MODIFY
+      override def count: Int                  = 1
+      override def context: Path               = Path.of(fileName)
+    }
+
+  private val overflowEvent: WatchEvent[AnyRef] =
+    new WatchEvent[AnyRef] {
+      override def kind: WatchEvent.Kind[AnyRef] = StandardWatchEventKinds.OVERFLOW
+      override def count: Int                    = 1
+      override def context: AnyRef               = null
+    }
+
+  private def extractSingleNote(track: Track): Int =
+    track.noteGen match {
+      case Generator.NoteGen(notes) =>
+        notes.headOption.getOrElse(throw new IllegalStateException("missing note in test track"))
+      case _ =>
+        throw new IllegalStateException("unexpected generator kind in test track")
+    }
+
+  private def extractSingleNoteFromCompiledTrack(track: Track): Int =
+    extractSingleNote(track)
+
+  private def validString[A](validated: cats.data.ValidatedNec[String, A]): A = validated match {
     case Valid(value) => value
     case Invalid(_)   => throw new IllegalStateException("invalid test value")
   }
@@ -96,7 +202,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   private final class TrackDirectoryMonitorTestHarness extends PlaybackController {
     var playCalls: List[List[Track]] = Nil
 
-    override def play(tracks: List[Track], timing: TimingContext, policy: PlaybackRepeatPolicy): IO[Unit] = {
+    override def play(tracks: List[Track], timing: TimingContext, policy: RepeatPolicy): IO[Unit] = {
       playCalls = playCalls :+ tracks
       IO.unit
     }
@@ -104,7 +210,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     override def pause: IO[Unit]  = IO.unit
     override def resume: IO[Unit] = IO.unit
     override def stop: IO[Unit]   = IO.unit
-    override def replace(tracks: List[Track], timing: TimingContext, policy: PlaybackRepeatPolicy): IO[Unit] = {
+    override def replace(tracks: List[Track], timing: TimingContext, policy: RepeatPolicy): IO[Unit] = {
       playCalls = playCalls :+ tracks
       IO.unit
     }

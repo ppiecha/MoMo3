@@ -2,7 +2,7 @@ package app.demo
 
 import app.config.Environment
 import app.domain.{DomainError, TimingContext}
-import app.playback.{PlaybackController, PlaybackRepeatPolicy, TrackDirectoryMonitor, TrackFileCompiler}
+import app.playback.{PlaybackController, RepeatPolicy, TrackDirectoryMonitor, TrackFileCompiler}
 import cats.effect.IO
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
@@ -16,7 +16,7 @@ import java.nio.file.Paths
   */
 object TrackDirectoryDemo {
 
-  def runMonitoring(directory: String, repeat: PlaybackRepeatPolicy = PlaybackRepeatPolicy.none): IO[Unit] = {
+  def runMonitoring(directory: String, repeat: RepeatPolicy = RepeatPolicy.none): IO[Unit] = {
     val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
     Environment
