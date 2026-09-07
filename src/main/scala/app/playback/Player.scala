@@ -5,17 +5,18 @@ import cats.effect.Temporal
 import cats.syntax.all.*
 
 final class Player[F[_]: Temporal](
-  pipeline: PlaybackPipeline,
   send: AbsoluteMidiEvent => F[Unit]
 ) {
   def play(tracks: List[Track], timing: TimingContext): F[Either[DomainError, Unit]] =
-    pipeline.build(tracks, timing).fold(err => Temporal[F].pure(Left(err)), plan => play(plan).map(Right(_)))
+    PlaybackPlan
+      .fromCompiledTracks(tracks.map(TrackCompiler.compile(_, timing)), timing)
+      .fold(err => Temporal[F].pure(Left(err)), plan => play(plan).map(Right(_)))
 
   private def play(plan: PlaybackPlan): F[Unit] =
-    PlaybackService.executePlaybackPlan(plan, send)
+    PlaybackExecution.executeWithProgress(plan, send).void
 }
 
 object Player {
   def live[F[_]: Temporal](send: AbsoluteMidiEvent => F[Unit]): Player[F] =
-    new Player[F](PlaybackPipeline.live, send)
+    new Player[F](send)
 }

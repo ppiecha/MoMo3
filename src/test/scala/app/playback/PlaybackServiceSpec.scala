@@ -88,7 +88,7 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     }
   }
 
-  test("executePlaybackPlan sends timed events in order") {
+  test("executeWithProgress sends timed events in order") {
     val first = AbsoluteMidiEvent(
       Tick.zero,
       MidiCommand.NoteOn(
@@ -110,13 +110,13 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
 
     val io = for {
       sent   <- Ref[IO].of(Vector.empty[AbsoluteMidiEvent])
-      result <- PlaybackService.executePlaybackPlan[IO](plan, event => sent.update(_ :+ event))
+      result <- PlaybackExecution.executeWithProgress[IO](plan, event => sent.update(_ :+ event))
       events <- sent.get
     } yield (result, events)
 
     val (result, events) = TestControl.executeEmbed(io).unsafeRunSync()
 
-    assertEquals(result, ())
+    assertEquals(result, 10.millis)
     assertEquals(events, Vector(first, second))
   }
 }

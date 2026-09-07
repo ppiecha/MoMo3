@@ -35,12 +35,7 @@ object PlaybackController {
     repeatedPlan: PlaybackPlan,
     policy: RepeatPolicy
   ): Option[(PlaybackPlan, RepeatPolicy)] =
-    policy match {
-      case RepeatPolicy.None                       => None
-      case RepeatPolicy.Fixed(count) if count <= 0 => None
-      case RepeatPolicy.Fixed(count)               => Some(repeatedPlan -> RepeatPolicy.Fixed(count - 1))
-      case RepeatPolicy.Forever                    => Some(repeatedPlan -> RepeatPolicy.Forever)
-    }
+    Option.when(policy.shouldRepeat)(repeatedPlan -> policy.next)
 }
 
 private final case class PlaybackState(
@@ -118,7 +113,7 @@ private final class LivePlaybackController(
     stateRef.get.map(_.elapsed)
 
   private def buildPlan(tracks: List[Track], timing: TimingContext): IO[Either[DomainError, PlaybackPlan]] =
-    IO.pure(PlaybackPipeline.live.build(tracks, timing))
+    IO.pure(PlaybackPlan.fromCompiledTracks(tracks.map(TrackCompiler.compile(_, timing)), timing))
 
   private def start(
     plan: PlaybackPlan,

@@ -16,6 +16,8 @@ object TrackFileCompiler {
 
   def classNameFromFilePath(path: Path): String = {
     val fileName = path.getFileName.toString
+    if !fileName.endsWith(".scala") then
+      throw new IllegalArgumentException(s"File '$fileName' is not a Scala source file.")
     val dotIndex = fileName.lastIndexOf('.')
     if (dotIndex == -1) fileName
     else fileName.substring(0, dotIndex)
