@@ -22,4 +22,7 @@
 - add option to set default reverb
 - add option to set default chorus
  
+### 5. Track utils & consts
+- track concatenation/addition
+- track repeating
 

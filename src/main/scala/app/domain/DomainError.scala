@@ -1,6 +1,6 @@
 package app.domain
 
-import cats.data.NonEmptyList
+import cats.data.{NonEmptyChain, NonEmptyList}
 
 enum ValidationError {
   case InvalidPpq(value: Int)
@@ -11,10 +11,11 @@ enum ValidationError {
   case InvalidVelocity(value: Int)
   case InvalidTimeValue(value: Long)
   case InvalidMessage(error: String)
-  case InvalidEvent(errors: List[ValidationError])
+  case InvalidEvent(errors: NonEmptyChain[ValidationError])
   case InvalidConfig(errors: NonEmptyList[ValidationError])
   case InvalidPort(portName: String)
   case EmptyListInSlidingWindow
+  case ChannelMismatch(channel1: Channel, channel2: Channel)
 }
 
 enum DomainError {

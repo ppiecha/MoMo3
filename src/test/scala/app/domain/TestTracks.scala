@@ -1,30 +1,30 @@
 package app.domain
 
-import app.config.*
-import app.midi.*
-import Generator.*
+import app.domain.Track.*
 
 object TestTracks {
+  
+  given Channel = Channel.Ch0
 
-  val oneNoteTrack = Track(
-    channel = Channel.from(0),
-    timeGen = TimeGen(Seq(4)),
-    durGen = DurationGen(Seq(8)),
-    noteGen = NoteGen(Seq(60))
-  )
+  val oneNoteTrack: Track =
+    track(
+      time(4),
+      duration(8),
+      note(60)
+    )
 
-  val twoNotesTrack = Track(
-    channel = Channel.from(0),
-    timeGen = TimeGen(Seq(4, 4)),
-    durGen = DurationGen(Seq(1, 1)),
-    noteGen = NoteGen(Seq(60, 62))
-  )
+  val twoNotesTrack: Track =
+    track(
+      time(4, 4),
+      duration(1, 1),
+      note(60, 62)
+    )
 
-  val threeNotesTrack = Track(
-    channel = Channel.from(0),
-    timeGen = TimeGen(Seq(4, 4, 2)),
-    durGen = DurationGen(Seq(1, 4d / 3, 2)),
-    noteGen = NoteGen(Seq(60, 64, 67))
-  )
+  val threeNotesTrack: Track =
+    track(
+      time(4, 4, 2),
+      duration(1, 4d / 3, 2),
+      note(60, 64, 67)
+    )
 
 }

@@ -22,19 +22,18 @@ class TrackSpec extends CatsEffectSuite {
 
   test("One note track midi stream should produce NoteOn and NoteOff message") {
 
-    val (ppq, bpm, channel, note, velocity) = validOrFail(
+    val (ppq, bpm, note, velocity) = validOrFail(
       (
         Ppq.from(960),
         Bpm.from(60),
-        Channel.from(0),
         MidiValue[NoteTag](60),
         MidiValue[VelocityTag](100)
-      ).mapN((p, b, c, n, v) => (p, b, c, n, v))
+      ).mapN((p, b, n, v) => (p, b, n, v))
     )
 
     val env    = validOrFail(Environment.from(ppq = ppq.value, bpm = bpm.value))
     val events = TrackCompiler.compile(oneNoteTrack, env.timingContext).events
-
+    val channel    = Channel.Ch0 
     val expectedEvents = List(
       AbsoluteMidiEvent(Tick.zero, MidiCommand.NoteOn(channel, note, velocity)),
       AbsoluteMidiEvent(validOrFail(Tick.fromInt(480)), MidiCommand.NoteOff(channel, note))

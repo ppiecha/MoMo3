@@ -9,24 +9,24 @@ import cats.syntax.all.*
 class BpmSpec extends FunSuite with ScalaCheckSuite {
 
   test("Bpm.from should accept positive values") {
-    val result: ValidatedNec[ValidationError, Bpm] = Bpm.from(120)
+    val result: ValidatedBpm = Bpm.from(120)
     assert(result.isValid)
     assertEquals(result.map(_.value).getOrElse(-1), 120)
   }
 
   test("Bpm.from should reject zero") {
-    val result: ValidatedNec[ValidationError, Bpm] = Bpm.from(0)
+    val result: ValidatedBpm = Bpm.from(0)
     assert(result.isInvalid)
   }
 
   test("Bpm.from should reject negative values") {
-    val result: ValidatedNec[ValidationError, Bpm] = Bpm.from(-60)
+    val result: ValidatedBpm = Bpm.from(-60)
     assert(result.isInvalid)
   }
 
   property("Bpm.from accepts all positive values") {
     forAll(Gen.choose(1, 300)) { value =>
-      val result: ValidatedNec[ValidationError, Bpm] = Bpm.from(value)
+      val result: ValidatedBpm = Bpm.from(value)
       assert(result.isValid)
       assertEquals(result.map(_.value).getOrElse(-1), value)
     }
@@ -34,7 +34,7 @@ class BpmSpec extends FunSuite with ScalaCheckSuite {
 
   property("Bpm.from rejects all non-positive values") {
     forAll(Gen.choose(Int.MinValue, 0)) { value =>
-      val result: ValidatedNec[ValidationError, Bpm] = Bpm.from(value)
+      val result: ValidatedBpm = Bpm.from(value)
       assert(result.isInvalid)
     }
   }

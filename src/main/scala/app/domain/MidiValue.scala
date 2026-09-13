@@ -7,7 +7,7 @@ import cats.syntax.all.*
 
 sealed trait NoteTag
 sealed trait VelocityTag
-object VelocityTag { val DEFAULT_VALUE = 100 }
+object VelocityTag 
 sealed trait BankTag
 sealed trait ProgramTag
 sealed trait ControlTag
@@ -23,6 +23,15 @@ type Velocity = MidiValue[VelocityTag]
 type Bank     = MidiValue[BankTag]
 type Program  = MidiValue[ProgramTag]
 type Control  = MidiValue[ControlTag]
+
+object Velocity {
+  final val Default = 100
+  final val Zero    = 0
+}
+
+object Note {
+  final val Zero = 0
+} 
 
 object MidiValue {
 

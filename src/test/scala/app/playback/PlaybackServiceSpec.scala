@@ -27,14 +27,14 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     val first = AbsoluteMidiEvent(
       Tick.zero,
       MidiCommand.NoteOff(
-        PlaybackServiceSpec.valid(Channel.from(0)),
+        Channel.Ch0,
         PlaybackServiceSpec.valid(MidiValue[NoteTag](60))
       )
     )
     val second = AbsoluteMidiEvent(
       Tick.zero,
       MidiCommand.NoteOff(
-        PlaybackServiceSpec.valid(Channel.from(1)),
+        Channel.Ch1,
         PlaybackServiceSpec.valid(MidiValue[NoteTag](61))
       )
     )
@@ -92,14 +92,14 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     val first = AbsoluteMidiEvent(
       Tick.zero,
       MidiCommand.NoteOn(
-        PlaybackServiceSpec.valid(Channel.from(0)),
+        Channel.Ch0,
         PlaybackServiceSpec.valid(MidiValue[NoteTag](60)),
         PlaybackServiceSpec.valid(MidiValue[VelocityTag](100))
       )
     )
     val second = AbsoluteMidiEvent(
       PlaybackServiceSpec.valid(Tick.fromInt(480)),
-      MidiCommand.NoteOff(PlaybackServiceSpec.valid(Channel.from(0)), PlaybackServiceSpec.valid(MidiValue[NoteTag](60)))
+      MidiCommand.NoteOff(Channel.Ch0, PlaybackServiceSpec.valid(MidiValue[NoteTag](60)))
     )
     val plan = PlaybackPlan(
       Vector(
@@ -139,7 +139,7 @@ object PlaybackServiceSpec {
     } yield valid(TimingContext.from(ppq, bpm))
 
   val genChannel: Gen[Channel] =
-    Gen.chooseNum(0, 15).map(value => valid(Channel.from(value)))
+    Gen.oneOf(Channel.values.toSeq)
 
   val genMidiValue: Gen[Note] =
     Gen.chooseNum(0, 127).map(value => valid(MidiValue[NoteTag](value)))

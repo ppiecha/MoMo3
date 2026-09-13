@@ -11,7 +11,7 @@ class PlaybackControllerSpec extends FunSuite {
   test("replacement playback repeats the full plan after its resumed first pass") {
     val event = AbsoluteMidiEvent(
       Tick.zero,
-      MidiCommand.NoteOff(valid(Channel.from(0)), valid(MidiValue[NoteTag](60)))
+      MidiCommand.NoteOff(Channel.Ch0, valid(MidiValue[NoteTag](60)))
     )
     val fullReplacementPlan = PlaybackPlan(Vector(TimedEvent(10.millis, event)))
     val resumedPlan = PlaybackPlanResume.resumeFrom(fullReplacementPlan, 10.millis)

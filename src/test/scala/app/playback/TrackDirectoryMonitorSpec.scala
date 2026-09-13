@@ -22,14 +22,14 @@ class TrackDirectoryMonitorSpec extends FunSuite {
           AbsoluteMidiEvent(
             Tick.zero,
             MidiCommand
-              .NoteOn(valid(Channel.from(0)), valid(MidiValue[NoteTag](60)), valid(MidiValue[VelocityTag](100)))
+              .NoteOn(Channel.Ch0, valid(MidiValue[NoteTag](60)), valid(MidiValue[VelocityTag](100)))
           )
         ),
         TimedEvent(
           20.millis,
           AbsoluteMidiEvent(
             valid(Tick.fromInt(480)),
-            MidiCommand.NoteOff(valid(Channel.from(0)), valid(MidiValue[NoteTag](60)))
+            MidiCommand.NoteOff(Channel.Ch0, valid(MidiValue[NoteTag](60)))
           )
         ),
         TimedEvent(
@@ -37,7 +37,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
           AbsoluteMidiEvent(
             valid(Tick.fromInt(960)),
             MidiCommand.NoteOn(
-              valid(Channel.from(0)),
+              Channel.Ch0,
               valid(MidiValue[NoteTag](62)),
               valid(MidiValue[VelocityTag](100))
             )
