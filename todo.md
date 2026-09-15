@@ -11,18 +11,17 @@
 - accord
 
 ### 4. Config
-- tracks directory path
-- add option to set fluidsynth path
-- add option to set soundfont path
-- add option to set default soundfont
-- add option to set tempo
-- add option to set ppq
-- add option to set loop midi port
-- add option to set default volume
-- add option to set default reverb
-- add option to set default chorus
+- [x] tracks directory path
+- [x] add option to set fluidsynth path
+- [x] add option to set soundfont path
+- [x] add option to set default soundfont
+- [x] add option to set tempo
+- [x] add option to set ppq
+- [x] add option to set loop midi port
+- [x] add option to set default volume
+- [x] add option to set default reverb
+- [x] add option to set default chorus
  
 ### 5. Track utils & consts
 - track concatenation/addition
-- track repeating
 
