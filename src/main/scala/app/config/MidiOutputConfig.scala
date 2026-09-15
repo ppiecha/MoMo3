@@ -1,3 +1,5 @@
 package app.config
 
-case class MidiOutputConfig(loopMidiPortName: String = "ScalaToFluid")
+import pureconfig.ConfigReader
+
+case class MidiOutputConfig(loopMidiPortName: String = "ScalaToFluid") derives ConfigReader
