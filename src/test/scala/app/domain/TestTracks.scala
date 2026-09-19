@@ -3,7 +3,7 @@ package app.domain
 import app.domain.Track.*
 
 object TestTracks {
-  
+
   given Channel = Channel.Ch0
 
   val oneNoteTrack: Track =

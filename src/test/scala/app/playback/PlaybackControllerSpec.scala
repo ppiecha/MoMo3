@@ -14,7 +14,7 @@ class PlaybackControllerSpec extends FunSuite {
       MidiCommand.NoteOff(Channel.Ch0, valid(MidiValue[NoteTag](60)))
     )
     val fullReplacementPlan = PlaybackPlan(Vector(TimedEvent(10.millis, event)))
-    val resumedPlan = PlaybackPlanResume.resumeFrom(fullReplacementPlan, 10.millis)
+    val resumedPlan         = PlaybackPlanResume.resumeFrom(fullReplacementPlan, 10.millis)
 
     assertEquals(
       PlaybackController.nextRepeat(fullReplacementPlan, RepeatPolicy.fixed(1)),

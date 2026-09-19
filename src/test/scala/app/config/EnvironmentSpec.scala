@@ -9,7 +9,7 @@ class EnvironmentSpec extends FunSuite {
     val result = Environment.load()
     assert(result.isRight, s"Expected successful load, got $result")
     val env = result.getOrElse(fail("Could not get environment"))
-    
+
     assertEquals(env.timingContext.bpm.value, 60)
     assertEquals(env.timingContext.ppq.value, 960)
     assertEquals(env.synthConfig.soundFontPath, "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2")

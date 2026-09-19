@@ -62,17 +62,18 @@ object TrackDirectoryMonitor {
     override def scanOnce: IO[List[Track]] =
       trackFiles.flatMap { files =>
         if (files.isEmpty) logger.info(s"No track files found in $directory").as(List.empty[Track])
-        else files.traverse(loadTrack).flatMap { results =>
-          val errors = results.collect { case Left(error) => error }
-          val tracks = results.collect { case Right(track) => track }
+        else
+          files.traverse(loadTrack).flatMap { results =>
+            val errors = results.collect { case Left(error) => error }
+            val tracks = results.collect { case Right(track) => track }
 
-          errors.traverse_(error => logger.error(error)) *>
-            (if (tracks.nonEmpty)
-               logger.info(s"Loaded ${tracks.size} track(s) from $directory") *>
-                 playback.replace(tracks, timing, policy)
-             else IO.unit) *>
-            IO.pure(tracks)
-        }
+            errors.traverse_(error => logger.error(error)) *>
+              (if (tracks.nonEmpty)
+                 logger.info(s"Loaded ${tracks.size} track(s) from $directory") *>
+                   playback.replace(tracks, timing, policy)
+               else IO.unit) *>
+              IO.pure(tracks)
+          }
       }
 
     override def start: IO[Unit] =
@@ -93,14 +94,21 @@ object TrackDirectoryMonitor {
         case true =>
           Resource
             .fromAutoCloseable(IO.blocking(Files.list(directory)))
-            .use(stream => IO.blocking(stream.iterator().asScala.filter(Files.isRegularFile(_)).filter(isScalaFile).toList))
+            .use(stream =>
+              IO.blocking(stream.iterator().asScala.filter(Files.isRegularFile(_)).filter(isScalaFile).toList)
+            )
       }
 
     private def loadTrack(path: Path): IO[Either[String, Track]] =
       IO.blocking {
         parser(path) match {
-          case Valid(track) if compiler(track).events.forall(_.isRight) => Right(track)
-          case Valid(_) => Left(s"Track compilation failed for $path")
+          case Valid(track) =>
+            val events = compiler(track).events
+            if events.forall(_.isRight) then Right(track)
+            else {
+              val errors = events.collect { case Left(error) => error }
+              Left(s"Track compilation failed for $path: ${errors.mkString(", ")}")
+            }
           case Invalid(errors) => Left(s"Track parse failed for $path: ${errors.toList.mkString(", ")}")
         }
       }

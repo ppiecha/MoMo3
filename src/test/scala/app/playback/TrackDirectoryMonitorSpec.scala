@@ -64,7 +64,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
 
   test("directory monitor discovers scala tracks and compiles them") {
     val directory = Files.createTempDirectory("track-monitor")
-    writeMusic(directory.resolve("track.scala"), 60)
+    writeMusic(directory.resolve("Piano.scala"), 60)
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
@@ -156,14 +156,14 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     Files.writeString(
       path,
       s"""import app.domain.*
-         |import app.domain.Generator.*
+         |import app.domain.Track.*
          |
          |object ${classNameFromFilePath(path)} {
-         |  def play(): Track = Track(
-         |    channel = Channel.from(0),
-         |    timeGen = TimeGen(Seq(1)),
-         |    durGen = DurationGen(Seq(1)),
-         |    noteGen = NoteGen(Seq($note))
+         |  given Channel = Channel.Ch0
+         |  def play(): Track = track(
+         |    timeGen = time(1),
+         |    durGen = duration(1),
+         |    noteGen = note($note)
          |  )
          |}
          |""".stripMargin

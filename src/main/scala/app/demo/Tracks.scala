@@ -9,7 +9,7 @@ import app.playback.RepeatPolicy.*
 object Tracks {
 
   val repeatCount = 2
-  given Channel = Channel.Ch0
+  given Channel   = Channel.Ch0
 
   val track1: Track = track(
     time(8, 8, 4).repeat(repeatCount),
