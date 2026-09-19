@@ -61,7 +61,7 @@ object TrackDirectoryMonitor {
 
     override def scanOnce: IO[List[Track]] =
       trackFiles.flatMap { files =>
-        if (files.isEmpty) logger.info(s"No track files found in $directory").as(List.empty[Track])
+        if (files.isEmpty) logger.error(s"No track files found in $directory").as(List.empty[Track])
         else
           files.traverse(loadTrack).flatMap { results =>
             val errors = results.collect { case Left(error) => error }
@@ -69,7 +69,7 @@ object TrackDirectoryMonitor {
 
             errors.traverse_(error => logger.error(error)) *>
               (if (tracks.nonEmpty)
-                 logger.info(s"Loaded ${tracks.size} track(s) from $directory") *>
+                 logger.debug(s"Loaded ${tracks.size} track(s) from $directory") *>
                    playback.replace(tracks, timing, policy)
                else IO.unit) *>
               IO.pure(tracks)
@@ -86,11 +86,11 @@ object TrackDirectoryMonitor {
 
     override def stop: IO[Unit] =
       watcherRef.getAndSet(None).flatMap(_.fold(IO.unit)(_.cancel)) *>
-        logger.info(s"Track monitor stopped for $directory")
+        logger.debug(s"Track monitor stopped for $directory")
 
     private def trackFiles: IO[List[Path]] =
       IO.blocking(Files.exists(directory)).flatMap {
-        case false => logger.warn(s"Track directory does not exist: $directory").as(List.empty)
+        case false => logger.error(s"Track directory does not exist: $directory").as(List.empty)
         case true =>
           Resource
             .fromAutoCloseable(IO.blocking(Files.list(directory)))
@@ -123,7 +123,6 @@ object TrackDirectoryMonitor {
             StandardWatchEventKinds.ENTRY_DELETE
           )
         ) *>
-          logger.info(s"Watch service registered for $directory") *>
           waitForChanges(watchService).foreverM
       }
 

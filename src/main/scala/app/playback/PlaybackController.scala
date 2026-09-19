@@ -126,7 +126,6 @@ private final class LivePlaybackController(
 
     val task: IO[Unit] = repeatLoop(adjustedPlan, plan, policy, elapsed)
 
-    // logger.info(s"plan: $plan \nadjustedPlan: $adjustedPlan") *>
     task.start.flatMap { fiber =>
       stateRef.update(_.copy(activePlan = Some(plan), elapsed = elapsed, policy = policy, fiber = Some(fiber)))
     }

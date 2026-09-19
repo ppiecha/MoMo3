@@ -32,7 +32,7 @@ object Main extends IOApp {
                 case Left(err) => IO.raiseError(new RuntimeException(err.toString))
                 case Right(()) => IO.unit
               }
-            val controller = PlaybackController.live(sendEvent, logger)
+            val controller = PlaybackController.live(sendEvent)
             val monitor = TrackDirectoryMonitor.live(
               directory = directoryPath,
               parser = TrackFileCompiler.compileAndEvaluateFile,
@@ -40,15 +40,12 @@ object Main extends IOApp {
               playback = controller,
               timing = env.timingContext,
               policy = RepeatPolicy.forever,
-              //logger = logger,
               pollInterval = 300.millis
             )
 
             cats.data.EitherT.right[app.domain.DomainError] {
               for {
                 loaded <- monitor.scanOnce
-                _      <- logger.info(s"Demo directory ready at: ${directoryPath.toAbsolutePath}")
-                _      <- logger.info(s"Loaded ${loaded.size} track(s). Monitoring for changes...")
                 _      <- monitor.start
                 _      <- IO.never
               } yield ()
