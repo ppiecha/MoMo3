@@ -1,3 +1,5 @@
+package app
+
 import app.config.Environment
 import app.midi.ReactiveSynth
 import app.midi.toMidiMessages
@@ -38,7 +40,7 @@ object Main extends IOApp {
               playback = controller,
               timing = env.timingContext,
               policy = RepeatPolicy.forever,
-              logger = logger,
+              //logger = logger,
               pollInterval = 300.millis
             )
 

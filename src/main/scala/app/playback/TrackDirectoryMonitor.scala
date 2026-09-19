@@ -80,7 +80,7 @@ object TrackDirectoryMonitor {
       watcherRef.get.flatMap {
         case Some(_) => IO.unit
         case None =>
-          logger.info(s"Starting track monitor for $directory (poll interval: $pollInterval)") *>
+          logger.debug(s"Starting track monitor for $directory (poll interval: $pollInterval)") *>
             watchLoop.start.flatMap(fiber => watcherRef.set(Some(fiber)))
       }
 
