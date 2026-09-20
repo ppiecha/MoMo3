@@ -59,6 +59,17 @@ object TrackDirectoryMonitor {
 
     private val watcherRef: Ref[IO, Option[FiberIO[Unit]]] = Ref.unsafe(None)
 
+    def logErrors(errors: List[String]): IO[Unit] =
+      errors.traverse_(error => logger.error(error))
+
+    def replaceTracks(tracks: List[Track]): IO[Unit] = {
+      if tracks.isEmpty then IO.unit
+      else {
+        logger.info(s"Replacing tracks with ${tracks.length} new track(s)") *>
+          playback.replace(tracks, timing, policy)
+      }
+    }
+
     override def scanOnce: IO[List[Track]] =
       trackFiles.flatMap { files =>
         if (files.isEmpty) logger.error(s"No track files found in $directory").as(List.empty[Track])
@@ -67,11 +78,8 @@ object TrackDirectoryMonitor {
             val errors = results.collect { case Left(error) => error }
             val tracks = results.collect { case Right(track) => track }
 
-            errors.traverse_(error => logger.error(error)) *>
-              (if (tracks.nonEmpty)
-                 logger.debug(s"Loaded ${tracks.size} track(s) from $directory") *>
-                   playback.replace(tracks, timing, policy)
-               else IO.unit) *>
+            logErrors(errors) *>
+              replaceTracks(tracks) *>
               IO.pure(tracks)
           }
       }
