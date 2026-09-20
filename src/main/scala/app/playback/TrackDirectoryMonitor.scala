@@ -62,7 +62,7 @@ object TrackDirectoryMonitor {
     def logErrors(errors: List[String]): IO[Unit] =
       errors.traverse_(error => logger.error(error))
 
-    def replaceTracks(tracks: List[Track]): IO[Unit] = {
+    def replaceTracks(tracks: Seq[Track]): IO[Unit] = {
       if tracks.isEmpty then IO.unit
       else {
         logger.info(s"Replacing tracks with ${tracks.length} new track(s)") *>

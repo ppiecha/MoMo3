@@ -11,7 +11,6 @@
 - accord
 
 ### 4. Config
-- read options from config file
  
 ### 5. Track utils & consts
 - music file

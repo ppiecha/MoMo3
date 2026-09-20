@@ -13,14 +13,14 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   */
 trait PlaybackController {
   def play(
-    tracks: List[Track],
+    tracks: Seq[Track],
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit]
   def pause: IO[Unit]
   def resume: IO[Unit]
   def stop: IO[Unit]
-  def replace(tracks: List[Track], timing: TimingContext, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit]
+  def replace(tracks: Seq[Track], timing: TimingContext, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
 }
 
@@ -53,7 +53,7 @@ private final class LivePlaybackController(
   private val stateRef: Ref[IO, PlaybackState] = Ref.unsafe(PlaybackState())
 
   override def play(
-    tracks: List[Track],
+    tracks: Seq[Track],
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit] =
@@ -91,7 +91,7 @@ private final class LivePlaybackController(
     } *> stateRef.set(PlaybackState()) *> logger.info("Playback stopped")
 
   override def replace(
-    tracks: List[Track],
+    tracks: Seq[Track],
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit] =
@@ -112,7 +112,7 @@ private final class LivePlaybackController(
   override def elapsedTime: IO[FiniteDuration] =
     stateRef.get.map(_.elapsed)
 
-  private def buildPlan(tracks: List[Track], timing: TimingContext): IO[Either[DomainError, PlaybackPlan]] =
+  private def buildPlan(tracks: Seq[Track], timing: TimingContext)  =
     IO.pure(PlaybackPlan.fromCompiledTracks(tracks.map(TrackCompiler.compile(_, timing)), timing))
 
   private def start(
