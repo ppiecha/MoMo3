@@ -36,6 +36,7 @@ object Main extends IOApp {
               compiler = track => TrackCompiler.compile(track, env.timingContext),
               playback = controller,
               timing = env.timingContext,
+              musicFile = Some(Paths.get(env.pathsConfig.musicFile)),
               policy = RepeatPolicy.forever,
               pollInterval = env.pathsConfig.pollingInterval.millis
             )

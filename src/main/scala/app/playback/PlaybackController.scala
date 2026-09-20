@@ -112,7 +112,7 @@ private final class LivePlaybackController(
   override def elapsedTime: IO[FiniteDuration] =
     stateRef.get.map(_.elapsed)
 
-  private def buildPlan(tracks: Seq[Track], timing: TimingContext)  =
+  private def buildPlan(tracks: Seq[Track], timing: TimingContext) =
     IO.pure(PlaybackPlan.fromCompiledTracks(tracks.map(TrackCompiler.compile(_, timing)), timing))
 
   private def start(

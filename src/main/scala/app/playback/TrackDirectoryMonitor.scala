@@ -40,11 +40,22 @@ object TrackDirectoryMonitor {
     compiler: Track => CompiledTrack,
     playback: PlaybackController,
     timing: TimingContext,
+    musicFile: Option[Path] = None,
     policy: RepeatPolicy = RepeatPolicy.none,
     logger: Logger[IO] = Slf4jLogger.getLogger[IO],
     pollInterval: FiniteDuration
   ): TrackDirectoryMonitor =
-    new FileSystemTrackDirectoryMonitor(directory, parser, compiler, playback, timing, policy, logger, pollInterval)
+    new FileSystemTrackDirectoryMonitor(
+      directory,
+      parser,
+      compiler,
+      playback,
+      timing,
+      musicFile,
+      policy,
+      logger,
+      pollInterval
+    )
 
   private final class FileSystemTrackDirectoryMonitor(
     directory: Path,
@@ -52,12 +63,14 @@ object TrackDirectoryMonitor {
     compiler: Track => CompiledTrack,
     playback: PlaybackController,
     timing: TimingContext,
+    musicFile: Option[Path],
     policy: RepeatPolicy,
     logger: Logger[IO],
     pollInterval: FiniteDuration
   ) extends TrackDirectoryMonitor {
 
     private val watcherRef: Ref[IO, Option[FiberIO[Unit]]] = Ref.unsafe(None)
+    private val tracksRef: Ref[IO, Vector[Track]]          = Ref.unsafe(Vector.empty)
 
     def logErrors(errors: List[String]): IO[Unit] =
       errors.traverse_(error => logger.error(error))
@@ -65,23 +78,62 @@ object TrackDirectoryMonitor {
     def replaceTracks(tracks: Seq[Track]): IO[Unit] = {
       if tracks.isEmpty then IO.unit
       else {
-        logger.info(s"Replacing tracks with ${tracks.length} new track(s)") *>
+        logger.debug(s"Replacing tracks with ${tracks.length} new track(s)") *>
           playback.replace(tracks, timing, policy)
       }
     }
+
+    private def replaceTracksIfChanged(tracks: Seq[Track]): IO[Unit] = {
+      val next = tracks.toVector
+      tracksRef.get.flatMap { current =>
+        if (current == next) IO.unit
+        else replaceTracks(tracks) *> tracksRef.set(next)
+      }
+    }
+
+    private def maybeOverrideTracks(parsedTracks: List[Track]): IO[List[Track]] =
+      musicFile match {
+        case None => IO.pure(parsedTracks)
+        case Some(path) =>
+          IO.blocking(Files.exists(path)).flatMap {
+            case false => IO.pure(parsedTracks)
+            case true =>
+              IO.blocking {
+                TrackFileCompiler.compileAndEvaluateFile[Option[Seq[Track]]](
+                  scalaFile = path.toString,
+                  className = "Music",
+                  methodName = "music"
+                )
+              }.flatMap {
+                case Valid(Some(musicTracks)) if musicTracks.nonEmpty =>
+                  logger.debug(s"Using ${musicTracks.size} track(s) from music file: $path") *>
+                    IO.pure(musicTracks.toList)
+                case Valid(_) => IO.pure(parsedTracks)
+                case Invalid(errors) =>
+                  logErrors(errors.toList.map(e => s"Music file parse failed for $path: $e")) *>
+                    IO.pure(parsedTracks)
+              }
+          }
+      }
 
     override def scanOnce: IO[List[Track]] =
       trackFiles.flatMap { files =>
         if (files.isEmpty) logger.error(s"No track files found in $directory").as(List.empty[Track])
         else
-          files.traverse(loadTrack).flatMap { results =>
-            val errors = results.collect { case Left(error) => error }
-            val tracks = results.collect { case Right(track) => track }
+          files
+            .traverse(loadTrack)
+            .flatMap { results =>
+              val errors = results.collect { case Left(error) => error }
+              val tracks = results.collect { case Right(track) => track }
 
-            logErrors(errors) *>
-              replaceTracks(tracks) *>
-              IO.pure(tracks)
-          }
+              logErrors(errors) *>
+                maybeOverrideTracks(tracks) <*
+                IO.unit
+            }
+            .flatMap { selectedTracks =>
+              replaceTracksIfChanged(selectedTracks) *>
+                IO.pure(selectedTracks)
+            }
       }
 
     override def start: IO[Unit] =
