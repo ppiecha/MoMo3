@@ -36,6 +36,15 @@ case class Track(
 
 object Track {
 
+  def empty(using ch: Channel): Track = {
+    Track(
+      timeGen = TimeGen(Seq.empty),
+      durGen = DurationGen(Seq.empty),
+      noteGen = Generator.NoteGen(Seq.empty),
+      velGen = Generator.VelocityGen(Seq.empty)
+    )
+  }
+
   def track(
     timeGen: TimeGen,
     durGen: DurationGen,

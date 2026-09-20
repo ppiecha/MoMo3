@@ -12,6 +12,6 @@ class LevelColorConverter extends ForegroundCompositeConverterBase[ILoggingEvent
       case Level.WARN_INT  => "33" // yellow
       case Level.INFO_INT  => "32" // green
       case Level.DEBUG_INT => "90" // grey
-      case _                => "39" // default
+      case _               => "39" // default
     }
 }

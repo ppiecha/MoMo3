@@ -157,10 +157,11 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       path,
       s"""import app.domain.*
          |import app.domain.Track.*
+         |import app.syntax.TrackFile
          |
-         |object ${classNameFromFilePath(path)} {
+         |object ${classNameFromFilePath(path)} extends TrackFile {
          |  given Channel = Channel.Ch0
-         |  def play(): Track = track(
+         |  def play: Track = track(
          |    timeGen = time(1),
          |    durGen = duration(1),
          |    noteGen = note($note)

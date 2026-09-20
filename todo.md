@@ -14,7 +14,8 @@
 - read options from config file
  
 ### 5. Track utils & consts
-- track concatenation/addition
 - track base class to simplify track file/syntax
 - music file
+
+### 6. Update readme
 

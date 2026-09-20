@@ -53,7 +53,9 @@ object TrackFileCompiler {
     else outDir.validNec[String]
   }
 
-  private def evaluate[A](className: String, methodName: String, outDir: String)(using Typeable[A]): A = {
+  private def evaluate[A](className: String, methodName: String, outDir: String)(using
+    Typeable[A]
+  ): ValidatedNec[String, A] = {
     val loader = new java.net.URLClassLoader(
       Array(new java.io.File(outDir).toURI.toURL),
       getClass.getClassLoader
@@ -77,7 +79,7 @@ object TrackFileCompiler {
     val module = cls.getField("MODULE$").get(null)
     val method = cls.getMethod(methodName)
     val result = method.invoke(module)
-    result.asInstanceOf[A]
+    result.asInstanceOf[ValidatedNec[String, A]]
   }
 
   inline def requireTypeable[T]: Typeable[T] =
@@ -89,6 +91,9 @@ object TrackFileCompiler {
             "Provide an explicit type argument or a given Typeable[T]."
         )
     }
+
+//  def handleNestedValidation[A](validated: ValidatedNec[String, A): ValidatedNec[String, A] =
+//    validated.andThen(identity)
 
   inline def compileAndEvaluateFile[A](
     scalaFile: String,
@@ -107,6 +112,7 @@ object TrackFileCompiler {
               s"Evaluation failed for file '$scalaFile', class '$className', method '$methodName': ${e.getClass.getSimpleName}: ${e.getMessage}"
             )
           }
+          .andThen(identity) // Flatten the nested Validated
       case Validated.Invalid(e) =>
         e.invalid
     }
@@ -116,7 +122,7 @@ object TrackFileCompiler {
     compileAndEvaluateFile[Track](
       scalaFile = scalaFile.toString,
       className = classNameFromFilePath(scalaFile),
-      methodName = "play"
+      methodName = "playWrapper"
     )
 
 }
