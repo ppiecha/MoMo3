@@ -17,9 +17,6 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val logger = Slf4jLogger.getLogger[IO]
-    val directoryPath = args.headOption
-      .map(Paths.get(_))
-      .getOrElse(Paths.get(DemoDirName).toAbsolutePath.normalize())
 
     val program =
       for {
@@ -34,13 +31,13 @@ object Main extends IOApp {
               }
             val controller = PlaybackController.live(sendEvent)
             val monitor = TrackDirectoryMonitor.live(
-              directory = directoryPath,
+              directory = Paths.get(env.pathsConfig.tracks),
               parser = TrackFileCompiler.compileAndEvaluateFile,
               compiler = track => TrackCompiler.compile(track, env.timingContext),
               playback = controller,
               timing = env.timingContext,
               policy = RepeatPolicy.forever,
-              pollInterval = 300.millis
+              pollInterval = env.pathsConfig.pollingInterval.millis
             )
 
             cats.data.EitherT.right[app.domain.DomainError] {

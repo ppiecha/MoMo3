@@ -42,7 +42,7 @@ object TrackDirectoryMonitor {
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none,
     logger: Logger[IO] = Slf4jLogger.getLogger[IO],
-    pollInterval: FiniteDuration = 500.millis
+    pollInterval: FiniteDuration
   ): TrackDirectoryMonitor =
     new FileSystemTrackDirectoryMonitor(directory, parser, compiler, playback, timing, policy, logger, pollInterval)
 
