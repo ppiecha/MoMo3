@@ -11,9 +11,11 @@
 - accord
 
 ### 4. Config
+- compile-only
  
 ### 5. Track utils & consts
-- music file
+- if file only in compile-only then only compile
+- Tracks validate if all tracks have the same timegen duration
 
 ### 6. Update readme
 

@@ -16,6 +16,9 @@ enum ValidationError {
   case InvalidPort(portName: String)
   case EmptyListInSlidingWindow
   case ChannelMismatch(channel1: Channel, channel2: Channel)
+  case NegativeDuration(duration: Double)
+  case DurationMismatch(actual: Double, expected: Double)
+  case EmptyTracks
 }
 
 enum DomainError {

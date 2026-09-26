@@ -283,7 +283,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   private final class TrackDirectoryMonitorTestHarness extends PlaybackController {
     var playCalls: List[Seq[Track]] = Nil
 
-    override def play(tracks: Seq[Track], timing: TimingContext, policy: RepeatPolicy): IO[Unit] = {
+    override def play(tracks: Tracks, timing: TimingContext, policy: RepeatPolicy): IO[Unit] = {
       playCalls = playCalls :+ tracks
       IO.unit
     }
@@ -291,7 +291,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     override def pause: IO[Unit]  = IO.unit
     override def resume: IO[Unit] = IO.unit
     override def stop: IO[Unit]   = IO.unit
-    override def replace(tracks: Seq[Track], timing: TimingContext, policy: RepeatPolicy): IO[Unit] = {
+    override def replace(tracks: Tracks, timing: TimingContext, policy: RepeatPolicy): IO[Unit] = {
       playCalls = playCalls :+ tracks
       IO.unit
     }

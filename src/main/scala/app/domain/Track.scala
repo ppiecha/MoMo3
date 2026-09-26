@@ -27,11 +27,19 @@ case class Track(
       velGen = this.velGen ++ other.velGen
     )
 
-  def next(other: Track): Track = this ++ other
-
   def muted: Track = {
     this.copy(velGen = Track.velocity(Velocity.Zero).repeat(timeGen.length))
   }
+  
+  def validatedDuration(duration: Double): ValidatedNec[ValidationError, Track] = {
+    if duration < 0 then 
+      ValidationError.NegativeDuration(duration).invalidNec
+    if timeGen.duration != duration then 
+      ValidationError.DurationMismatch(timeGen.duration, duration).invalidNec
+    else 
+      this.validNec
+  }
+  
 }
 
 object Track {
@@ -69,8 +77,13 @@ object Track {
     track(timeGen, DurationGen(timeGen.values), noteGen)
   }
 
-  def rest(t: Double)(using channel: Channel): Track = {
-    Track(timeGen = time(t), durGen = duration(t), noteGen = note(Note.Zero), velGen = velocity(Velocity.Zero))
+  def rest(duration: Double)(using channel: Channel): Track = {
+    Track(
+      timeGen = time(duration),
+      durGen = Track.duration(duration),
+      noteGen = note(Note.Zero),
+      velGen = velocity(Velocity.Zero)
+    )
   }
 
   def time(t: Double*): TimeGen = {

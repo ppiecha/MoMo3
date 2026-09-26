@@ -1,6 +1,6 @@
 package app.playback
 
-import app.domain.{AbsoluteMidiEvent, DomainError, PlaybackPlan, TimingContext, Track}
+import app.domain.{AbsoluteMidiEvent, DomainError, PlaybackPlan, TimingContext, Track, Tracks}
 import cats.effect.{FiberIO, IO, Ref}
 import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
@@ -13,14 +13,14 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   */
 trait PlaybackController {
   def play(
-    tracks: Seq[Track],
+    tracks: Tracks,
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit]
   def pause: IO[Unit]
   def resume: IO[Unit]
   def stop: IO[Unit]
-  def replace(tracks: Seq[Track], timing: TimingContext, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit]
+  def replace(tracks: Tracks, timing: TimingContext, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
 }
 
@@ -53,7 +53,7 @@ private final class LivePlaybackController(
   private val stateRef: Ref[IO, PlaybackState] = Ref.unsafe(PlaybackState())
 
   override def play(
-    tracks: Seq[Track],
+    tracks: Tracks,
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit] =
@@ -91,7 +91,7 @@ private final class LivePlaybackController(
     } *> stateRef.set(PlaybackState()) *> logger.info("Playback stopped")
 
   override def replace(
-    tracks: Seq[Track],
+    tracks: Tracks,
     timing: TimingContext,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit] =
@@ -112,8 +112,8 @@ private final class LivePlaybackController(
   override def elapsedTime: IO[FiniteDuration] =
     stateRef.get.map(_.elapsed)
 
-  private def buildPlan(tracks: Seq[Track], timing: TimingContext) =
-    IO.pure(PlaybackPlan.fromCompiledTracks(tracks.map(TrackCompiler.compile(_, timing)), timing))
+  private def buildPlan(tracks: Tracks, timing: TimingContext) =
+    IO.pure(PlaybackPlan.fromCompiledTracks(tracks.toSeq.map(TrackCompiler.compile(_, timing)), timing))
 
   private def start(
     plan: PlaybackPlan,

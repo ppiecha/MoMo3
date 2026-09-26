@@ -1,6 +1,6 @@
 package app.playback
 
-import app.domain.{CompiledTrack, TimingContext, Track}
+import app.domain.{CompiledTrack, TimingContext, Track, Tracks}
 import cats.data.Validated.{Invalid, Valid}
 import cats.data.ValidatedNec
 import cats.effect.{FiberIO, IO, Ref, Resource}
@@ -72,19 +72,19 @@ object TrackDirectoryMonitor {
     private val watcherRef: Ref[IO, Option[FiberIO[Unit]]] = Ref.unsafe(None)
     private val tracksRef: Ref[IO, Vector[Track]]          = Ref.unsafe(Vector.empty)
 
-    def logErrors(errors: List[String]): IO[Unit] =
+    def logErrors(errors: Seq[String]): IO[Unit] =
       errors.traverse_(error => logger.error(error))
 
-    def replaceTracks(tracks: Seq[Track]): IO[Unit] = {
-      if tracks.isEmpty then IO.unit
+    def replaceTracks(tracks: Tracks): IO[Unit] = {
+      if tracks.toSeq.isEmpty then IO.unit
       else {
-        logger.debug(s"Replacing tracks with ${tracks.length} new track(s)") *>
+        logger.debug(s"Replacing tracks with ${tracks.toSeq.length} new track(s)") *>
           playback.replace(tracks, timing, policy)
       }
     }
 
-    private def replaceTracksIfChanged(tracks: Seq[Track]): IO[Unit] = {
-      val next = tracks.toVector
+    private def replaceTracksIfChanged(tracks: Tracks): IO[Unit] = {
+      val next = tracks.toSeq.toVector
       tracksRef.get.flatMap { current =>
         if (current == next) IO.unit
         else replaceTracks(tracks) *> tracksRef.set(next)
@@ -116,9 +116,9 @@ object TrackDirectoryMonitor {
           }
       }
 
-    override def scanOnce: IO[List[Track]] =
-      trackFiles.flatMap { files =>
-        if (files.isEmpty) logger.error(s"No track files found in $directory").as(List.empty[Track])
+    override def scanOnce: IO[Seq[Track]] =
+      trackFiles().flatMap { files =>
+        if (files.isEmpty) logger.error(s"No track files found in $directory").as(Seq.empty[Track])
         else
           files
             .traverse(loadTrack)
@@ -148,14 +148,14 @@ object TrackDirectoryMonitor {
       watcherRef.getAndSet(None).flatMap(_.fold(IO.unit)(_.cancel)) *>
         logger.debug(s"Track monitor stopped for $directory")
 
-    private def trackFiles: IO[List[Path]] =
+    private def trackFiles(): IO[Seq[Path]] =
       IO.blocking(Files.exists(directory)).flatMap {
-        case false => logger.error(s"Track directory does not exist: $directory").as(List.empty)
+        case false => logger.error(s"Track directory does not exist: $directory").as(Seq.empty)
         case true =>
           Resource
             .fromAutoCloseable(IO.blocking(Files.list(directory)))
             .use(stream =>
-              IO.blocking(stream.iterator().asScala.filter(Files.isRegularFile(_)).filter(isScalaFile).toList)
+              IO.blocking(stream.iterator().asScala.filter(Files.isRegularFile(_)).filter(isScalaFile).toSeq)
             )
       }
 

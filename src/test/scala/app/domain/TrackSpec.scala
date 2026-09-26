@@ -86,13 +86,6 @@ class TrackSpec extends CatsEffectSuite {
     )
   }
 
-  test("next should be an alias for track concatenation") {
-    val first  = Track.track(Track.time(1), Track.duration(2), Track.note(60))
-    val second = Track.track(Track.time(3), Track.duration(4), Track.note(62))
-
-    assertEquals(first.next(second), first ++ second)
-  }
-
   test("muted should preserve timing and notes while zeroing velocity") {
     val track = Track.track(Track.time(1, 2), Track.duration(3, 4), Track.note(60, 62), Track.velocity(70, 80))
 

@@ -60,9 +60,4 @@ object Main extends IOApp {
       logger.error(error)(s"Main failed: ${error.getMessage}") *> IO.pure(ExitCode.Error)
     }
   }
-
-  private def writeIfMissing(path: Path, content: String): Unit =
-    if (!Files.exists(path)) {
-      Files.writeString(path, content)
-    }
 }
