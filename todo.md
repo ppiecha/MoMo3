@@ -1,9 +1,7 @@
 ### 1. Model
-- sortowanie eventow w tym samym czasie control -> program -> note
 
 ### 2. Tests
-- test multiple tracks - to check
-- test playback plan with multiple events at the same time
+- script to fix, fomat and run tests
 
 ### 3. App
 - on start restart fluidsynth process if not running
@@ -11,17 +9,11 @@
 - accord
 
 ### 4. Config
-- [x] tracks directory path
-- [x] add option to set fluidsynth path
-- [x] add option to set soundfont path
-- [x] add option to set default soundfont
-- [x] add option to set tempo
-- [x] add option to set ppq
-- [x] add option to set loop midi port
-- [x] add option to set default volume
-- [x] add option to set default reverb
-- [x] add option to set default chorus
+- simplify config
+- compile-only
  
 ### 5. Track utils & consts
-- track concatenation/addition
+- if file only in compile-only then only compile
+
+### 6. Update readme
 

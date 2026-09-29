@@ -16,7 +16,7 @@ This project now uses Scala CLI instead of sbt.
 
 ## Track files
 
-Tracks in a monitored directory must be `.scala` files. Each file must define `object Music` with a `def play(): Track` method.
+Tracks in a monitored directory must be `.scala` files. Each file must define Scala `object` with a `def play: Track` method.
 
 ## FluidSynth on Windows
 

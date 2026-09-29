@@ -1,18 +1,18 @@
 package app.playback
 
-import app.domain.Track
+import app.domain.{DomainError, Track}
 import cats.data.{NonEmptyChain, Validated, ValidatedNec}
 import dotty.tools.dotc.*
 import dotty.tools.dotc.reporting.*
 import dotty.tools.dotc.core.Contexts.*
 import cats.syntax.all.*
 
-import java.nio.file.{Files, Paths, Path}
+import java.nio.file.{Files, Path, Paths}
 import scala.reflect.Typeable
 import scala.compiletime.summonFrom
 import scala.compiletime.error
 
-object TrackFileCompiler {
+object TrackFileParser {
 
   def classNameFromFilePath(path: Path): String = {
     val fileName = path.getFileName.toString
@@ -27,7 +27,7 @@ object TrackFileCompiler {
     scalaFile: String,
     outDir: String,
     classpath: String = sys.props("java.class.path")
-  ): ValidatedNec[String, String] = {
+  ): ValidatedNec[DomainError, String] = {
 
     val reporter = new StoreReporter()
 
@@ -47,10 +47,10 @@ object TrackFileCompiler {
 
     if reporter.hasErrors then
       NonEmptyChain
-        .fromSeq(reporter.allErrors.map(_.toString))
-        .getOrElse(NonEmptyChain.one("unknown error"))
+        .fromSeq(reporter.allErrors.map(e => DomainError.TrackFileParseFailed(e.toString)))
+        .getOrElse(NonEmptyChain.one(DomainError.TrackFileParseFailed("unknown error")))
         .invalid[String]
-    else outDir.validNec[String]
+    else outDir.validNec[DomainError]
   }
 
   private def evaluate[A](className: String, methodName: String, outDir: String)(using Typeable[A]): A = {
@@ -95,7 +95,7 @@ object TrackFileCompiler {
     className: String,
     methodName: String,
     classpath: String = sys.props("java.class.path")
-  )(using Typeable[A]): ValidatedNec[String, A] = {
+  )(using Typeable[A]): ValidatedNec[DomainError, A] = {
     requireTypeable[A]
     val tempDir = Files.createTempDirectory("track-compile").toString
     compileFile(scalaFile, tempDir, classpath) match {
@@ -104,7 +104,9 @@ object TrackFileCompiler {
           .catchNonFatal(evaluate[A](className, methodName, compiledDir))
           .leftMap { e =>
             NonEmptyChain.one(
-              s"Evaluation failed for file '$scalaFile', class '$className', method '$methodName': ${e.getClass.getSimpleName}: ${e.getMessage}"
+              DomainError.TrackFileParseFailed(
+                s"Evaluation failed for file '$scalaFile', class '$className', method '$methodName': ${e.getClass.getSimpleName}: ${e.getMessage}"
+              )
             )
           }
       case Validated.Invalid(e) =>
@@ -112,11 +114,11 @@ object TrackFileCompiler {
     }
   }
 
-  inline def compileAndEvaluateFile(scalaFile: java.nio.file.Path): ValidatedNec[String, Track] =
-    compileAndEvaluateFile[Track](
+  inline def compileAndEvaluateFile(scalaFile: java.nio.file.Path): ValidatedNec[DomainError, Track] =
+    compileAndEvaluateFile[ValidatedNec[DomainError, Track]](
       scalaFile = scalaFile.toString,
       className = classNameFromFilePath(scalaFile),
-      methodName = "play"
-    )
+      methodName = "playWrapper"
+    ).andThen(identity)
 
 }

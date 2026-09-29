@@ -1,12 +1,17 @@
+package app
+
 import app.config.Environment
+import app.domain.PlaybackPlan
 import app.midi.ReactiveSynth
 import app.midi.toMidiMessages
-import app.playback.{PlaybackController, RepeatPolicy, TrackCompiler, TrackDirectoryMonitor, TrackFileCompiler}
+import app.playback.{PlaybackController, RepeatPolicy, TrackDirectoryMonitor, TrackFileParser}
+import cats.data.EitherT
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.all.*
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import scala.util.Random // nieużywany
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Paths
 import scala.concurrent.duration.*
 
 object Main extends IOApp {
@@ -15,57 +20,48 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val logger = Slf4jLogger.getLogger[IO]
-    val directoryPath = args.headOption
-      .map(Paths.get(_))
-      .getOrElse(Paths.get(DemoDirName).toAbsolutePath.normalize())
+
+    def liftDomainError[A](result: IO[Either[app.domain.DomainError, A]]): IO[A] =
+      result.flatMap {
+        case Left(err)  => IO.raiseError(new RuntimeException(err.toString))
+        case Right(res) => IO.pure(res)
+      }
 
     val program =
       for {
         env <- IO.fromEither(Environment.load().left.map(err => new RuntimeException(err.toString)))
-        _ <- ReactiveSynth
-          .outputResource[IO](env.midiOutputConfig)
-          .use { sendMidi =>
-            val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
-              sendMidi(event.command.toMidiMessages).value.flatMap {
-                case Left(err) => IO.raiseError(new RuntimeException(err.toString))
-                case Right(()) => IO.unit
-              }
-            val controller = PlaybackController.live(sendEvent, logger)
-            val monitor = TrackDirectoryMonitor.live(
-              directory = directoryPath,
-              parser = TrackFileCompiler.compileAndEvaluateFile,
-              compiler = track => TrackCompiler.compile(track, env.timingContext),
-              playback = controller,
-              timing = env.timingContext,
-              policy = RepeatPolicy.forever,
-              logger = logger,
-              pollInterval = 300.millis
-            )
+        _ <- liftDomainError(
+          ReactiveSynth
+            .outputResource[IO](env.midiOutputConfig)
+            .use { sendMidi =>
+              val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
+                liftDomainError(sendMidi(event.command.toMidiMessages).value).void
+              val controller = PlaybackController.live(sendEvent)
+              val monitor = TrackDirectoryMonitor.live(
+                directory = Paths.get(env.pathsConfig.tracks),
+                parser = TrackFileParser.compileAndEvaluateFile,
+                compiler = tracks => PlaybackPlan.fromTracks(tracks, env.timingContext),
+                playback = controller,
+                timing = env.timingContext,
+                musicFile = Some(Paths.get(env.pathsConfig.musicFile)),
+                policy = RepeatPolicy.forever,
+                pollInterval = env.pathsConfig.pollingInterval.millis
+              )
 
-            cats.data.EitherT.right[app.domain.DomainError] {
-              for {
-                loaded <- monitor.scanOnce
-                _      <- logger.info(s"Demo directory ready at: ${directoryPath.toAbsolutePath}")
-                _      <- logger.info(s"Loaded ${loaded.size} track(s). Monitoring for changes...")
-                _      <- monitor.start
-                _      <- IO.never
-              } yield ()
+              EitherT.liftF(
+                for {
+                  _ <- monitor.scanOnce() // TODO logerrorsonly
+                  _ <- monitor.start
+                  _ <- IO.never
+                } yield ()
+              )
             }
-          }
-          .value
-          .flatMap {
-            case Left(err) => IO.raiseError(new RuntimeException(err.toString))
-            case Right(()) => IO.unit
-          }
+            .value
+        )
       } yield ExitCode.Success
 
     program.handleErrorWith { error =>
       logger.error(error)(s"Main failed: ${error.getMessage}") *> IO.pure(ExitCode.Error)
     }
   }
-
-  private def writeIfMissing(path: Path, content: String): Unit =
-    if (!Files.exists(path)) {
-      Files.writeString(path, content)
-    }
 }

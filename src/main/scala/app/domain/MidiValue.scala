@@ -7,7 +7,7 @@ import cats.syntax.all.*
 
 sealed trait NoteTag
 sealed trait VelocityTag
-object VelocityTag 
+object VelocityTag
 sealed trait BankTag
 sealed trait ProgramTag
 sealed trait ControlTag
@@ -31,7 +31,7 @@ object Velocity {
 
 object Note {
   final val Zero = 0
-} 
+}
 
 object MidiValue {
 
