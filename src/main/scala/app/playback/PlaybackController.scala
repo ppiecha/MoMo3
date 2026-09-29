@@ -5,6 +5,7 @@ import cats.effect.{FiberIO, IO, Ref}
 import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
+import cats.data.Validated.{Invalid, Valid}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
@@ -13,14 +14,16 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   */
 trait PlaybackController {
   def play(
-    tracks: Tracks,
-    timing: TimingContext,
+    plan: PlaybackPlan,
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit]
   def pause: IO[Unit]
   def resume: IO[Unit]
   def stop: IO[Unit]
-  def replace(tracks: Tracks, timing: TimingContext, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit]
+  def replace(
+    plan: PlaybackPlan,
+    policy: RepeatPolicy = RepeatPolicy.none
+  ): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
 }
 
@@ -52,17 +55,8 @@ private final class LivePlaybackController(
 
   private val stateRef: Ref[IO, PlaybackState] = Ref.unsafe(PlaybackState())
 
-  override def play(
-    tracks: Tracks,
-    timing: TimingContext,
-    policy: RepeatPolicy = RepeatPolicy.none
-  ): IO[Unit] =
-    buildPlan(tracks, timing).flatMap {
-      case Left(err) =>
-        logger.error(s"Playback failed: $err") *> IO.unit
-      case Right(plan) =>
-        start(plan, policy, 0.millis)
-    }
+  override def play(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
+    start(plan, policy, 0.millis)
 
   override def pause: IO[Unit] =
     stateRef.get.flatMap { state =>
@@ -90,30 +84,21 @@ private final class LivePlaybackController(
       }
     } *> stateRef.set(PlaybackState()) *> logger.info("Playback stopped")
 
-  override def replace(
-    tracks: Tracks,
-    timing: TimingContext,
-    policy: RepeatPolicy = RepeatPolicy.none
-  ): IO[Unit] =
+  override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
     stateRef.get.flatMap { state =>
-      buildPlan(tracks, timing).flatMap {
-        case Left(err) =>
-          logger.error(s"Playback replacement failed: $err") *> IO.unit
-        case Right(plan) =>
-          (
-            state.fiber match {
-              case Some(fiber) => fiber.cancel *> stateRef.update(_.copy(fiber = None))
-              case None        => IO.unit
-            }
-          ) *> start(plan, policy, state.elapsed)
-      }
+      (
+        state.fiber match {
+          case Some(fiber) => fiber.cancel *> stateRef.update(_.copy(fiber = None))
+          case None        => IO.unit
+        }
+      ) *> start(plan, policy, state.elapsed)
     }
 
   override def elapsedTime: IO[FiniteDuration] =
     stateRef.get.map(_.elapsed)
 
-  private def buildPlan(tracks: Tracks, timing: TimingContext) =
-    IO.pure(PlaybackPlan.fromCompiledTracks(tracks.toSeq.map(TrackCompiler.compile(_, timing)), timing))
+//  private def buildPlan(tracks: Tracks, timing: TimingContext) =
+//    IO.pure(PlaybackPlan.fromTracks(tracks, timing))
 
   private def start(
     plan: PlaybackPlan,

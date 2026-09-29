@@ -14,36 +14,6 @@ import scala.concurrent.duration.*
 
 class PlaybackServiceSpec extends ScalaCheckSuite {
 
-  test("compiledTrackToAbsoluteEvents keeps successful events") {
-    forAll(PlaybackServiceSpec.genAbsoluteMidiEvents) { events =>
-      val compiled = CompiledTrack(events.map(Right(_)))
-
-      assertEquals(PlaybackPlan.compiledTrackToAbsoluteEvents(compiled), Right(events))
-    }
-  }
-
-  test("compiledTrackToAbsoluteEvents returns the first failure") {
-    val failure = DomainError.PlaybackFailed("boom")
-    val first = AbsoluteMidiEvent(
-      Tick.zero,
-      MidiCommand.NoteOff(
-        Channel.Ch0,
-        PlaybackServiceSpec.valid(MidiValue[NoteTag](60))
-      )
-    )
-    val second = AbsoluteMidiEvent(
-      Tick.zero,
-      MidiCommand.NoteOff(
-        Channel.Ch1,
-        PlaybackServiceSpec.valid(MidiValue[NoteTag](61))
-      )
-    )
-
-    val compiled = CompiledTrack(Vector(Right(first), Left(failure), Right(second)))
-
-    assertEquals(PlaybackPlan.compiledTrackToAbsoluteEvents(compiled), Left(failure))
-  }
-
   property("fromAbsoluteEvents preserves cardinality") {
     forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
       val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
@@ -58,13 +28,13 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
       val times = timed.map(_.event.at.value)
 
       assertEquals(times, times.sorted)
-      assertEquals(timed.map(_.event), events.sortBy(_.at.value))
+      assertEquals(timed.map(_.event), events.sortBy(PlaybackServiceSpec.sortKey))
     }
   }
 
   property("fromAbsoluteEvents computes delay deltas from consecutive timestamps") {
     forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
-      val sorted   = events.sortBy(_.at.value)
+      val sorted   = events.sortBy(PlaybackServiceSpec.sortKey)
       val timed    = TimedEvent.fromAbsoluteEvents(events, timingContext)
       val expected = PlaybackServiceSpec.expectedDelays(sorted, timingContext)
 
@@ -72,19 +42,40 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
     }
   }
 
+  test("fromAbsoluteEvents sorts equal timestamps by command priority") {
+    val at       = PlaybackServiceSpec.valid(Tick.fromInt(480))
+    val channel  = Channel.Ch0
+    val note     = PlaybackServiceSpec.valid(MidiValue[NoteTag](60))
+    val velocity = PlaybackServiceSpec.valid(MidiValue[VelocityTag](100))
+    val bank     = PlaybackServiceSpec.valid(MidiValue[BankTag](1))
+    val program  = PlaybackServiceSpec.valid(MidiValue[ProgramTag](2))
+    val control  = PlaybackServiceSpec.valid(MidiValue[ControlTag](7))
+    val controlV = PlaybackServiceSpec.valid(MidiValue[ControlTag](90))
+    val timing   = PlaybackServiceSpec.valid(TimingContext.from(960, 120))
+
+    val events = Vector(
+      AbsoluteMidiEvent(at, MidiCommand.NoteOff(channel, note)),
+      AbsoluteMidiEvent(at, MidiCommand.ProgramChange(channel, bank, program)),
+      AbsoluteMidiEvent(at, MidiCommand.ControlChange(channel, control, controlV)),
+      AbsoluteMidiEvent(at, MidiCommand.NoteOn(channel, note, velocity))
+    )
+
+    val ordered = TimedEvent.fromAbsoluteEvents(events, timing).map(_.event.command)
+
+    assertEquals(
+      ordered,
+      Vector(
+        MidiCommand.ControlChange(channel, control, controlV),
+        MidiCommand.ProgramChange(channel, bank, program),
+        MidiCommand.NoteOn(channel, note, velocity),
+        MidiCommand.NoteOff(channel, note)
+      )
+    )
+  }
+
   property("fromAbsoluteEvents returns an empty sequence for empty input") {
     forAll(PlaybackServiceSpec.genTimingContext) { timingContext =>
       assertEquals(TimedEvent.fromAbsoluteEvents(Vector.empty, timingContext), Vector.empty)
-    }
-  }
-
-  property("fromCompiledTracks flattens tracks and times the combined events") {
-    forAll(PlaybackServiceSpec.genCompiledTracks, PlaybackServiceSpec.genTimingContext) { (tracks, timingContext) =>
-      val plan      = PlaybackPlan.fromCompiledTracks(tracks, timingContext)
-      val flattened = tracks.flatMap(_.events.collect { case Right(event) => event })
-      val expected  = PlaybackPlan(TimedEvent.fromAbsoluteEvents(flattened, timingContext))
-
-      assertEquals(plan, Right(expected))
     }
   }
 
@@ -122,6 +113,17 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
 }
 
 object PlaybackServiceSpec {
+
+  def sortKey(event: AbsoluteMidiEvent): (Int, Int) =
+    (event.at.value, commandOrder(event.command))
+
+  private def commandOrder(command: MidiCommand): Int =
+    command match {
+      case MidiCommand.ControlChange(_, _, _) => 0
+      case MidiCommand.ProgramChange(_, _, _) => 1
+      case MidiCommand.NoteOn(_, _, _)        => 2
+      case MidiCommand.NoteOff(_, _, _)       => 3
+    }
 
   private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
     case Validated.Valid(value) => value
@@ -164,9 +166,6 @@ object PlaybackServiceSpec {
 
   val genAbsoluteMidiEvents: Gen[Vector[AbsoluteMidiEvent]] =
     Gen.listOf(genAbsoluteMidiEvent).map(_.toVector)
-
-  val genCompiledTracks: Gen[Vector[CompiledTrack]] =
-    Gen.listOf(genAbsoluteMidiEvents.map(events => CompiledTrack(events.map(Right(_))))).map(_.toVector)
 
   def expectedDelays(events: Seq[AbsoluteMidiEvent], timingContext: TimingContext): Vector[FiniteDuration] =
     events

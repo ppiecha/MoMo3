@@ -8,15 +8,15 @@ import cats.syntax.all.*
 
 object TrackCompiler {
 
-  def accumulateTimes(track: Track, timingContext: TimingContext): Seq[ValidatedNec[ValidationError, Tick]] =
+  private def accumulateTimes(track: Track, timingContext: TimingContext): Seq[ValidatedNec[ValidationError, Tick]] =
     Generator
       .parseTicks(track.timeGen, timingContext.ppq)
       .scan(Tick.zero.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _))
 
-  def eventList(
+  def compile(
     track: Track,
     timingContext: TimingContext
-  ): Seq[ValidatedNec[ValidationError, AbsoluteMidiEvent]] = {
+  ): ValidatedNec[ValidationError, Seq[AbsoluteMidiEvent]] = {
     val at       = accumulateTimes(track, timingContext)
     val note     = Generator.parse(track.noteGen, timingContext.ppq)
     val duration = Generator.parseTicks(track.durGen, timingContext.ppq)
@@ -35,19 +35,12 @@ object TrackCompiler {
               AbsoluteMidiEvent(nextAt, NoteOff(track.channel, note))
             )
           }
-
         events.fold(
-          errors => Seq(errors.invalid),
+          errors => Seq(errors.invalid[AbsoluteMidiEvent]),
           { case (on, off) => Seq(on.validNec, off.validNec) }
         )
       }
-  }
-
-  def compile(track: Track, timingContext: TimingContext): CompiledTrack = {
-    CompiledTrack(eventList(track, timingContext).map {
-      case Valid(event)    => Right(event)
-      case Invalid(errors) => Left(DomainError.TrackCompilationFailed(ValidationError.InvalidEvent(errors)))
-    })
+      .sequence
   }
 
 }

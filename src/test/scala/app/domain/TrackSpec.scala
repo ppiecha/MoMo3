@@ -104,16 +104,15 @@ class TrackSpec extends CatsEffectSuite {
     )
 
     val env     = validOrFail(Environment.from(ppq = ppq.value, bpm = bpm.value))
-    val events  = TrackCompiler.compile(oneNoteTrack, env.timingContext).events
+    val events  = TrackCompiler.compile(oneNoteTrack, env.timingContext)
     val channel = Channel.Ch0
     val expectedEvents = List(
       AbsoluteMidiEvent(Tick.zero, MidiCommand.NoteOn(channel, note, velocity)),
       AbsoluteMidiEvent(validOrFail(Tick.fromInt(480)), MidiCommand.NoteOff(channel, note))
     )
 
-    events.toList.sequence match
-      case Left(error)   => fail(s"Expected valid events but got errors: $error")
-      case Right(events) => assertEquals(events, expectedEvents)
-
+    events match
+      case Validated.Invalid(errors) => fail(s"Expected valid events but got errors: $errors")
+      case Validated.Valid(events)   => assertEquals(events, expectedEvents)
   }
 }

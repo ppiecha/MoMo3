@@ -30,16 +30,13 @@ case class Track(
   def muted: Track = {
     this.copy(velGen = Track.velocity(Velocity.Zero).repeat(timeGen.length))
   }
-  
+
   def validatedDuration(duration: Double): ValidatedNec[ValidationError, Track] = {
-    if duration < 0 then 
-      ValidationError.NegativeDuration(duration).invalidNec
-    if timeGen.duration != duration then 
-      ValidationError.DurationMismatch(timeGen.duration, duration).invalidNec
-    else 
-      this.validNec
+    if duration < 0 then ValidationError.NegativeDuration(duration).invalidNec
+    if timeGen.duration != duration then ValidationError.DurationMismatch(timeGen.duration, duration).invalidNec
+    else this.validNec
   }
-  
+
 }
 
 object Track {

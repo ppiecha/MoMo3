@@ -1,19 +1,25 @@
 package app.domain
 
+import app.playback.TrackCompiler
+import cats.data.ValidatedNec
 import cats.syntax.all.*
 
-case class PlaybackPlan(events: Seq[TimedEvent])
+case class PlaybackPlan(events: Seq[TimedEvent]) {
+  def isEmpty: Boolean  = events.isEmpty
+  def nonEmpty: Boolean = events.nonEmpty
+  def size: Int         = events.size
+}
 
 object PlaybackPlan {
-  def compiledTrackToAbsoluteEvents(compiledTrack: CompiledTrack): Either[DomainError, Seq[AbsoluteMidiEvent]] =
-    compiledTrack.events.sequence
 
-  def fromCompiledTracks(
-    compiledTracks: Seq[CompiledTrack],
+  def empty: PlaybackPlan = PlaybackPlan(Seq.empty)
+
+  def fromTracks(
+    tracks: Tracks,
     timingContext: TimingContext
-  ): Either[DomainError, PlaybackPlan] =
-    compiledTracks
-      .traverse(compiledTrackToAbsoluteEvents)
+  ): ValidatedNec[ValidationError, PlaybackPlan] =
+    tracks.toSeq
+      .traverse(track => TrackCompiler.compile(track, timingContext))
       .map(_.flatten)
       .map(events => PlaybackPlan(TimedEvent.fromAbsoluteEvents(events, timingContext)))
 }

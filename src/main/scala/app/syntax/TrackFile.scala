@@ -14,5 +14,3 @@ trait TrackFile {
 
   def apply(): Track
 }
-
-

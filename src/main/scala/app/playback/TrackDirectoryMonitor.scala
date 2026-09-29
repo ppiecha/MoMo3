@@ -1,8 +1,18 @@
 package app.playback
 
-import app.domain.{CompiledTrack, TimingContext, Track, Tracks}
+import app.domain.DomainError.{MusicFileParseFailed, ValidationFailed}
+import app.domain.{
+  AbsoluteMidiEvent,
+  DomainError,
+  PlaybackPlan,
+  TimingContext,
+  Track,
+  Tracks,
+  ValidationError,
+  validationToDomainError
+}
 import cats.data.Validated.{Invalid, Valid}
-import cats.data.ValidatedNec
+import cats.data.{NonEmptyChain, ValidatedNec}
 import cats.effect.{FiberIO, IO, Ref, Resource}
 import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
@@ -16,14 +26,14 @@ import scala.jdk.CollectionConverters.*
   * scan and a rebuild of the active playback.
   */
 trait TrackDirectoryMonitor {
-  def scanOnce: IO[List[Track]]
+  def scanOnce(logErrorsOnly: Boolean = true): IO[PlaybackPlan]
   def start: IO[Unit]
   def stop: IO[Unit]
 }
 
 object TrackDirectoryMonitor {
 
-  type TrackParser = Path => ValidatedNec[String, Track]
+  type TrackParser = Path => ValidatedNec[DomainError, Track]
 
   private[playback] def requiresScan(events: Iterable[WatchEvent[_]]): Boolean =
     events.exists { event =>
@@ -37,7 +47,7 @@ object TrackDirectoryMonitor {
   def live(
     directory: Path,
     parser: TrackParser,
-    compiler: Track => CompiledTrack,
+    compiler: Tracks => ValidatedNec[ValidationError, PlaybackPlan],
     playback: PlaybackController,
     timing: TimingContext,
     musicFile: Option[Path] = None,
@@ -60,7 +70,7 @@ object TrackDirectoryMonitor {
   private final class FileSystemTrackDirectoryMonitor(
     directory: Path,
     parser: TrackParser,
-    compiler: Track => CompiledTrack,
+    compiler: Tracks => ValidatedNec[ValidationError, PlaybackPlan],
     playback: PlaybackController,
     timing: TimingContext,
     musicFile: Option[Path],
@@ -70,69 +80,73 @@ object TrackDirectoryMonitor {
   ) extends TrackDirectoryMonitor {
 
     private val watcherRef: Ref[IO, Option[FiberIO[Unit]]] = Ref.unsafe(None)
-    private val tracksRef: Ref[IO, Vector[Track]]          = Ref.unsafe(Vector.empty)
+    private val tracksRef: Ref[IO, PlaybackPlan]           = Ref.unsafe(PlaybackPlan.empty)
 
-    def logErrors(errors: Seq[String]): IO[Unit] =
-      errors.traverse_(error => logger.error(error))
+    def logErrors(errors: NonEmptyChain[DomainError]): IO[Unit] =
+      errors.traverse_(error => logger.error(error.toString))
 
-    def replaceTracks(tracks: Tracks): IO[Unit] = {
-      if tracks.toSeq.isEmpty then IO.unit
-      else {
-        logger.debug(s"Replacing tracks with ${tracks.toSeq.length} new track(s)") *>
-          playback.replace(tracks, timing, policy)
-      }
-    }
+    private def mapMusicFileErrors[A](path: Path, errors: NonEmptyChain[A]): NonEmptyChain[DomainError] =
+      errors.map(error => MusicFileParseFailed(s"Music file parse failed for $path: $error"))
 
-    private def replaceTracksIfChanged(tracks: Tracks): IO[Unit] = {
-      val next = tracks.toSeq.toVector
+    private def logMusicFileErrors[A](path: Path, errors: NonEmptyChain[A]): IO[Unit] =
+      logErrors(mapMusicFileErrors(path, errors))
+
+    private def replacePlanIfChanged(plan: PlaybackPlan): IO[Unit] = {
       tracksRef.get.flatMap { current =>
-        if (current == next) IO.unit
-        else replaceTracks(tracks) *> tracksRef.set(next)
+        if (current == plan) IO.unit
+        else playback.replace(plan, policy) *> tracksRef.set(plan)
       }
     }
 
-    private def maybeOverrideTracks(parsedTracks: List[Track]): IO[List[Track]] =
+    private def maybeOverridePlan(plan: PlaybackPlan): IO[PlaybackPlan] =
       musicFile match {
-        case None => IO.pure(parsedTracks)
+        case None => logger.debug(s"Music file not found") *> IO.pure(plan)
         case Some(path) =>
           IO.blocking(Files.exists(path)).flatMap {
-            case false => IO.pure(parsedTracks)
+            case false => IO.pure(plan)
             case true =>
               IO.blocking {
-                TrackFileCompiler.compileAndEvaluateFile[Option[Seq[Track]]](
+                TrackFileParser.compileAndEvaluateFile[Option[Seq[Track]]](
                   scalaFile = path.toString,
                   className = "Music",
                   methodName = "music"
                 )
               }.flatMap {
                 case Valid(Some(musicTracks)) if musicTracks.nonEmpty =>
-                  logger.debug(s"Using ${musicTracks.size} track(s) from music file: $path") *>
-                    IO.pure(musicTracks.toList)
-                case Valid(_) => IO.pure(parsedTracks)
+                  Tracks.from(musicTracks).andThen(tracks => PlaybackPlan.fromTracks(tracks, timing)) match {
+                    case Valid(playbackPlan) =>
+                      logger.debug(s"Using ${musicTracks.size} track(s) from music file: $path") *>
+                        IO.pure(playbackPlan)
+                    case Invalid(errors) =>
+                      logMusicFileErrors(path, errors) *>
+                        IO.pure(plan)
+                  }
+                case Valid(_) => IO.pure(plan)
                 case Invalid(errors) =>
-                  logErrors(errors.toList.map(e => s"Music file parse failed for $path: $e")) *>
-                    IO.pure(parsedTracks)
+                  logMusicFileErrors(path, errors) *>
+                    IO.pure(plan)
               }
           }
       }
 
-    override def scanOnce: IO[Seq[Track]] =
-      trackFiles().flatMap { files =>
-        if (files.isEmpty) logger.error(s"No track files found in $directory").as(Seq.empty[Track])
+    override def scanOnce(logErrorsOnly: Boolean = true): IO[PlaybackPlan] =
+      trackFiles().flatMap { paths =>
+        if (paths.isEmpty) logger.error(s"No track files found in $directory").as(PlaybackPlan.empty)
         else
-          files
-            .traverse(loadTrack)
-            .flatMap { results =>
-              val errors = results.collect { case Left(error) => error }
-              val tracks = results.collect { case Right(track) => track }
-
+          (loadTracks(paths) match {
+            case Invalid(errors) =>
               logErrors(errors) *>
-                maybeOverrideTracks(tracks) <*
-                IO.unit
-            }
-            .flatMap { selectedTracks =>
-              replaceTracksIfChanged(selectedTracks) *>
-                IO.pure(selectedTracks)
+                IO.pure(PlaybackPlan.empty)
+            case Valid(plan) =>
+              maybeOverridePlan(plan)
+          })
+            .flatMap { plan =>
+              plan.isEmpty match {
+                case true => logger.error(s"Playback plan is empty after scanning $directory").as(PlaybackPlan.empty)
+                case false =>
+                  if logErrorsOnly then IO.pure(plan)
+                  else replacePlanIfChanged(plan) *> IO.pure(plan)
+              }
             }
       }
 
@@ -159,19 +173,25 @@ object TrackDirectoryMonitor {
             )
       }
 
-    private def loadTrack(path: Path): IO[Either[String, Track]] =
-      IO.blocking {
-        parser(path) match {
-          case Valid(track) =>
-            val events = compiler(track).events
-            if events.forall(_.isRight) then Right(track)
-            else {
-              val errors = events.collect { case Left(error) => error }
-              Left(s"Track compilation failed for $path: ${errors.mkString(", ")}")
-            }
-          case Invalid(errors) => Left(s"Track parse failed for $path: ${errors.toList.mkString(", ")}")
+//    private def loadTrack(path: Path): IO[ValidatedNec[DomainError, CompiledTrack]] =
+//      IO.blocking {
+//        parser(path) match {
+//          case Valid(track) => Valid(compiler(track))
+//          case Invalid(errors) => Invalid(errors)
+//        }
+//      }
+
+    def loadTracks(paths: Seq[Path]): ValidatedNec[DomainError, PlaybackPlan] =
+      paths
+        .map(parser)
+        .sequence
+        .map { tracks =>
+          Tracks.from(tracks).leftMap(validationToDomainError) match {
+            case Valid(tracks)   => compiler(tracks).leftMap(validationToDomainError)
+            case Invalid(errors) => errors.invalid[PlaybackPlan]
+          }
         }
-      }
+        .andThen(identity)
 
     private def watchLoop: IO[Unit] =
       watchServiceResource.use { watchService =>
@@ -190,7 +210,7 @@ object TrackDirectoryMonitor {
       IO.interruptibleMany(watchService.take()).flatMap { key =>
         val shouldScan = requiresScan(key.pollEvents().asScala)
         IO.blocking(key.reset()).void *>
-          (if (shouldScan) IO.sleep(pollInterval) *> discardPendingEvents(watchService) *> scanOnce.void else IO.unit)
+          (if (shouldScan) IO.sleep(pollInterval) *> discardPendingEvents(watchService) *> scanOnce().void else IO.unit)
       }
 
     private def discardPendingEvents(watchService: WatchService): IO[Unit] =
