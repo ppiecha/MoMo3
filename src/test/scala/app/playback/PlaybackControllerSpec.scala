@@ -1,10 +1,10 @@
 package app.playback
 
-import app.domain.*
+import app.domain._
 import app.domain.given
 import munit.FunSuite
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
 class PlaybackControllerSpec extends FunSuite {
 

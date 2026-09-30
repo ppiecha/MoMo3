@@ -1,8 +1,8 @@
 package app.playback
 
-import app.domain.*
-import app.domain.given
-import cats.data.Validated.{Invalid, Valid}
+import app.domain._
+import cats.data.Validated.Invalid
+import cats.data.Validated.Valid
 import munit.FunSuite
 
 class TrackCompilerSpec extends FunSuite {

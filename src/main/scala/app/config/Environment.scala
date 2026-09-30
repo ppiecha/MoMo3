@@ -1,9 +1,9 @@
 package app.config
 
-import app.domain.*
+import app.domain._
 import cats.data.NonEmptyList
-import cats.syntax.all.*
-import pureconfig.*
+import cats.syntax.all._
+import pureconfig._
 
 case class TimingConfig(
   bpm: Int = 60,

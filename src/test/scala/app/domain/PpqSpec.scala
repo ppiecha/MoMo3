@@ -1,10 +1,10 @@
 package app.domain
 
-import munit.{FunSuite, ScalaCheckSuite}
-import org.scalacheck.Prop.*
-import org.scalacheck.Gen
 import cats.data.ValidatedNec
-import cats.syntax.all.*
+import munit.FunSuite
+import munit.ScalaCheckSuite
+import org.scalacheck.Gen
+import org.scalacheck.Prop._
 
 class PpqSpec extends FunSuite with ScalaCheckSuite {
 

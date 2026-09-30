@@ -1,6 +1,8 @@
 package app.syntax
 import app.domain.Track
-import cats.data.{NonEmptyChain, Validated, ValidatedNec}
+import cats.data.NonEmptyChain
+import cats.data.Validated
+import cats.data.ValidatedNec
 
 trait TrackFile {
   def playWrapper: ValidatedNec[String, Track] =

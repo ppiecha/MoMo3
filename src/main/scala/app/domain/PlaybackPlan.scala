@@ -2,7 +2,7 @@ package app.domain
 
 import app.playback.TrackCompiler
 import cats.data.ValidatedNec
-import cats.syntax.all.*
+import cats.syntax.all._
 
 case class PlaybackPlan(events: Seq[TimedEvent]) {
   def isEmpty: Boolean  = events.isEmpty

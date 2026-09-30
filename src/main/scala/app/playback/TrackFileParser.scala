@@ -1,16 +1,20 @@
 package app.playback
 
-import app.domain.{DomainError, Track}
-import cats.data.{NonEmptyChain, Validated, ValidatedNec}
-import dotty.tools.dotc.*
-import dotty.tools.dotc.reporting.*
-import dotty.tools.dotc.core.Contexts.*
-import cats.syntax.all.*
+import app.domain.DomainError
+import app.domain.Track
+import cats.data.NonEmptyChain
+import cats.data.Validated
+import cats.data.ValidatedNec
+import cats.syntax.all._
+import dotty.tools.dotc._
+import dotty.tools.dotc.core.Contexts._
+import dotty.tools.dotc.reporting._
 
-import java.nio.file.{Files, Path, Paths}
-import scala.reflect.Typeable
-import scala.compiletime.summonFrom
+import java.nio.file.Files
+import java.nio.file.Path
 import scala.compiletime.error
+import scala.compiletime.summonFrom
+import scala.reflect.Typeable
 
 object TrackFileParser {
 

@@ -1,8 +1,10 @@
 package app.playback
 
-import app.domain.{AbsoluteMidiEvent, PlaybackPlan, TimedEvent}
+import app.domain.AbsoluteMidiEvent
+import app.domain.PlaybackPlan
+import app.domain.TimedEvent
 import cats.effect.Temporal
-import cats.syntax.all.*
+import cats.syntax.all._
 
 import scala.concurrent.duration.FiniteDuration
 

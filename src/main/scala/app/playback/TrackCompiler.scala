@@ -1,10 +1,9 @@
 package app.playback
 
-import app.domain.*
-import app.domain.MidiCommand.*
-import cats.data.Validated.{Invalid, Valid}
+import app.domain.MidiCommand._
+import app.domain._
 import cats.data.ValidatedNec
-import cats.syntax.all.*
+import cats.syntax.all._
 
 object TrackCompiler {
 

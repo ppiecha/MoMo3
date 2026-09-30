@@ -1,7 +1,8 @@
 package app.domain
 
-import cats.data.{NonEmptyChain, NonEmptyList}
-import cats.syntax.all.*
+import cats.data.NonEmptyChain
+import cats.data.NonEmptyList
+import cats.syntax.all._
 
 def validationToDomainError(errors: NonEmptyChain[ValidationError]): NonEmptyChain[DomainError] =
   errors.map(ve => DomainError.ValidationFailed(ve))

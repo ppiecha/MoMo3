@@ -1,6 +1,6 @@
 package app.domain
 
-import app.domain.Track.*
+import app.domain.Track._
 
 object TestTracks {
 

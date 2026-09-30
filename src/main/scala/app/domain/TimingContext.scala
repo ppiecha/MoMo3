@@ -1,8 +1,9 @@
 package app.domain
 
-import app.domain.{Bpm, Ppq, ValidationError}
+import app.domain.Bpm
+import app.domain.Ppq
+import app.domain.ValidationError
 import cats.data.ValidatedNec
-import cats.syntax.all.*
 
 case class TimingContext private (bpm: Bpm, ppq: Ppq = Ppq.DEFAULT_PPQ)
 

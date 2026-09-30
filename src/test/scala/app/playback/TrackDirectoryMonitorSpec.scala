@@ -1,16 +1,20 @@
 package app.playback
 
-import app.domain.*
+import app.domain._
 import app.domain.given
 import app.playback.TrackFileParser.classNameFromFilePath
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Invalid
+import cats.data.Validated.Valid
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import cats.syntax.all.*
+import cats.syntax.all._
 import munit.FunSuite
 
-import java.nio.file.{Files, Path, StandardWatchEventKinds, WatchEvent}
-import scala.concurrent.duration.*
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardWatchEventKinds
+import java.nio.file.WatchEvent
+import scala.concurrent.duration._
 
 class TrackDirectoryMonitorSpec extends FunSuite {
 

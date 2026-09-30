@@ -1,7 +1,8 @@
 package app.domain
 
-import cats.data.{Validated, ValidatedNec}
-import cats.syntax.all.*
+import cats.data.Validated
+import cats.data.ValidatedNec
+import cats.syntax.all._
 
 opaque type Tracks = Seq[Track]
 

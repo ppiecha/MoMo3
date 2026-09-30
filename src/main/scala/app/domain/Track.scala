@@ -2,11 +2,9 @@ package app.domain
 
 import app.domain.Generator
 import app.domain.Generator._
-import cats.data.Validated.{Invalid, Valid}
-import cats.syntax.validated.*
 import app.domain.ValidationError
-import cats.data.{NonEmptyList, ValidatedNec}
-import app.syntax.Conversions.*
+import cats.data.ValidatedNec
+import cats.syntax.validated._
 
 case class Track(
   timeGen: TimeGen,

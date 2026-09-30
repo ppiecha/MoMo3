@@ -1,10 +1,11 @@
 package app.domain
 
-import munit.{FunSuite, ScalaCheckSuite}
-import org.scalacheck.Prop.*
-import org.scalacheck.Gen
+import app.domain._
 import cats.data.ValidatedNec
-import app.domain.*
+import munit.FunSuite
+import munit.ScalaCheckSuite
+import org.scalacheck.Gen
+import org.scalacheck.Prop._
 
 class MidiValueSpec extends FunSuite with ScalaCheckSuite {
 

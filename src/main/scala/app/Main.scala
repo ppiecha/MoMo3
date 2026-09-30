@@ -4,19 +4,21 @@ import app.config.Environment
 import app.domain.PlaybackPlan
 import app.midi.ReactiveSynth
 import app.midi.toMidiMessages
-import app.playback.{PlaybackController, RepeatPolicy, TrackDirectoryMonitor, TrackFileParser}
+import app.playback.PlaybackController
+import app.playback.RepeatPolicy
+import app.playback.TrackDirectoryMonitor
+import app.playback.TrackFileParser
 import cats.data.EitherT
-import cats.effect.{ExitCode, IO, IOApp}
-import cats.syntax.all.*
+import cats.effect.ExitCode
+import cats.effect.IO
+import cats.effect.IOApp
+import cats.syntax.all._
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import scala.util.Random // nieużywany
 
 import java.nio.file.Paths
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
 object Main extends IOApp {
-
-  private val DemoDirName = "demo-tracks"
 
   override def run(args: List[String]): IO[ExitCode] = {
     val logger = Slf4jLogger.getLogger[IO]

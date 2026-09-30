@@ -1,13 +1,15 @@
 package app.playback
 
-import app.domain.{AbsoluteMidiEvent, DomainError, PlaybackPlan, TimingContext, Track, Tracks}
-import cats.effect.{FiberIO, IO, Ref}
-import cats.syntax.all.*
+import app.domain.AbsoluteMidiEvent
+import app.domain.PlaybackPlan
+import cats.effect.FiberIO
+import cats.effect.IO
+import cats.effect.Ref
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import cats.data.Validated.{Invalid, Valid}
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 
 /** High-level playback control for start, pause, resume, stop and replacing the current plan with a freshly compiled
   * set of tracks.

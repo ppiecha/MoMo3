@@ -1,12 +1,16 @@
 package app.midi
 
-import cats.effect.*
-import cats.syntax.all.*
-
-import javax.sound.midi.{MidiDevice, MidiSystem, Receiver, ShortMessage}
-import app.config.{Environment, MidiOutputConfig}
-import app.domain.{DomainError, ValidationError}
+import app.config.MidiOutputConfig
+import app.domain.DomainError
+import app.domain.ValidationError
 import cats.data.EitherT
+import cats.effect._
+import cats.syntax.all._
+
+import javax.sound.midi.MidiDevice
+import javax.sound.midi.MidiSystem
+import javax.sound.midi.Receiver
+import javax.sound.midi.ShortMessage
 
 object ReactiveSynth {
 

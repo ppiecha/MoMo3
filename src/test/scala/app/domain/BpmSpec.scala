@@ -1,10 +1,9 @@
 package app.domain
 
-import munit.{FunSuite, ScalaCheckSuite}
-import org.scalacheck.Prop.*
+import munit.FunSuite
+import munit.ScalaCheckSuite
 import org.scalacheck.Gen
-import cats.data.ValidatedNec
-import cats.syntax.all.*
+import org.scalacheck.Prop._
 
 class BpmSpec extends FunSuite with ScalaCheckSuite {
 

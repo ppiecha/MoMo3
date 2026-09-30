@@ -1,16 +1,16 @@
 package app.playback
 
-import app.domain.{*, given}
+import app.domain.{_, given}
+import cats.data.Validated
 import cats.effect.IO
 import cats.effect.Ref
 import cats.effect.testkit.TestControl
 import cats.effect.unsafe.implicits.global
-import cats.data.Validated
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
 class PlaybackServiceSpec extends ScalaCheckSuite {
 

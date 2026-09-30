@@ -1,7 +1,7 @@
 package app.domain
 
 import cats.data.ValidatedNec
-import cats.syntax.all.*
+import cats.syntax.all._
 
 opaque type Ppq = Int
 object Ppq {

@@ -1,6 +1,7 @@
 package app.domain
 
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Invalid
+import cats.data.Validated.Valid
 import munit.FunSuite
 
 class TracksSpec extends FunSuite {

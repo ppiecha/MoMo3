@@ -1,12 +1,14 @@
 package app.domain
 
-import munit.CatsEffectSuite
-import TestTracks.*
 import app.config.Environment
-import app.domain.*
-import cats.data.{Validated, ValidatedNec}
-import cats.syntax.all.*
+import app.domain._
 import app.playback.TrackCompiler
+import cats.data.Validated
+import cats.data.ValidatedNec
+import cats.syntax.all._
+import munit.CatsEffectSuite
+
+import TestTracks._
 
 class TrackSpec extends CatsEffectSuite {
 

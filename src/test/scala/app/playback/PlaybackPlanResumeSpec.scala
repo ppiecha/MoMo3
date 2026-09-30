@@ -1,11 +1,12 @@
 package app.playback
 
-import app.domain.*
+import app.domain._
 import app.domain.given
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Invalid
+import cats.data.Validated.Valid
 import munit.FunSuite
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
 class PlaybackPlanResumeSpec extends FunSuite {
 

@@ -1,26 +1,32 @@
 package app.playback
 
-import app.domain.DomainError.{MusicFileParseFailed, ValidationFailed}
-import app.domain.{
-  AbsoluteMidiEvent,
-  DomainError,
-  PlaybackPlan,
-  TimingContext,
-  Track,
-  Tracks,
-  ValidationError,
-  validationToDomainError
-}
-import cats.data.Validated.{Invalid, Valid}
-import cats.data.{NonEmptyChain, ValidatedNec}
-import cats.effect.{FiberIO, IO, Ref, Resource}
-import cats.syntax.all.*
+import app.domain.DomainError
+import app.domain.DomainError.MusicFileParseFailed
+import app.domain.PlaybackPlan
+import app.domain.TimingContext
+import app.domain.Track
+import app.domain.Tracks
+import app.domain.ValidationError
+import app.domain.validationToDomainError
+import cats.data.NonEmptyChain
+import cats.data.Validated.Invalid
+import cats.data.Validated.Valid
+import cats.data.ValidatedNec
+import cats.effect.FiberIO
+import cats.effect.IO
+import cats.effect.Ref
+import cats.effect.Resource
+import cats.syntax.all._
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-import java.nio.file.{Files, Path, StandardWatchEventKinds, WatchEvent, WatchService}
-import scala.concurrent.duration.*
-import scala.jdk.CollectionConverters.*
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardWatchEventKinds
+import java.nio.file.WatchEvent
+import java.nio.file.WatchService
+import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
 
 /** Watches a directory containing Scala track definitions. A new file, a deletion, or a modification triggers a full
   * scan and a rebuild of the active playback.
