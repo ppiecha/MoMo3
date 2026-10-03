@@ -17,7 +17,7 @@ class TrackCompilerSpec extends FunSuite {
       case Valid(_) =>
         fail("Expected validation failure for invalid MIDI note")
       case Invalid(errors) =>
-        assert(errors.toChain.toList.contains(ValidationError.InvalidMidiValue(200)))
+        assert(errors.toChain.toList.contains(DomainError.InvalidMidiValue(200)))
     }
   }
 
@@ -42,7 +42,7 @@ class TrackCompilerSpec extends FunSuite {
     }
   }
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(errors) =>
       throw new IllegalStateException(s"Invalid test value: ${errors.toChain.toList.mkString(", ")}")

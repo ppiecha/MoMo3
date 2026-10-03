@@ -7,14 +7,14 @@ import scala.concurrent.duration._
 
 opaque type Tick = Int
 object Tick {
-  def fromInt(value: Int): ValidatedNec[ValidationError, Tick] =
-    if value >= 0 then value.validNec[ValidationError]
-    else ValidationError.InvalidTick(value).invalidNec[Tick]
+  def fromInt(value: Int): ValidatedNec[DomainError, Tick] =
+    if value >= 0 then value.validNec[DomainError]
+    else DomainError.InvalidTick(value).invalidNec[Tick]
 
-  def fromDouble(d: Double, ppq: Ppq): ValidatedNec[ValidationError, Tick] =
+  def fromDouble(d: Double, ppq: Ppq): ValidatedNec[DomainError, Tick] =
     val value = if d == 0.0 then 0L else ((ppq.value.toDouble * 4) / d).toLong
     if value >= 0 then Tick.fromInt(value.toInt)
-    else ValidationError.InvalidTick(value.toInt).invalidNec[Tick]
+    else DomainError.InvalidTick(value.toInt).invalidNec[Tick]
 
   val zero: Tick = 0
 

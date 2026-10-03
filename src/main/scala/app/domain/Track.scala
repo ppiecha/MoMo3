@@ -2,9 +2,9 @@ package app.domain
 
 import app.domain.Generator
 import app.domain.Generator._
-import app.domain.ValidationError
-import cats.data.ValidatedNec
-import cats.syntax.validated._
+import cats.data.Ior
+import cats.data.IorNec
+import cats.data.{NonEmptyChain => NEC}
 
 case class Track(
   timeGen: TimeGen,
@@ -29,10 +29,11 @@ case class Track(
     this.copy(velGen = Track.velocity(Velocity.Zero).repeat(timeGen.length))
   }
 
-  def validatedDuration(duration: Double): ValidatedNec[ValidationError, Track] = {
-    if duration < 0 then ValidationError.NegativeDuration(duration).invalidNec
-    if timeGen.duration != duration then ValidationError.DurationMismatch(timeGen.duration, duration).invalidNec
-    else this.validNec
+  def compareDuration(duration: Double): IorNec[DomainError, Track] = {
+    if duration < 0 then Ior.Left(NEC.one(DomainError.NegativeDuration(duration)))
+    else if timeGen.duration != duration then
+      Ior.Left(NEC.one(DomainError.DurationMismatch(timeGen.duration, duration)))
+    else Ior.Right(this)
   }
 
 }

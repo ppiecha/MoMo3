@@ -41,7 +41,7 @@ object Environment {
       .from(ppq, bpm)
       .map(tc => Environment(tc, input, synthConfig, midiOutputConfig, midiConfig, pathsConfig))
       .toEither
-      .leftMap(errors => DomainError.ValidationFailed(ValidationError.InvalidConfig(errors.toNonEmptyList)))
+      .leftMap(errors => DomainError.InvalidConfig(errors.toNonEmptyList))
   }
 
   def fromConfig(
@@ -67,10 +67,8 @@ object Environment {
       case Right(config) => fromConfig(config, input)
       case Left(failures) =>
         Left(
-          DomainError.ValidationFailed(
-            ValidationError.InvalidConfig(
-              NonEmptyList.of(ValidationError.InvalidMessage(failures.prettyPrint()))
-            )
+          DomainError.InvalidConfig(
+            NonEmptyList.of(DomainError.InvalidMessage(failures.prettyPrint()))
           )
         )
     }

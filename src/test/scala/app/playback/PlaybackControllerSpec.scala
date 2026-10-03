@@ -27,7 +27,7 @@ class PlaybackControllerSpec extends FunSuite {
     assertEquals(PlaybackController.nextRepeat(fullReplacementPlan, RepeatPolicy.none), None)
   }
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case cats.data.Validated.Valid(value) => value
     case cats.data.Validated.Invalid(errors) =>
       throw new IllegalStateException(s"Invalid test value: ${errors.toChain.toList.mkString(", ")}")

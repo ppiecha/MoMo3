@@ -266,7 +266,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assertEquals(extractFirstNoteFromPlan(harness.replaceCalls.last), 38)
   }
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(_)   => throw new IllegalStateException("invalid test value")
   }
@@ -274,16 +274,12 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   private def writeMusic(path: Path, note: Int): Unit =
     Files.writeString(
       path,
-      s"""import app.domain.*
-         |import app.domain.Track.*
-         |import app.syntax.TrackFile
-         |
-         |object ${classNameFromFilePath(path)} extends TrackFile {
-         |  given Channel = Channel.Ch0
-         |  def apply(): Track = track(
-         |    timeGen = time(1),
-         |    durGen = duration(1),
-         |    noteGen = note($note)
+      s"""object ${classNameFromFilePath(path)} extends app.syntax.TrackFile {
+         |  given app.domain.Channel = app.domain.Channel.Ch0
+         |  def apply(): app.domain.Track = app.domain.Track.track(
+         |    timeGen = app.domain.Track.time(1),
+         |    durGen = app.domain.Track.duration(1),
+         |    noteGen = app.domain.Track.note($note)
          |  )
          |}
          |""".stripMargin
@@ -292,18 +288,15 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   private def writeMusicCollection(path: Path, notes: List[Int]): Unit = {
     val noteTracks = notes
       .map { note =>
-        s"track(timeGen = time(1), durGen = duration(1), noteGen = note($note))"
+        s"app.domain.Track.track(timeGen = app.domain.Track.time(1), durGen = app.domain.Track.duration(1), noteGen = app.domain.Track.note($note))"
       }
       .mkString(",\n      ")
 
     Files.writeString(
       path,
-      s"""import app.domain.*
-         |import app.domain.Track.*
-         |
-         |object Music {
-         |  given Channel = Channel.Ch0
-         |  def music: Option[Seq[Track]] = Some(Seq(
+      s"""object Music {
+        |  given app.domain.Channel = app.domain.Channel.Ch0
+        |  def music: Option[Seq[app.domain.Track]] = Some(Seq(
          |      $noteTracks
          |  ))
          |}
@@ -314,12 +307,9 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   private def writeEmptyMusicCollection(path: Path): Unit =
     Files.writeString(
       path,
-      s"""import app.domain.*
-         |import app.domain.Track.*
-         |
-         |object Music {
-         |  given Channel = Channel.Ch0
-         |  def music: Option[Seq[Track]] = Some(Seq.empty)
+      s"""object Music {
+         |  given app.domain.Channel = app.domain.Channel.Ch0
+         |  def music: Option[Seq[app.domain.Track]] = Some(Seq.empty)
          |}
          |""".stripMargin
     )

@@ -17,24 +17,24 @@ class PpqSpec extends FunSuite with ScalaCheckSuite {
   }
 
   test("Ppq.from should accept positive values") {
-    val result: ValidatedNec[ValidationError, Ppq] = Ppq.from(480)
+    val result: ValidatedNec[DomainError, Ppq] = Ppq.from(480)
     assert(result.isValid)
     assertEquals(result.map(_.value).getOrElse(-1), 480)
   }
 
   test("Ppq.from should reject zero") {
-    val result: ValidatedNec[ValidationError, Ppq] = Ppq.from(0)
+    val result: ValidatedNec[DomainError, Ppq] = Ppq.from(0)
     assert(result.isInvalid)
   }
 
   test("Ppq.from should reject negative values") {
-    val result: ValidatedNec[ValidationError, Ppq] = Ppq.from(-480)
+    val result: ValidatedNec[DomainError, Ppq] = Ppq.from(-480)
     assert(result.isInvalid)
   }
 
   property("Ppq.from accepts all positive values") {
     forAll(Gen.choose(1, 10000)) { value =>
-      val result: ValidatedNec[ValidationError, Ppq] = Ppq.from(value)
+      val result: ValidatedNec[DomainError, Ppq] = Ppq.from(value)
       assert(result.isValid)
       assertEquals(result.map(_.value).getOrElse(-1), value)
     }
@@ -42,7 +42,7 @@ class PpqSpec extends FunSuite with ScalaCheckSuite {
 
   property("Ppq.from rejects all non-positive values") {
     forAll(Gen.choose(Int.MinValue, 0)) { value =>
-      val result: ValidatedNec[ValidationError, Ppq] = Ppq.from(value)
+      val result: ValidatedNec[DomainError, Ppq] = Ppq.from(value)
       assert(result.isInvalid)
     }
   }

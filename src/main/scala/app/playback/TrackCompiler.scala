@@ -7,15 +7,15 @@ import cats.syntax.all._
 
 object TrackCompiler {
 
-  private def accumulateTimes(track: Track, timingContext: TimingContext): Seq[ValidatedNec[ValidationError, Tick]] =
+  private def accumulateTimes(track: Track, timingContext: TimingContext): Seq[ValidatedNec[DomainError, Tick]] =
     Generator
       .parseTicks(track.timeGen, timingContext.ppq)
-      .scan(Tick.zero.validNec[ValidationError])((acc, tick) => (acc, tick).mapN(_ + _))
+      .scan(Tick.zero.validNec[DomainError])((acc, tick) => (acc, tick).mapN(_ + _))
 
   def compile(
     track: Track,
     timingContext: TimingContext
-  ): ValidatedNec[ValidationError, Seq[AbsoluteMidiEvent]] = {
+  ): ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] = {
     val at       = accumulateTimes(track, timingContext)
     val note     = Generator.parse(track.noteGen, timingContext.ppq)
     val duration = Generator.parseTicks(track.durGen, timingContext.ppq)
@@ -26,7 +26,7 @@ object TrackCompiler {
       .zip(duration)
       .zip(velocity)
       .flatMap { case (((t, n), d), v) =>
-        val events: ValidatedNec[ValidationError, (AbsoluteMidiEvent, AbsoluteMidiEvent)] =
+        val events: ValidatedNec[DomainError, (AbsoluteMidiEvent, AbsoluteMidiEvent)] =
           (t, n, d, v).mapN { (at, note, duration, velocity) =>
             val nextAt = at + duration
             (

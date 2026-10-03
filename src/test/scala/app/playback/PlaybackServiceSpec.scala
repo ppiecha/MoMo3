@@ -125,7 +125,7 @@ object PlaybackServiceSpec {
       case MidiCommand.NoteOff(_, _, _)       => 3
     }
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Validated.Valid(value) => value
     case Validated.Invalid(errors) =>
       throw new IllegalStateException(s"Generated invalid value: $errors")

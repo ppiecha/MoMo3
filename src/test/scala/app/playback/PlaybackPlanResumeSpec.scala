@@ -41,7 +41,7 @@ class PlaybackPlanResumeSpec extends FunSuite {
   private def velocity(value: Int): Velocity = valid(MidiValue[VelocityTag](value))
   private def tick(value: Int): Tick         = valid(Tick.fromInt(value))
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(errors) =>
       throw new IllegalStateException(s"Invalid test value: ${errors.toChain.toList.mkString(", ")}")

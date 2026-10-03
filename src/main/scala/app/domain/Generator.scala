@@ -36,13 +36,13 @@ enum Generator[A]:
 
 object Generator {
 
-  def parse[A](seq: Generator[A], ppq: Ppq): Seq[ValidatedNec[ValidationError, A]] =
+  def parse[A](seq: Generator[A], ppq: Ppq): Seq[ValidatedNec[DomainError, A]] =
     seq match {
       case NoteGen(s)     => s.map(MidiValue[NoteTag])
       case VelocityGen(s) => s.map(MidiValue[VelocityTag])
     }
 
-  def parseTicks(seq: TickGenerator, ppq: Ppq): Seq[ValidatedNec[ValidationError, Tick]] =
+  def parseTicks(seq: TickGenerator, ppq: Ppq): Seq[ValidatedNec[DomainError, Tick]] =
     seq.values.map(d => Tick.fromDouble(d, ppq))
 
 }

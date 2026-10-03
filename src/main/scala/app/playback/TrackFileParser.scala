@@ -10,6 +10,9 @@ import dotty.tools.dotc._
 import dotty.tools.dotc.core.Contexts._
 import dotty.tools.dotc.reporting._
 
+import java.io.File
+import java.net.URL
+import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
 import scala.compiletime.error
@@ -17,6 +20,62 @@ import scala.compiletime.summonFrom
 import scala.reflect.Typeable
 
 object TrackFileParser {
+
+  private val pathSeparator: String = File.pathSeparator
+
+  private def urlToClasspathEntry(url: URL): Option[String] =
+    if url.getProtocol == "file" then scala.util.Try(Path.of(url.toURI).toString).toOption
+    else None
+
+  private def classLocation(clazz: Class[?]): Option[String] =
+    Option(clazz.getProtectionDomain)
+      .flatMap(pd => Option(pd.getCodeSource))
+      .flatMap(cs => Option(cs.getLocation))
+      .flatMap(urlToClasspathEntry)
+
+  private def classLoaderEntries(loader: ClassLoader): List[String] = {
+    def loop(current: ClassLoader): List[String] =
+      if current == null then Nil
+      else {
+        val here = current match
+          case urlLoader: URLClassLoader => urlLoader.getURLs.toList.flatMap(urlToClasspathEntry)
+          case _                         => Nil
+        here ++ loop(current.getParent)
+      }
+
+    loop(loader)
+  }
+
+  private def resolvedClasspath(): String = {
+    val fromProperty =
+      sys.props
+        .get("java.class.path")
+        .toList
+        .flatMap(_.split(pathSeparator).toList)
+        .filter(_.nonEmpty)
+
+    val fromClassLoaders =
+      classLoaderEntries(Thread.currentThread().getContextClassLoader) ++
+        classLoaderEntries(getClass.getClassLoader)
+
+    val anchors = List(
+      classLocation(classOf[Track]),
+      classLocation(classOf[app.syntax.TrackFile]),
+      classLocation(classOf[cats.data.Validated[?, ?]]),
+      classLocation(classOf[scala.deriving.Mirror]),
+      classLocation(classOf[scala.collection.immutable.List[?]]),
+      classLocation(classOf[dotty.tools.dotc.Driver])
+    ).flatten
+
+    val primary =
+      (fromClassLoaders ++ anchors).distinct
+
+    val fallback =
+      fromProperty.distinct
+
+    val entries = if primary.nonEmpty then primary else fallback
+    entries.mkString(pathSeparator)
+  }
 
   def classNameFromFilePath(path: Path): String = {
     val fileName = path.getFileName.toString
@@ -30,7 +89,7 @@ object TrackFileParser {
   def compileFile(
     scalaFile: String,
     outDir: String,
-    classpath: String = sys.props("java.class.path")
+    classpath: String = resolvedClasspath()
   ): ValidatedNec[DomainError, String] = {
 
     val reporter = new StoreReporter()
@@ -98,7 +157,7 @@ object TrackFileParser {
     scalaFile: String,
     className: String,
     methodName: String,
-    classpath: String = sys.props("java.class.path")
+    classpath: String = resolvedClasspath()
   )(using Typeable[A]): ValidatedNec[DomainError, A] = {
     requireTypeable[A]
     val tempDir = Files.createTempDirectory("track-compile").toString

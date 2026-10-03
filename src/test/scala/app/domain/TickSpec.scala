@@ -31,7 +31,7 @@ class TickSpec extends FunSuite with ScalaCheckSuite {
         val validated =
           Tick.fromDouble(4d / 3, env.timingContext.ppq).map(_.toMillis(env.timingContext.ppq, env.timingContext.bpm))
         assert(validated.isValid)
-        assertEquals(validated, 3.seconds.validNec[ValidationError])
+        assertEquals(validated, 3.seconds.validNec[DomainError])
       case Left(err) => fail(s"Environment creation failed with errors: $err")
     }
   }

@@ -19,7 +19,7 @@ class TrackSpec extends CatsEffectSuite {
     case Left(errors) => fail(s"Expected valid value but got errors: $errors")
   }
 
-  def validOrFail[A](validated: ValidatedNec[ValidationError, A]): A = validated match {
+  def validOrFail[A](validated: ValidatedNec[DomainError, A]): A = validated match {
     case Validated.Valid(value)    => value
     case Validated.Invalid(errors) => fail(s"Expected valid value but got errors: $errors")
   }

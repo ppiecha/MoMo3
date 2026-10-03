@@ -2,7 +2,6 @@ package app.midi
 
 import app.config.MidiOutputConfig
 import app.domain.DomainError
-import app.domain.ValidationError
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.all._
@@ -67,8 +66,7 @@ object ReactiveSynth {
           infos
             .map(MidiSystem.getMidiDevice)
             .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
-
-        maybeDevice.toRight(DomainError.ValidationFailed(ValidationError.InvalidPort(portName)))
+        maybeDevice.toRight(DomainError.InvalidPort(portName))
       }
 
   def outputResource[F[_]: Async](
