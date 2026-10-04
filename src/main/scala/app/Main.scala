@@ -52,7 +52,7 @@ object Main extends IOApp {
 
               EitherT.liftF(
                 for {
-                  _ <- monitor.scanOnce(true) // TODO logerrorsonly
+                  _ <- monitor.scanOnce(false) // TODO logerrorsonly
                   _ <- monitor.start
                   _ <- IO.never
                 } yield ()

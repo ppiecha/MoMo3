@@ -109,15 +109,16 @@ object TrackDirectoryMonitor {
       }
     }
 
-    private def maybeOverridePlan(
-      plan: PlaybackPlan,
-      trackSourceFiles: Seq[Path]
-    ): IO[IorNec[DomainError, PlaybackPlan]] =
+    private def loadPlanFromTracks(trackSourceFiles: Seq[Path]): IO[IorNec[DomainError, PlaybackPlan]] =
+      if (trackSourceFiles.isEmpty) IO.pure(Ior.left(NonEmptyChain.one(DomainError.EmptyTracks)))
+      else parseTracksWithLogs(trackSourceFiles).map(loadTracks)
+
+    private def loadPlanFromMusic(trackSourceFiles: Seq[Path]): IO[IorNec[DomainError, PlaybackPlan]] =
       musicFile match {
-        case None => logger.debug(s"Music file not found") *> IO.pure(Ior.right(plan))
+        case None => loadPlanFromTracks(trackSourceFiles)
         case Some(path) =>
           IO.blocking(Files.exists(path)).flatMap {
-            case false => IO.pure(Ior.right(plan))
+            case false => loadPlanFromTracks(trackSourceFiles)
             case true =>
               IO.blocking {
                 TrackFileParser.compileAndEvaluateFile[Option[Seq[Track]]](
@@ -134,28 +135,36 @@ object TrackDirectoryMonitor {
                       .map(tracks => PlaybackPlan.fromTracks(tracks, timing))
                       .flatten
                   }
-                case Valid(_)        => IO.pure(Ior.right(plan))
-                case Invalid(errors) => IO.pure(Ior.both(errors, plan))
+                case Valid(_) =>
+                  loadPlanFromTracks(trackSourceFiles)
+                case Invalid(musicErrors) =>
+                  loadPlanFromTracks(trackSourceFiles).map {
+                    case Ior.Left(trackErrors)       => Ior.left(musicErrors ++ trackErrors)
+                    case Ior.Right(plan)             => Ior.both(musicErrors, plan)
+                    case Ior.Both(trackErrors, plan) => Ior.both(musicErrors ++ trackErrors, plan)
+                  }
               }
           }
       }
 
     override def scanOnce(logErrorsOnly: Boolean = true): IO[PlaybackPlan] =
-      trackFiles().flatMap { paths =>
-        if (paths.isEmpty) logger.error(s"No track files found in $directory").as(PlaybackPlan.empty)
-        else
-          parseTracksWithLogs(paths)
-            .map(loadTracks)
-            .flatMap(iorPlan => iorPlan.map(plan => maybeOverridePlan(plan, paths)).sequenceIO.map(_.flatten))
-            .flatMap { iorPlan =>
-              if logErrorsOnly then IO.pure(iorPlan)
-              else iorPlan.map(plan => replacePlanIfChanged(plan)).sequenceIO.map(_.flatten)
-            }
-            .flatMap {
-              case Ior.Left(errors)       => logErrors(errors).as(PlaybackPlan.empty)
-              case Ior.Right(plan)        => IO.pure(plan)
-              case Ior.Both(errors, plan) => logErrors(errors).as(plan)
-            }
+      trackFiles().flatMap { trackSources =>
+        val loadPlan =
+          musicFile match {
+            case Some(_) => loadPlanFromMusic(trackSources)
+            case None    => loadPlanFromTracks(trackSources)
+          }
+
+        loadPlan
+          .flatMap { iorPlan =>
+            if logErrorsOnly then IO.pure(iorPlan)
+            else iorPlan.map(plan => replacePlanIfChanged(plan)).sequenceIO.map(_.flatten)
+          }
+          .flatMap {
+            case Ior.Left(errors)       => logErrors(errors).as(PlaybackPlan.empty)
+            case Ior.Right(plan)        => IO.pure(plan)
+            case Ior.Both(errors, plan) => logErrors(errors).as(plan)
+          }
       }
 
     override def start: IO[Unit] =
@@ -182,6 +191,7 @@ object TrackDirectoryMonitor {
                   .filter(Files.isRegularFile(_))
                   .filter(isScalaFile)
                   .filterNot(isConfiguredMusicFile)
+                  .filterNot(isMusicDefinitionFile)
                   .toSeq
               )
             )
@@ -191,6 +201,9 @@ object TrackDirectoryMonitor {
       musicFile.exists(configured =>
         path.toAbsolutePath.normalize() == configured.toAbsolutePath.normalize()
       )
+
+    private def isMusicDefinitionFile(path: Path): Boolean =
+      path.getFileName.toString.equalsIgnoreCase("Music.scala")
 
     def loadTracks(parsedTracks: Seq[ValidatedNec[DomainError, Track]]): IorNec[DomainError, PlaybackPlan] =
       val (parseErrors, validTracks) = parsedTracks.foldLeft((List.empty[DomainError], Vector.empty[Track])) {

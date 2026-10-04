@@ -14,6 +14,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchEvent
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
 class TrackDirectoryMonitorSpec extends FunSuite {
@@ -214,6 +215,75 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assertEquals(extractFirstNoteFromPlan(result), 64)
     assertEquals(harness.replaceCalls.size, 1)
     assert(result.size >= 4)
+  }
+
+  test("when music-file is valid monitor builds plan from music without per-track parsing") {
+    val directory = Files.createTempDirectory("track-monitor-music-single-pass")
+    val musicFile = Files.createTempFile("track-monitor-music-single-pass-file", ".scala")
+
+    writeMusic(directory.resolve("Piano.scala"), 64)
+    writeMusic(directory.resolve("Drums.scala"), 36)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Piano", "Drums"))
+
+    val timing      = valid(TimingContext.from(480, 120))
+    val harness     = new TrackDirectoryMonitorTestHarness()
+    var parseCalls  = 0
+    val countingParser: Path => cats.data.ValidatedNec[DomainError, Track] = _ => {
+      parseCalls += 1
+      Invalid(cats.data.NonEmptyChain.one(DomainError.EmptyTracks))
+    }
+
+    val monitor = TrackDirectoryMonitor.live(
+      directory = directory,
+      parser = countingParser,
+      compiler = tracks => PlaybackPlan.fromTracks(tracks, timing),
+      playback = harness,
+      timing = timing,
+      musicFile = Some(musicFile),
+      policy = RepeatPolicy.none,
+      pollInterval = 10.millis
+    )
+
+    val result = monitor.scanOnce(false).unsafeRunSync()
+
+    assertEquals(extractFirstNoteFromPlan(result), 64)
+    assertEquals(parseCalls, 0)
+    assertEquals(harness.replaceCalls.size, 1)
+  }
+
+  test("directory monitor excludes Music.scala from per-track parser input") {
+    val directory = Files.createTempDirectory("track-monitor-excludes-music-definition")
+    writeMusic(directory.resolve("Piano.scala"), 60)
+    writeMusicCollectionFromTrackObjects(directory.resolve("Music.scala"), List("Piano"))
+
+    val parsedFiles = ListBuffer.empty[String]
+    val timing      = valid(TimingContext.from(480, 120))
+    val harness     = new TrackDirectoryMonitorTestHarness()
+
+    val parser: Path => cats.data.ValidatedNec[DomainError, Track] = path => {
+      parsedFiles += path.getFileName.toString
+      val track =
+        Track.track(
+          timeGen = Track.time(1),
+          durGen = Track.duration(1),
+          noteGen = Track.note(60)
+        )(using Channel.Ch0)
+      Valid(track)
+    }
+
+    val monitor = TrackDirectoryMonitor.live(
+      directory = directory,
+      parser = parser,
+      compiler = tracks => PlaybackPlan.fromTracks(tracks, timing),
+      playback = harness,
+      timing = timing,
+      policy = RepeatPolicy.none,
+      pollInterval = 10.millis
+    )
+
+    monitor.scanOnce(false).unsafeRunSync()
+
+    assertEquals(parsedFiles.toList.sorted, List("Piano.scala"))
   }
 
   test("replaceTracks is called only when resulting track list changes") {
