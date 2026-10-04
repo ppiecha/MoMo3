@@ -187,6 +187,35 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assert(result.size >= 4)
   }
 
+  test("music-file can reference track objects from the monitored directory") {
+    val directory = Files.createTempDirectory("track-monitor-music-reference-tracks")
+    val musicFile = Files.createTempFile("track-monitor-music-reference-tracks-file", ".scala")
+
+    writeMusic(directory.resolve("Piano.scala"), 64)
+    writeMusic(directory.resolve("Drums.scala"), 36)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Piano", "Drums"))
+
+    val timing  = valid(TimingContext.from(480, 120))
+    val harness = new TrackDirectoryMonitorTestHarness()
+
+    val monitor = TrackDirectoryMonitor.live(
+      directory = directory,
+      parser = TrackFileParser.compileAndEvaluateFile,
+      compiler = tracks => PlaybackPlan.fromTracks(tracks, timing),
+      playback = harness,
+      timing = timing,
+      musicFile = Some(musicFile),
+      policy = RepeatPolicy.none,
+      pollInterval = 10.millis
+    )
+
+    val result = monitor.scanOnce(false).unsafeRunSync()
+
+    assertEquals(extractFirstNoteFromPlan(result), 64)
+    assertEquals(harness.replaceCalls.size, 1)
+    assert(result.size >= 4)
+  }
+
   test("replaceTracks is called only when resulting track list changes") {
     val directory = Files.createTempDirectory("track-monitor-diff-only")
     val trackFile = directory.resolve("Track1.scala")
@@ -346,6 +375,20 @@ class TrackDirectoryMonitorSpec extends FunSuite {
          |}
          |""".stripMargin
     )
+
+  private def writeMusicCollectionFromTrackObjects(path: Path, objects: List[String]): Unit = {
+    val tracks = objects.map(name => s"$name()").mkString(",\n      ")
+
+    Files.writeString(
+      path,
+      s"""object Music {
+         |  def music: Option[Seq[app.domain.Track]] = Some(Seq(
+         |      $tracks
+         |  ))
+         |}
+         |""".stripMargin
+    )
+  }
 
   private def watchEvent(fileName: String): WatchEvent[Path] =
     new WatchEvent[Path] {

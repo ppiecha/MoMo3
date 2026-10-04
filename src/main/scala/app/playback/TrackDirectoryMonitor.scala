@@ -109,7 +109,10 @@ object TrackDirectoryMonitor {
       }
     }
 
-    private def maybeOverridePlan(plan: PlaybackPlan): IO[IorNec[DomainError, PlaybackPlan]] =
+    private def maybeOverridePlan(
+      plan: PlaybackPlan,
+      trackSourceFiles: Seq[Path]
+    ): IO[IorNec[DomainError, PlaybackPlan]] =
       musicFile match {
         case None => logger.debug(s"Music file not found") *> IO.pure(Ior.right(plan))
         case Some(path) =>
@@ -120,7 +123,8 @@ object TrackDirectoryMonitor {
                 TrackFileParser.compileAndEvaluateFile[Option[Seq[Track]]](
                   scalaFile = path.toString,
                   className = "Music",
-                  methodName = "music"
+                  methodName = "music",
+                  sourceFiles = trackSourceFiles.map(_.toString)
                 )
               }.flatMap {
                 case Valid(Some(musicTracks)) if musicTracks.nonEmpty =>
@@ -142,7 +146,7 @@ object TrackDirectoryMonitor {
         else
           parseTracksWithLogs(paths)
             .map(loadTracks)
-            .flatMap(iorPlan => iorPlan.map(plan => maybeOverridePlan(plan)).sequenceIO.map(_.flatten))
+            .flatMap(iorPlan => iorPlan.map(plan => maybeOverridePlan(plan, paths)).sequenceIO.map(_.flatten))
             .flatMap { iorPlan =>
               if logErrorsOnly then IO.pure(iorPlan)
               else iorPlan.map(plan => replacePlanIfChanged(plan)).sequenceIO.map(_.flatten)
@@ -173,9 +177,20 @@ object TrackDirectoryMonitor {
           Resource
             .fromAutoCloseable(IO.blocking(Files.list(directory)))
             .use(stream =>
-              IO.blocking(stream.iterator().asScala.filter(Files.isRegularFile(_)).filter(isScalaFile).toSeq)
+              IO.blocking(
+                stream.iterator().asScala
+                  .filter(Files.isRegularFile(_))
+                  .filter(isScalaFile)
+                  .filterNot(isConfiguredMusicFile)
+                  .toSeq
+              )
             )
       }
+
+    private def isConfiguredMusicFile(path: Path): Boolean =
+      musicFile.exists(configured =>
+        path.toAbsolutePath.normalize() == configured.toAbsolutePath.normalize()
+      )
 
     def loadTracks(parsedTracks: Seq[ValidatedNec[DomainError, Track]]): IorNec[DomainError, PlaybackPlan] =
       val (parseErrors, validTracks) = parsedTracks.foldLeft((List.empty[DomainError], Vector.empty[Track])) {

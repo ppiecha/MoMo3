@@ -90,17 +90,24 @@ object TrackFileParser {
     scalaFile: String,
     outDir: String,
     classpath: String = resolvedClasspath()
+  ): ValidatedNec[DomainError, String] =
+    compileFiles(Seq(scalaFile), outDir, classpath)
+
+  def compileFiles(
+    scalaFiles: Seq[String],
+    outDir: String,
+    classpath: String = resolvedClasspath()
   ): ValidatedNec[DomainError, String] = {
 
     val reporter = new StoreReporter()
 
-    val args = Array(
-      scalaFile,
+    val args = (
+      scalaFiles.toArray ++ Array(
       "-d",
       outDir,
       "-classpath",
       classpath
-    )
+    ))
 
     val driver = new Driver:
       override protected def newCompiler(using Context) =
@@ -157,11 +164,12 @@ object TrackFileParser {
     scalaFile: String,
     className: String,
     methodName: String,
+    sourceFiles: Seq[String] = Seq.empty,
     classpath: String = resolvedClasspath()
   )(using Typeable[A]): ValidatedNec[DomainError, A] = {
     requireTypeable[A]
     val tempDir = Files.createTempDirectory("track-compile").toString
-    compileFile(scalaFile, tempDir, classpath) match {
+    compileFiles((scalaFile +: sourceFiles).distinct, tempDir, classpath) match {
       case Validated.Valid(compiledDir) =>
         Validated
           .catchNonFatal(evaluate[A](className, methodName, compiledDir))
