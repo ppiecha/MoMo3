@@ -266,6 +266,39 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assertEquals(extractFirstNoteFromPlan(harness.replaceCalls.last), 38)
   }
 
+  test("scanOnce returns non-empty plan when one scala file fails but other tracks are valid") {
+    val directory = Files.createTempDirectory("track-monitor-partial-parse-failure")
+    writeMusic(directory.resolve("Piano.scala"), 60)
+    writeMusic(directory.resolve("Drums.scala"), 36)
+
+    Files.writeString(
+      directory.resolve("Common.scala"),
+      """object Common {
+        |  val timeSeq: Seq[Double] = Seq(8.0, 8.0, 4.0)
+        |}
+        |""".stripMargin
+    )
+
+    val timing  = valid(TimingContext.from(480, 120))
+    val harness = new TrackDirectoryMonitorTestHarness()
+
+    val monitor = TrackDirectoryMonitor.live(
+      directory = directory,
+      parser = TrackFileParser.compileAndEvaluateFile,
+      compiler = tracks => PlaybackPlan.fromTracks(tracks, timing),
+      playback = harness,
+      timing = timing,
+      policy = RepeatPolicy.none,
+      pollInterval = 10.millis
+    )
+
+    val result = monitor.scanOnce(false).unsafeRunSync()
+
+    assert(result.nonEmpty)
+    assertEquals(harness.replaceCalls.size, 1)
+    assert(result.size >= 4)
+  }
+
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(_)   => throw new IllegalStateException("invalid test value")

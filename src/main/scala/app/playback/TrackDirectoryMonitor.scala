@@ -7,7 +7,6 @@ import app.domain.Track
 import app.domain.Tracks
 import app.syntax.flatten
 import app.syntax.sequenceIO
-import app.syntax.toIorNec
 import cats.data.Ior
 import cats.data.IorNec
 import cats.data.NonEmptyChain
@@ -91,6 +90,18 @@ object TrackDirectoryMonitor {
     def logErrors(errors: NonEmptyChain[DomainError]): IO[Unit] =
       errors.traverse_(error => logger.error(error.toString))
 
+    private def parseTracksWithLogs(paths: Seq[Path]): IO[Seq[ValidatedNec[DomainError, Track]]] =
+      IO.pure(paths.map(path => path -> parser(path))).flatMap { parsed =>
+        parsed.traverse_ {
+          case (path, Valid(_)) =>
+            logger.debug(s"Track parse OK: ${path.getFileName}")
+          case (path, Invalid(errors)) =>
+            logger.error(
+              s"Track parse ERROR: ${path.getFileName} -> ${errors.toChain.toList.map(_.toString).mkString(" | ")}"
+            )
+        } *> IO.pure(parsed.map(_._2))
+      }
+
     private def replacePlanIfChanged(plan: PlaybackPlan): IO[IorNec[DomainError, PlaybackPlan]] = {
       tracksRef.get.flatMap { current =>
         if current == plan then IO.pure(Ior.right(current))
@@ -129,7 +140,8 @@ object TrackDirectoryMonitor {
       trackFiles().flatMap { paths =>
         if (paths.isEmpty) logger.error(s"No track files found in $directory").as(PlaybackPlan.empty)
         else
-          IO.pure(loadTracks(paths))
+          parseTracksWithLogs(paths)
+            .map(loadTracks)
             .flatMap(iorPlan => iorPlan.map(plan => maybeOverridePlan(plan)).sequenceIO.map(_.flatten))
             .flatMap { iorPlan =>
               if logErrorsOnly then IO.pure(iorPlan)
@@ -165,15 +177,35 @@ object TrackDirectoryMonitor {
             )
       }
 
-    def loadTracks(paths: Seq[Path]): IorNec[DomainError, PlaybackPlan] =
-      paths
-        .map(parser)
-        .map(toIorNec)
-        .sequence
-        .map(Tracks.from)
-        .flatten
-        .map(compiler)
-        .flatten
+    def loadTracks(parsedTracks: Seq[ValidatedNec[DomainError, Track]]): IorNec[DomainError, PlaybackPlan] =
+      val (parseErrors, validTracks) = parsedTracks.foldLeft((List.empty[DomainError], Vector.empty[Track])) {
+        case ((errorsAcc, tracksAcc), Valid(track)) =>
+          (errorsAcc, tracksAcc :+ track)
+        case ((errorsAcc, tracksAcc), Invalid(errors)) =>
+          (errorsAcc ++ errors.toChain.toList, tracksAcc)
+      }
+
+      val parseErrorsNec = NonEmptyChain.fromSeq(parseErrors)
+
+      if validTracks.isEmpty then
+        parseErrorsNec match
+          case Some(errors) => Ior.left(errors)
+          case None         => Ior.left(NonEmptyChain.one(DomainError.EmptyTracks))
+      else {
+        val compiled =
+          Tracks
+            .from(validTracks)
+            .map(compiler)
+            .flatten
+
+        parseErrorsNec match
+          case None => compiled
+          case Some(errors) =>
+            compiled match
+              case Ior.Left(trackErrors)       => Ior.left(errors ++ trackErrors)
+              case Ior.Right(plan)             => Ior.both(errors, plan)
+              case Ior.Both(trackErrors, plan) => Ior.both(errors ++ trackErrors, plan)
+      }
 
     private def watchLoop: IO[Unit] =
       watchServiceResource.use { watchService =>
