@@ -11,11 +11,11 @@ import dotty.tools.dotc.core.Contexts._
 import dotty.tools.dotc.reporting._
 
 import java.io.File
+import java.lang.reflect.InvocationTargetException
 import java.net.URL
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
-import java.lang.reflect.InvocationTargetException
 import scala.compiletime.error
 import scala.compiletime.summonFrom
 import scala.reflect.Typeable
@@ -188,7 +188,7 @@ object TrackFileParser {
       case t: Throwable =>
         val root = t match
           case invocation: InvocationTargetException if invocation.getCause != null => invocation.getCause
-          case other                                                                 => other
+          case other                                                                => other
 
         val formattedMessage =
           Option(root.getMessage)
@@ -199,7 +199,6 @@ object TrackFileParser {
 
         Validated.invalidNec(DomainError.MusicFileParseFailed(formattedMessage))
     }
-
 
   inline def compileAndEvaluateFile[A](
     scalaFile: String,

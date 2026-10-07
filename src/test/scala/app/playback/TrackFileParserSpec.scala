@@ -2,6 +2,7 @@ package app.playback
 
 import app.domain.DomainError
 import munit.FunSuite
+
 import java.lang.reflect.InvocationTargetException
 
 class TrackFileParserSpec extends FunSuite {

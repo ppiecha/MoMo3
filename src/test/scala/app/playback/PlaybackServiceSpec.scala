@@ -67,8 +67,8 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
       Vector(
         MidiCommand.ControlChange(channel, control, controlV),
         MidiCommand.ProgramChange(channel, bank, program),
-        MidiCommand.NoteOn(channel, note, velocity),
-        MidiCommand.NoteOff(channel, note)
+        MidiCommand.NoteOff(channel, note),
+        MidiCommand.NoteOn(channel, note, velocity)
       )
     )
   }
@@ -121,8 +121,8 @@ object PlaybackServiceSpec {
     command match {
       case MidiCommand.ControlChange(_, _, _) => 0
       case MidiCommand.ProgramChange(_, _, _) => 1
-      case MidiCommand.NoteOn(_, _, _)        => 2
-      case MidiCommand.NoteOff(_, _, _)       => 3
+      case MidiCommand.NoteOff(_, _, _)       => 2
+      case MidiCommand.NoteOn(_, _, _)        => 3
     }
 
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
