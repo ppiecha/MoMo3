@@ -10,8 +10,8 @@ object TimedEvent {
     command match {
       case MidiCommand.ControlChange(_, _, _) => 0
       case MidiCommand.ProgramChange(_, _, _) => 1
-      case MidiCommand.NoteOn(_, _, _)        => 2
-      case MidiCommand.NoteOff(_, _, _)       => 3
+      case MidiCommand.NoteOff(_, _, _)       => 2
+      case MidiCommand.NoteOn(_, _, _)        => 3
     }
 
   def fromAbsoluteEvents(events: Seq[AbsoluteMidiEvent], timingContext: TimingContext): Seq[TimedEvent] = {

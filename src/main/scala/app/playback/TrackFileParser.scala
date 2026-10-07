@@ -15,6 +15,7 @@ import java.net.URL
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
+import java.lang.reflect.InvocationTargetException
 import scala.compiletime.error
 import scala.compiletime.summonFrom
 import scala.reflect.Typeable
@@ -22,6 +23,21 @@ import scala.reflect.Typeable
 object TrackFileParser {
 
   private val pathSeparator: String = File.pathSeparator
+  private val DiagnosticErrorPattern =
+    "(?s)^class [^ ]+ at (.+?):(?:<[^>]+>|\\[[^\\]]+\\]) L(\\d+):\\s*(.*)$".r
+
+  final case class CompilationError(fileName: String, lineNumber: Int, message: String)
+
+  def extractCompilationError(rawDiagnostic: String): CompilationError = {
+    val diagnostic = rawDiagnostic.trim
+    diagnostic match
+      case DiagnosticErrorPattern(filePath, lineNumber, message) =>
+        val normalizedPath = filePath.replace('\\', '/')
+        val fileName       = normalizedPath.split('/').lastOption.getOrElse(filePath)
+        CompilationError(fileName = fileName, lineNumber = lineNumber.toInt, message = message.trim)
+      case _ =>
+        CompilationError(fileName = "unknown", lineNumber = -1, message = diagnostic)
+  }
 
   private def urlToClasspathEntry(url: URL): Option[String] =
     if url.getProtocol == "file" then scala.util.Try(Path.of(url.toURI).toString).toOption
@@ -60,7 +76,7 @@ object TrackFileParser {
 
     val anchors = List(
       classLocation(classOf[Track]),
-      classLocation(classOf[app.syntax.TrackFile]),
+      classLocation(classOf[app.syntax.MusicFile]),
       classLocation(classOf[cats.data.Validated[?, ?]]),
       classLocation(classOf[scala.deriving.Mirror]),
       classLocation(classOf[scala.collection.immutable.List[?]]),
@@ -101,8 +117,7 @@ object TrackFileParser {
 
     val reporter = new StoreReporter()
 
-    val args = (
-      scalaFiles.toArray ++ Array(
+    val args = (scalaFiles.toArray ++ Array(
       "-d",
       outDir,
       "-classpath",
@@ -117,8 +132,15 @@ object TrackFileParser {
 
     if reporter.hasErrors then
       NonEmptyChain
-        .fromSeq(reporter.allErrors.map(e => DomainError.TrackFileParseFailed(e.toString)))
-        .getOrElse(NonEmptyChain.one(DomainError.TrackFileParseFailed("unknown error")))
+        .fromSeq(
+          reporter.allErrors.map { error =>
+            val parsedError = extractCompilationError(error.toString)
+            DomainError.MusicFileParseFailed(
+              s"${parsedError.fileName}:${parsedError.lineNumber}: ${parsedError.message}"
+            )
+          }
+        )
+        .getOrElse(NonEmptyChain.one(DomainError.MusicFileParseFailed("unknown error")))
         .invalid[String]
     else outDir.validNec[DomainError]
   }
@@ -160,6 +182,25 @@ object TrackFileParser {
         )
     }
 
+  def catchAllNec[A](thunk: => A): ValidatedNec[DomainError, A] =
+    try Validated.validNec(thunk)
+    catch {
+      case t: Throwable =>
+        val root = t match
+          case invocation: InvocationTargetException if invocation.getCause != null => invocation.getCause
+          case other                                                                 => other
+
+        val formattedMessage =
+          Option(root.getMessage)
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .map(msg => s"${root.getClass.getSimpleName}: $msg")
+            .getOrElse(root.toString)
+
+        Validated.invalidNec(DomainError.MusicFileParseFailed(formattedMessage))
+    }
+
+
   inline def compileAndEvaluateFile[A](
     scalaFile: String,
     className: String,
@@ -171,15 +212,7 @@ object TrackFileParser {
     val tempDir = Files.createTempDirectory("track-compile").toString
     compileFiles((scalaFile +: sourceFiles).distinct, tempDir, classpath) match {
       case Validated.Valid(compiledDir) =>
-        Validated
-          .catchNonFatal(evaluate[A](className, methodName, compiledDir))
-          .leftMap { e =>
-            NonEmptyChain.one(
-              DomainError.TrackFileParseFailed(
-                s"Evaluation failed for file '$scalaFile', class '$className', method '$methodName': ${e.getClass.getSimpleName}: ${e.getMessage}"
-              )
-            )
-          }
+        catchAllNec(evaluate[A](className, methodName, compiledDir))
       case Validated.Invalid(e) =>
         e.invalid
     }

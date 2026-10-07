@@ -26,5 +26,6 @@ Tracks in a monitored directory must be `.scala` files. Each file must define Sc
 4. Start FluidSynth with the following command, replacing the path to your soundfont file as
 
 ```powershell
-fluidsynth -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
+cd C:\tools\fluidsynth\bin `
+.\fluidsynth.exe -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
 ```

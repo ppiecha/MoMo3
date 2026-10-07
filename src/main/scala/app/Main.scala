@@ -1,18 +1,15 @@
 package app
 
 import app.config.Environment
-import app.domain.PlaybackPlan
 import app.midi.ReactiveSynth
 import app.midi.toMidiMessages
 import app.playback.PlaybackController
 import app.playback.RepeatPolicy
 import app.playback.TrackDirectoryMonitor
-import app.playback.TrackFileParser
 import cats.data.EitherT
 import cats.effect.ExitCode
 import cats.effect.IO
 import cats.effect.IOApp
-import cats.syntax.all._
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.nio.file.Paths
@@ -41,18 +38,16 @@ object Main extends IOApp {
               val controller = PlaybackController.live(sendEvent)
               val monitor = TrackDirectoryMonitor.live(
                 directory = Paths.get(env.pathsConfig.tracks),
-                parser = TrackFileParser.compileAndEvaluateFile,
-                compiler = tracks => PlaybackPlan.fromTracks(tracks, env.timingContext),
                 playback = controller,
                 timing = env.timingContext,
-                musicFile = Some(Paths.get(env.pathsConfig.musicFile)),
+                musicFile = Paths.get(env.pathsConfig.musicFile),
                 policy = RepeatPolicy.forever,
                 pollInterval = env.pathsConfig.pollingInterval.millis
               )
 
               EitherT.liftF(
                 for {
-                  _ <- monitor.scanOnce(false) // TODO logerrorsonly
+                  _ <- monitor.scanOnce
                   _ <- monitor.start
                   _ <- IO.never
                 } yield ()

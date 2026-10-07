@@ -1,19 +1,14 @@
-### 1. Model
-
-### 2. Tests
-- script to fix, fomat and run tests
-
-### 3. App
+### App
 - on start restart fluidsynth process if not running
 - loop to stop pause and resume playback and exit application
 - accord
 
-### 4. Config
+### Config
 - simplify config
-- compile-only
  
-### 5. Track utils & consts
-- if file only in compile-only then only compile
+### Track utils & consts
+- music wrapper to catch all exceptions
+- reuse/remove wrapper from track
 
-### 6. Update readme
+### Update readme
 

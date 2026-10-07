@@ -19,9 +19,8 @@ class EnvironmentSpec extends FunSuite {
     assertEquals(env.midiConfig.volume, 100)
     assertEquals(env.midiConfig.chorus, 0)
     assertEquals(env.midiConfig.reverb, 0)
-    assertEquals(env.pathsConfig.tracks, "projects/test1/tracks")
+    assertEquals(env.pathsConfig.tracks, "projects/test1/")
     assertEquals(env.pathsConfig.musicFile, "projects/test1/Music.scala")
-    assertEquals(env.pathsConfig.commonFile, "projects/test1/tracks/Common.scala")
   }
 
   test("Environment.load should load from custom HOCON string") {

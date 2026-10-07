@@ -1,6 +1,6 @@
 package app.domain
 
-import cats.data.Ior
+import cats.data.{Ior, NonEmptyChain as NEC, Validated}
 import munit.FunSuite
 
 class TracksSpec extends FunSuite {
@@ -11,7 +11,7 @@ class TracksSpec extends FunSuite {
     val first  = Track.track(Track.time(4), Track.duration(4), Track.note(60))
     val second = Track.track(Track.time(4), Track.duration(4), Track.note(62))
 
-    Tracks.from(Seq(first, second)) match {
+    Tracks.from(Validated.Valid(Seq(first, second))) match {
       case Ior.Right(tracks) =>
         assertEquals(tracks.toSeq.size, 2)
       case _ =>
@@ -19,12 +19,27 @@ class TracksSpec extends FunSuite {
     }
   }
 
-  test("Tracks.from returns EmptyTracks for empty input") {
-    Tracks.from(Seq.empty) match {
+  test("Tracks.from returns parse failure for empty input") {
+    Tracks.from(Validated.Valid(Seq.empty)) match {
       case Ior.Left(errors) =>
-        assertEquals(errors.toChain.toList, List(DomainError.EmptyTracks))
+        assertEquals(
+          errors.toChain.toList,
+          List(DomainError.MusicFileParseFailed("Music file returned no tracks"))
+        )
       case _ =>
-        fail("Expected EmptyTracks validation error")
+        fail("Expected parse failure for empty tracks")
+    }
+  }
+
+  test("Tracks.from maps parser errors to MusicFileParseFailed") {
+    Tracks.from(Validated.Invalid(NEC.one("bad midi payload"))) match {
+      case Ior.Left(errors) =>
+        assertEquals(
+          errors.toChain.toList,
+          List(DomainError.MusicFileParseFailed("bad midi payload"))
+        )
+      case _ =>
+        fail("Expected parse failure from invalid parsed tracks")
     }
   }
 
@@ -32,7 +47,7 @@ class TracksSpec extends FunSuite {
     val reference = Track.track(Track.time(4), Track.duration(4), Track.note(60))
     val mismatch  = Track.track(Track.time(2), Track.duration(2), Track.note(62))
 
-    val result = Tracks.from(Seq(reference, mismatch))
+    val result = Tracks.from(Validated.Valid(Seq(reference, mismatch)))
     result match {
       case Ior.Both(errors, tracks) =>
         assertEquals(
@@ -51,7 +66,7 @@ class TracksSpec extends FunSuite {
     val mismatch1 = Track.track(Track.time(2), Track.duration(2), Track.note(62))
     val mismatch2 = Track.track(Track.time(1), Track.duration(1), Track.note(64))
 
-    Tracks.from(Seq(reference, mismatch1, mismatch2)) match {
+    Tracks.from(Validated.Valid(Seq(reference, mismatch1, mismatch2))) match {
       case Ior.Both(errors, tracks) =>
         assertEquals(
           errors.toChain.toList,
@@ -72,7 +87,7 @@ class TracksSpec extends FunSuite {
     val second   = Track.track(Track.time(2), Track.duration(2), Track.note(62))
     val third    = Track.track(Track.time(1), Track.duration(1), Track.note(64))
 
-    Tracks.from(Seq(negative, second, third)) match {
+    Tracks.from(Validated.Valid(Seq(negative, second, third))) match {
       case Ior.Left(errors) =>
         assertEquals(
           errors.toChain.toList,
