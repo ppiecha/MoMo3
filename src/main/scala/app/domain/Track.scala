@@ -81,21 +81,4 @@ object Track {
       velGen = velocity(Velocity.Zero)
     )
   }
-
-  def time(t: Double*): TimeGen = {
-    TimeGen(t)
-  }
-
-  def duration(d: Double*): DurationGen = {
-    DurationGen(d)
-  }
-
-  def note(n: Int*): Generator[Note] = {
-    NoteGen(n)
-  }
-
-  def velocity(v: Int*): Generator[Velocity] = {
-    VelocityGen(v)
-  }
-
 }

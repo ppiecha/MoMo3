@@ -1,26 +1,11 @@
 package app.domain
 
 import app.syntax.Extensions.repeat
-import cats.data.ValidatedNec
-
-sealed trait TickGenerator { def values: Seq[Double] }
-
-final case class TimeGen(values: Seq[Double]) extends TickGenerator {
-  def repeat(n: Int): TimeGen     = TimeGen(values.repeat(n))
-  def length: Int                 = values.length
-  def ++(other: TimeGen): TimeGen = TimeGen(values ++ other.values)
-  def duration: Double            = if length == 0 then 0 else 1 / values.map(v => 1 / v).sum
-}
-
-final case class DurationGen(values: Seq[Double]) extends TickGenerator {
-  def repeat(n: Int): DurationGen         = DurationGen(values.repeat(n))
-  def length: Int                         = values.length
-  def ++(other: DurationGen): DurationGen = DurationGen(values ++ other.values)
-}
+import cats.data.{NonEmptyList, ValidatedNec}
 
 enum Generator[A]:
-  case NoteGen(s: Seq[Int])     extends Generator[Note]
-  case VelocityGen(s: Seq[Int]) extends Generator[Velocity]
+  case NoteGen(steps: Seq[Chord]) extends Generator[Note]
+  case VelocityGen(s: Seq[Int])   extends Generator[Velocity]
 
   def ++(other: Generator[A]): Generator[A] = (this, other) match
     case (NoteGen(s1), NoteGen(s2))         => NoteGen(s1 ++ s2)
@@ -44,5 +29,21 @@ object Generator {
 
   def parseTicks(seq: TickGenerator, ppq: Ppq): Seq[ValidatedNec[DomainError, Tick]] =
     seq.values.map(d => Tick.fromDouble(d, ppq))
+
+  def note(args: NoteArg*): Generator[Note] = {
+    val chords: Seq[Chord] = args.map {
+      case NoteArg.Single(n) => Chord(NonEmptyList.one(n))
+      case NoteArg.Many(t) =>
+        val ns = t.productIterator.toList.collect { case i: Int => i }
+        ns match
+          case h :: tail => Chord(NonEmptyList(h, tail))
+          case Nil       => throw new IllegalArgumentException("Empty chord tuple")
+    }
+    Generator.NoteGen(chords)
+  }
+
+  def velocity(v: Int*): Generator[Velocity] = {
+    VelocityGen(v)
+  }
 
 }
