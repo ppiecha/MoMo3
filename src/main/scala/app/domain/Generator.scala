@@ -1,7 +1,8 @@
 package app.domain
 
 import app.syntax.Extensions.repeat
-import cats.data.{NonEmptyList, ValidatedNec}
+import cats.data.NonEmptyList
+import cats.data.ValidatedNec
 
 final case class Chord(notes: NonEmptyList[Int])
 

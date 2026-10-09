@@ -16,6 +16,7 @@ import java.net.URL
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Comparator
 import scala.compiletime.error
 import scala.compiletime.summonFrom
 import scala.reflect.Typeable
@@ -117,12 +118,16 @@ object TrackFileParser {
     classpath: String = resolvedClasspath()
   )(using Typeable[A]): ValidatedNec[DomainError, A] = {
     requireTypeable[A]
-    val tempDir = Files.createTempDirectory("track-compile").toString
-    compileFiles((scalaFile +: sourceFiles).distinct, tempDir, classpath) match {
-      case Validated.Valid(compiledDir) =>
-        catchAllNec(RuntimeEvaluator.evaluate[A](className, methodName, compiledDir))
-      case Validated.Invalid(e) =>
-        e.invalid
+    val tempDir = Files.createTempDirectory("track-compile")
+    try {
+      compileFiles((scalaFile +: sourceFiles).distinct, tempDir.toString, classpath) match {
+        case Validated.Valid(compiledDir) =>
+          catchAllNec(RuntimeEvaluator.evaluate[A](className, methodName, compiledDir))
+        case Validated.Invalid(e) =>
+          e.invalid
+      }
+    } finally {
+      Cleanup.deleteDirectoryBestEffort(tempDir)
     }
   }
 
@@ -228,12 +233,36 @@ object TrackFileParser {
           cls
         }
       }
-      val cls    = loader.loadClass(className + "$")
-      val module = cls.getField("MODULE$").get(null)
-      val method = cls.getMethod(methodName)
-      val result = method.invoke(module)
-      result.asInstanceOf[A]
+      try {
+        val cls    = loader.loadClass(className + "$")
+        val module = cls.getField("MODULE$").get(null)
+        val method = cls.getMethod(methodName)
+        val result = method.invoke(module)
+        result.asInstanceOf[A]
+      } finally {
+        loader.close()
+      }
     }
+  }
+
+  private object Cleanup {
+    def deleteDirectoryBestEffort(directory: Path): Unit =
+      try deleteDirectory(directory)
+      catch {
+        case _: Throwable => ()
+      }
+
+    private def deleteDirectory(directory: Path): Unit =
+      if Files.exists(directory) then {
+        val paths = Files.walk(directory)
+        try {
+          paths
+            .sorted(Comparator.reverseOrder())
+            .forEach(path => Files.deleteIfExists(path))
+        } finally {
+          paths.close()
+        }
+      }
   }
 
 }

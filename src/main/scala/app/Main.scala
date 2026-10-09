@@ -48,11 +48,16 @@ object Main extends IOApp {
     val program =
       for {
         env <- IO.fromEither(Environment.load().left.map(asRuntimeError))
-        _ <- liftDomainError(ReactiveSynth.outputResource[IO](env.midiOutputConfig).use { sendMidi =>
-          val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
-            liftDomainError(sendMidi(event.command.toMidiMessages).value).void
-          EitherT.liftF(monitorProgram(env, sendEvent))
-        }.value)
+        _ <- liftDomainError(
+          ReactiveSynth
+            .outputResource[IO](env.midiOutputConfig)
+            .use { sendMidi =>
+              val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
+                liftDomainError(sendMidi(event.command.toMidiMessages).value).void
+              EitherT.liftF(monitorProgram(env, sendEvent))
+            }
+            .value
+        )
       } yield ExitCode.Success
 
     program.handleErrorWith { error =>

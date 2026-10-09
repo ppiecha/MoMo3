@@ -56,9 +56,11 @@ class TrackCompilerSpec extends FunSuite {
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
         assertEquals(events.size, 6)
-        assert(events.forall(event =>
-          event.command.isInstanceOf[MidiCommand.NoteOn] || event.command.isInstanceOf[MidiCommand.NoteOff]
-        ))
+        assert(
+          events.forall(event =>
+            event.command.isInstanceOf[MidiCommand.NoteOn] || event.command.isInstanceOf[MidiCommand.NoteOff]
+          )
+        )
     }
   }
 
@@ -76,7 +78,9 @@ class TrackCompilerSpec extends FunSuite {
         fail("Expected validation failure for mismatched generator lengths")
       case Invalid(errors) =>
         assert(
-          errors.toChain.toList.contains(DomainError.TrackLengthMismatch(time = 2, duration = 1, notes = 2, velocity = 2))
+          errors.toChain.toList.contains(
+            DomainError.TrackLengthMismatch(time = 2, duration = 1, notes = 2, velocity = 2)
+          )
         )
     }
   }

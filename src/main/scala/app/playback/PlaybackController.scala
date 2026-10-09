@@ -56,44 +56,41 @@ private final class LivePlaybackController(
   stateRef: Ref[IO, PlaybackState]
 ) extends PlaybackController {
 
+  private val zeroDuration: FiniteDuration = FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)
+
   override def play(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
     start(plan, policy, 0.millis)
 
   override def pause: IO[Unit] =
-    stateRef.get.flatMap { state =>
+    stateRef.modify { state =>
       state.fiber match {
         case Some(fiber) =>
-          fiber.cancel *> stateRef.update(_.copy(fiber = None)).void *> logger.info("Playback paused")
+          (state.copy(fiber = None), fiber.cancel *> logger.info("Playback paused"))
         case None =>
-          IO.unit
+          (state, IO.unit)
       }
-    }
+    }.flatten
 
   override def resume: IO[Unit] =
-    stateRef.get.flatMap { state =>
-      state.activePlan match {
+    stateRef.modify { state =>
+      val action = state.activePlan match {
         case Some(plan) => start(plan, state.policy, state.elapsed)
         case None       => IO.unit
       }
-    }
+      (state, action)
+    }.flatten
 
   override def stop: IO[Unit] =
-    stateRef.get.flatMap { state =>
-      state.fiber match {
-        case Some(fiber) => fiber.cancel
-        case None        => IO.unit
-      }
-    } *> stateRef.set(PlaybackState()) *> logger.info("Playback stopped")
+    stateRef.modify { state =>
+      val cancel = state.fiber.fold(IO.unit)(_.cancel)
+      (PlaybackState(), cancel *> logger.info("Playback stopped"))
+    }.flatten
 
   override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
-    stateRef.get.flatMap { state =>
-      (
-        state.fiber match {
-          case Some(fiber) => fiber.cancel *> stateRef.update(_.copy(fiber = None))
-          case None        => IO.unit
-        }
-      ) *> start(plan, policy, state.elapsed)
-    }
+    stateRef.modify { state =>
+      val cancel = state.fiber.fold(IO.unit)(_.cancel)
+      (state.copy(fiber = None), cancel *> start(plan, policy, state.elapsed))
+    }.flatten
 
   override def elapsedTime: IO[FiniteDuration] =
     stateRef.get.map(_.elapsed)
@@ -107,7 +104,7 @@ private final class LivePlaybackController(
     elapsed: FiniteDuration
   ): IO[Unit] = {
     val adjustedPlan =
-      if (elapsed <= FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)) plan
+      if (elapsed <= zeroDuration) plan
       else PlaybackPlanResume.resumeFrom(plan, elapsed)
 
     val task: IO[Unit] = repeatLoop(adjustedPlan, plan, policy, elapsed)

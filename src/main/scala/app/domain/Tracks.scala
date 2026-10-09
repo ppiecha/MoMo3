@@ -13,7 +13,7 @@ object Tracks {
     case Validated.Invalid(errors) => Ior.Left(errors.map(DomainError.MusicFileParseFailed.apply))
     case Validated.Valid(tracks) =>
       tracks match
-        case Nil => Ior.Left(NEC.one(DomainError.MusicFileParseFailed("Music file returned no tracks")))
+        case Nil            => Ior.Left(NEC.one(DomainError.MusicFileParseFailed("Music file returned no tracks")))
         case nonEmptyTracks => validateTrackDurations(nonEmptyTracks)
 
   private def validateTrackDurations(tracks: Seq[Track]): IorNec[DomainError, Tracks] = {
@@ -21,15 +21,15 @@ object Tracks {
     val validated        = tracks.map(_.compareDuration(expectedDuration))
 
     val errors = validated.flatMap {
-      case Ior.Left(errs)      => errs.toChain.toList
-      case Ior.Both(errs, _)   => errs.toChain.toList
-      case Ior.Right(_)        => Nil
+      case Ior.Left(errs)    => errs.toChain.toList
+      case Ior.Both(errs, _) => errs.toChain.toList
+      case Ior.Right(_)      => Nil
     }
 
     val validTracks = validated.flatMap {
-      case Ior.Right(track)    => List(track)
-      case Ior.Both(_, track)  => List(track)
-      case Ior.Left(_)         => Nil
+      case Ior.Right(track)   => List(track)
+      case Ior.Both(_, track) => List(track)
+      case Ior.Left(_)        => Nil
     }
 
     NEC.fromSeq(errors) match

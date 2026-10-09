@@ -15,7 +15,10 @@ import scala.concurrent.duration._
 class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
 
   property("fromAbsoluteEvents preserves cardinality") {
-    forAll(TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents, TimedEventAndPlaybackExecutionSpec.genTimingContext) { (events, timingContext) =>
+    forAll(
+      TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
+      TimedEventAndPlaybackExecutionSpec.genTimingContext
+    ) { (events, timingContext) =>
       val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
 
       assertEquals(timed.size, events.size)
@@ -23,7 +26,10 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
   }
 
   property("fromAbsoluteEvents sorts events by their absolute time") {
-    forAll(TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents, TimedEventAndPlaybackExecutionSpec.genTimingContext) { (events, timingContext) =>
+    forAll(
+      TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
+      TimedEventAndPlaybackExecutionSpec.genTimingContext
+    ) { (events, timingContext) =>
       val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
       val times = timed.map(_.event.at.value)
 
@@ -33,7 +39,10 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
   }
 
   property("fromAbsoluteEvents computes delay deltas from consecutive timestamps") {
-    forAll(TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents, TimedEventAndPlaybackExecutionSpec.genTimingContext) { (events, timingContext) =>
+    forAll(
+      TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
+      TimedEventAndPlaybackExecutionSpec.genTimingContext
+    ) { (events, timingContext) =>
       val sorted   = events.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey)
       val timed    = TimedEvent.fromAbsoluteEvents(events, timingContext)
       val expected = TimedEventAndPlaybackExecutionSpec.expectedDelays(sorted, timingContext)

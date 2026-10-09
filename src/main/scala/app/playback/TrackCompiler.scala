@@ -13,8 +13,7 @@ object TrackCompiler {
     val noteLength     = track.noteGen.length
     val velocityLength = track.velGen.length
 
-    if timeLength == durationLength && durationLength == noteLength && noteLength == velocityLength then
-      ().validNec
+    if timeLength == durationLength && durationLength == noteLength && noteLength == velocityLength then ().validNec
     else
       DomainError
         .TrackLengthMismatch(
@@ -36,32 +35,32 @@ object TrackCompiler {
     timingContext: TimingContext
   ): ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
     validateAlignedLengths(track).andThen { _ =>
-    val at       = accumulateTimes(track, timingContext)
-    val notes    = Generator.parseNotes(track.noteGen)
-    val duration = Generator.parseTicks(track.durGen, timingContext.ppq)
-    val velocity = Generator.parseVelocity(track.velGen)
+      val at       = accumulateTimes(track, timingContext)
+      val notes    = Generator.parseNotes(track.noteGen)
+      val duration = Generator.parseTicks(track.durGen, timingContext.ppq)
+      val velocity = Generator.parseVelocity(track.velGen)
 
-    at
-      .zip(notes)
-      .zip(duration)
-      .zip(velocity)
-      .flatMap { case (((t, chord), d), v) =>
-        val events: ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
-          (t, chord, d, v).mapN { (at, chord, duration, velocity) =>
-            val nextAt = at + duration
-            chord.toList.flatMap { note =>
-              Seq(
-                AbsoluteMidiEvent(at, NoteOn(track.channel, note, velocity)),
-                AbsoluteMidiEvent(nextAt, NoteOff(track.channel, note))
-              )
+      at
+        .zip(notes)
+        .zip(duration)
+        .zip(velocity)
+        .flatMap { case (((t, chord), d), v) =>
+          val events: ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
+            (t, chord, d, v).mapN { (at, chord, duration, velocity) =>
+              val nextAt = at + duration
+              chord.toList.flatMap { note =>
+                Seq(
+                  AbsoluteMidiEvent(at, NoteOn(track.channel, note, velocity)),
+                  AbsoluteMidiEvent(nextAt, NoteOff(track.channel, note))
+                )
+              }
             }
-          }
-        events.fold(
-          errors => Seq(errors.invalid[AbsoluteMidiEvent]),
-          chordEvents => chordEvents.map(_.validNec)
-        )
-      }
-      .sequence
+          events.fold(
+            errors => Seq(errors.invalid[AbsoluteMidiEvent]),
+            chordEvents => chordEvents.map(_.validNec)
+          )
+        }
+        .sequence
     }
 
 }

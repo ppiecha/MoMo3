@@ -31,14 +31,16 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
 
-    val monitor = TrackDirectoryMonitor.live(
-      directory = directory,
-      playback = harness,
-      timing = timing,
-      musicFile = musicFile,
-      policy = RepeatPolicy.none,
-      pollInterval = 10.millis
-    ).unsafeRunSync()
+    val monitor = TrackDirectoryMonitor
+      .live(
+        directory = directory,
+        playback = harness,
+        timing = timing,
+        musicFile = musicFile,
+        policy = RepeatPolicy.none,
+        pollInterval = 10.millis
+      )
+      .unsafeRunSync()
 
     val result = monitor.scanOnce.unsafeRunSync()
 
@@ -57,14 +59,16 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
 
-    val monitor = TrackDirectoryMonitor.live(
-      directory = directory,
-      playback = harness,
-      timing = timing,
-      musicFile = musicFile,
-      policy = RepeatPolicy.none,
-      pollInterval = 10.millis
-    ).unsafeRunSync()
+    val monitor = TrackDirectoryMonitor
+      .live(
+        directory = directory,
+        playback = harness,
+        timing = timing,
+        musicFile = musicFile,
+        policy = RepeatPolicy.none,
+        pollInterval = 10.millis
+      )
+      .unsafeRunSync()
 
     val firstResult = monitor.scanOnce.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(firstResult), 60)
@@ -99,14 +103,16 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
 
-    val monitor = TrackDirectoryMonitor.live(
-      directory = directory,
-      playback = harness,
-      timing = timing,
-      musicFile = musicFile,
-      policy = RepeatPolicy.none,
-      pollInterval = 10.millis
-    ).unsafeRunSync()
+    val monitor = TrackDirectoryMonitor
+      .live(
+        directory = directory,
+        playback = harness,
+        timing = timing,
+        musicFile = musicFile,
+        policy = RepeatPolicy.none,
+        pollInterval = 10.millis
+      )
+      .unsafeRunSync()
 
     val firstResult = monitor.scanOnce.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(firstResult), 52)

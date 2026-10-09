@@ -104,14 +104,16 @@ object TrackDirectoryMonitor {
               methodName = "playWrapper",
               sourceFiles = trackSourceFiles.map(_.toString)
             )
-          }.map(_.fold(
-            musicErrors => Ior.left(musicErrors),
-            musicTracks =>
-              Tracks
-                .from(musicTracks)
-                .map(tracks => PlaybackPlan.fromTracks(tracks, timing))
-                .flatten
-          ))
+          }.map(
+            _.fold(
+              musicErrors => Ior.left(musicErrors),
+              musicTracks =>
+                Tracks
+                  .from(musicTracks)
+                  .map(tracks => PlaybackPlan.fromTracks(tracks, timing))
+                  .flatten
+            )
+          )
       }
 
     override def scanOnce: IO[PlaybackPlan] =
