@@ -38,7 +38,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       musicFile = musicFile,
       policy = RepeatPolicy.none,
       pollInterval = 10.millis
-    )
+    ).unsafeRunSync()
 
     val result = monitor.scanOnce.unsafeRunSync()
 
@@ -64,7 +64,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       musicFile = musicFile,
       policy = RepeatPolicy.none,
       pollInterval = 10.millis
-    )
+    ).unsafeRunSync()
 
     val firstResult = monitor.scanOnce.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(firstResult), 60)
@@ -106,7 +106,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       musicFile = musicFile,
       policy = RepeatPolicy.none,
       pollInterval = 10.millis
-    )
+    ).unsafeRunSync()
 
     val firstResult = monitor.scanOnce.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(firstResult), 52)

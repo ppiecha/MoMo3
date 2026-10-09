@@ -17,44 +17,42 @@ import scala.concurrent.duration._
 
 object Main extends IOApp {
 
+  private def asRuntimeError(error: app.domain.DomainError): RuntimeException =
+    new RuntimeException(error.toString)
+
+  private def liftDomainError[A](result: IO[Either[app.domain.DomainError, A]]): IO[A] =
+    result.flatMap {
+      case Left(err)  => IO.raiseError(asRuntimeError(err))
+      case Right(res) => IO.pure(res)
+    }
+
+  private def monitorProgram(env: Environment, sendEvent: app.domain.AbsoluteMidiEvent => IO[Unit]): IO[Unit] =
+    for {
+      controller <- PlaybackController.live(sendEvent)
+      monitor <- TrackDirectoryMonitor.live(
+        directory = Paths.get(env.pathsConfig.tracks),
+        playback = controller,
+        timing = env.timingContext,
+        musicFile = Paths.get(env.pathsConfig.musicFile),
+        policy = RepeatPolicy.forever,
+        pollInterval = env.pathsConfig.pollingInterval.millis
+      )
+      _ <- monitor.scanOnce
+      _ <- monitor.start
+      _ <- IO.never
+    } yield ()
+
   override def run(args: List[String]): IO[ExitCode] = {
     val logger = Slf4jLogger.getLogger[IO]
 
-    def liftDomainError[A](result: IO[Either[app.domain.DomainError, A]]): IO[A] =
-      result.flatMap {
-        case Left(err)  => IO.raiseError(new RuntimeException(err.toString))
-        case Right(res) => IO.pure(res)
-      }
-
     val program =
       for {
-        env <- IO.fromEither(Environment.load().left.map(err => new RuntimeException(err.toString)))
-        _ <- liftDomainError(
-          ReactiveSynth
-            .outputResource[IO](env.midiOutputConfig)
-            .use { sendMidi =>
-              val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
-                liftDomainError(sendMidi(event.command.toMidiMessages).value).void
-              val controller = PlaybackController.live(sendEvent)
-              val monitor = TrackDirectoryMonitor.live(
-                directory = Paths.get(env.pathsConfig.tracks),
-                playback = controller,
-                timing = env.timingContext,
-                musicFile = Paths.get(env.pathsConfig.musicFile),
-                policy = RepeatPolicy.forever,
-                pollInterval = env.pathsConfig.pollingInterval.millis
-              )
-
-              EitherT.liftF(
-                for {
-                  _ <- monitor.scanOnce
-                  _ <- monitor.start
-                  _ <- IO.never
-                } yield ()
-              )
-            }
-            .value
-        )
+        env <- IO.fromEither(Environment.load().left.map(asRuntimeError))
+        _ <- liftDomainError(ReactiveSynth.outputResource[IO](env.midiOutputConfig).use { sendMidi =>
+          val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
+            liftDomainError(sendMidi(event.command.toMidiMessages).value).void
+          EitherT.liftF(monitorProgram(env, sendEvent))
+        }.value)
       } yield ExitCode.Success
 
     program.handleErrorWith { error =>

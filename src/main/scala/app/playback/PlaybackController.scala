@@ -33,8 +33,8 @@ object PlaybackController {
   def live(
     send: AbsoluteMidiEvent => IO[Unit],
     logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  ): PlaybackController =
-    new LivePlaybackController(send, logger)
+  ): IO[PlaybackController] =
+    Ref.of[IO, PlaybackState](PlaybackState()).map(stateRef => new LivePlaybackController(send, logger, stateRef))
 
   private[playback] def nextRepeat(
     repeatedPlan: PlaybackPlan,
@@ -52,10 +52,9 @@ private final case class PlaybackState(
 
 private final class LivePlaybackController(
   send: AbsoluteMidiEvent => IO[Unit],
-  logger: Logger[IO]
+  logger: Logger[IO],
+  stateRef: Ref[IO, PlaybackState]
 ) extends PlaybackController {
-
-  private val stateRef: Ref[IO, PlaybackState] = Ref.unsafe(PlaybackState())
 
   override def play(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
     start(plan, policy, 0.millis)

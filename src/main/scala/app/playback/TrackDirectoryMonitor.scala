@@ -9,7 +9,6 @@ import app.syntax.flatten
 import cats.data.Ior
 import cats.data.IorNec
 import cats.data.NonEmptyChain
-import cats.data.Validated
 import cats.data.ValidatedNec
 import cats.effect.FiberIO
 import cats.effect.IO
@@ -55,15 +54,20 @@ object TrackDirectoryMonitor {
     policy: RepeatPolicy = RepeatPolicy.none,
     logger: Logger[IO] = Slf4jLogger.getLogger[IO],
     pollInterval: FiniteDuration
-  ): TrackDirectoryMonitor =
-    new FileSystemTrackDirectoryMonitor(
+  ): IO[TrackDirectoryMonitor] =
+    for {
+      watcherRef <- Ref.of[IO, Option[FiberIO[Unit]]](None)
+      tracksRef  <- Ref.of[IO, PlaybackPlan](PlaybackPlan.empty)
+    } yield new FileSystemTrackDirectoryMonitor(
       directory,
       playback,
       timing,
       musicFile,
       policy,
       logger,
-      pollInterval
+      pollInterval,
+      watcherRef,
+      tracksRef
     )
 
   private final class FileSystemTrackDirectoryMonitor(
@@ -73,13 +77,12 @@ object TrackDirectoryMonitor {
     musicFile: Path,
     policy: RepeatPolicy,
     logger: Logger[IO],
-    pollInterval: FiniteDuration
+    pollInterval: FiniteDuration,
+    watcherRef: Ref[IO, Option[FiberIO[Unit]]],
+    tracksRef: Ref[IO, PlaybackPlan]
   ) extends TrackDirectoryMonitor {
 
-    private val watcherRef: Ref[IO, Option[FiberIO[Unit]]] = Ref.unsafe(None)
-    private val tracksRef: Ref[IO, PlaybackPlan]           = Ref.unsafe(PlaybackPlan.empty)
-
-    def logErrors(errors: NonEmptyChain[DomainError]): IO[Unit] =
+    private def logErrors(errors: NonEmptyChain[DomainError]): IO[Unit] =
       errors.traverse_(error => logger.error(error.toString))
 
     private def replacePlanIfChanged(plan: PlaybackPlan): IO[PlaybackPlan] = {
@@ -101,26 +104,27 @@ object TrackDirectoryMonitor {
               methodName = "playWrapper",
               sourceFiles = trackSourceFiles.map(_.toString)
             )
-          }.map {
-            case Validated.Valid(musicTracks) =>
+          }.map(_.fold(
+            musicErrors => Ior.left(musicErrors),
+            musicTracks =>
               Tracks
                 .from(musicTracks)
                 .map(tracks => PlaybackPlan.fromTracks(tracks, timing))
                 .flatten
-            case Validated.Invalid(musicErrors) =>
-              Ior.left(musicErrors)
-          }
+          ))
       }
 
     override def scanOnce: IO[PlaybackPlan] =
       trackFiles().flatMap { trackSources =>
         loadPlanFromMusic(trackSources)
-          .flatMap {
-            case Ior.Left(errors)       => logErrors(errors) *> tracksRef.get
-            case Ior.Right(plan)        => replacePlanIfChanged(plan) *> IO.pure(plan)
-            case Ior.Both(errors, plan) => logErrors(errors).as(plan)
-          }
+          .flatMap(applyScanResult)
       }
+
+    private def applyScanResult(result: IorNec[DomainError, PlaybackPlan]): IO[PlaybackPlan] =
+      result match
+        case Ior.Left(errors)       => logErrors(errors) *> tracksRef.get
+        case Ior.Right(plan)        => replacePlanIfChanged(plan)
+        case Ior.Both(errors, plan) => logErrors(errors).as(plan)
 
     override def start: IO[Unit] =
       watcherRef.get.flatMap {
@@ -176,14 +180,16 @@ object TrackDirectoryMonitor {
     private def waitForChanges(watchService: WatchService): IO[Unit] =
       IO.interruptibleMany(watchService.take()).flatMap { key =>
         val shouldScan = requiresScan(key.pollEvents().asScala)
-        IO.blocking(key.reset()).void *>
-          (if (shouldScan)
-             IO.sleep(pollInterval) *>
-               discardPendingEvents(watchService) *>
-               logger.debug(s"Detected changes in $directory, rescanning...") *>
-               scanOnce.void
-           else IO.unit)
+        IO.blocking(key.reset()).void *> runFullRescanIfNeeded(shouldScan, watchService)
       }
+
+    private def runFullRescanIfNeeded(shouldScan: Boolean, watchService: WatchService): IO[Unit] =
+      if shouldScan then
+        IO.sleep(pollInterval) *>
+          discardPendingEvents(watchService) *>
+          logger.debug(s"Detected changes in $directory, rescanning...") *>
+          scanOnce.void
+      else IO.unit
 
     private def discardPendingEvents(watchService: WatchService): IO[Unit] =
       IO.blocking {

@@ -22,76 +22,12 @@ import scala.reflect.Typeable
 
 object TrackFileParser {
 
-  private val pathSeparator: String = File.pathSeparator
-  private val DiagnosticErrorPattern =
-    "(?s)^class [^ ]+ at (.+?):(?:<[^>]+>|\\[[^\\]]+\\]) L(\\d+):\\s*(.*)$".r
-
   final case class CompilationError(fileName: String, lineNumber: Int, message: String)
 
-  def extractCompilationError(rawDiagnostic: String): CompilationError = {
-    val diagnostic = rawDiagnostic.trim
-    diagnostic match
-      case DiagnosticErrorPattern(filePath, lineNumber, message) =>
-        val normalizedPath = filePath.replace('\\', '/')
-        val fileName       = normalizedPath.split('/').lastOption.getOrElse(filePath)
-        CompilationError(fileName = fileName, lineNumber = lineNumber.toInt, message = message.trim)
-      case _ =>
-        CompilationError(fileName = "unknown", lineNumber = -1, message = diagnostic)
-  }
+  def extractCompilationError(rawDiagnostic: String): CompilationError =
+    DiagnosticParser.extractCompilationError(rawDiagnostic)
 
-  private def urlToClasspathEntry(url: URL): Option[String] =
-    if url.getProtocol == "file" then scala.util.Try(Path.of(url.toURI).toString).toOption
-    else None
-
-  private def classLocation(clazz: Class[?]): Option[String] =
-    Option(clazz.getProtectionDomain)
-      .flatMap(pd => Option(pd.getCodeSource))
-      .flatMap(cs => Option(cs.getLocation))
-      .flatMap(urlToClasspathEntry)
-
-  private def classLoaderEntries(loader: ClassLoader): List[String] = {
-    def loop(current: ClassLoader): List[String] =
-      if current == null then Nil
-      else {
-        val here = current match
-          case urlLoader: URLClassLoader => urlLoader.getURLs.toList.flatMap(urlToClasspathEntry)
-          case _                         => Nil
-        here ++ loop(current.getParent)
-      }
-
-    loop(loader)
-  }
-
-  private def resolvedClasspath(): String = {
-    val fromProperty =
-      sys.props
-        .get("java.class.path")
-        .toList
-        .flatMap(_.split(pathSeparator).toList)
-        .filter(_.nonEmpty)
-
-    val fromClassLoaders =
-      classLoaderEntries(Thread.currentThread().getContextClassLoader) ++
-        classLoaderEntries(getClass.getClassLoader)
-
-    val anchors = List(
-      classLocation(classOf[Track]),
-      classLocation(classOf[app.syntax.MusicFile]),
-      classLocation(classOf[cats.data.Validated[?, ?]]),
-      classLocation(classOf[scala.deriving.Mirror]),
-      classLocation(classOf[scala.collection.immutable.List[?]]),
-      classLocation(classOf[dotty.tools.dotc.Driver])
-    ).flatten
-
-    val primary =
-      (fromClassLoaders ++ anchors).distinct
-
-    val fallback =
-      fromProperty.distinct
-
-    val entries = if primary.nonEmpty then primary else fallback
-    entries.mkString(pathSeparator)
-  }
+  private def resolvedClasspath(): String = ClasspathResolver.resolvedClasspath()
 
   def classNameFromFilePath(path: Path): String = {
     val fileName = path.getFileName.toString
@@ -145,33 +81,6 @@ object TrackFileParser {
     else outDir.validNec[DomainError]
   }
 
-  private def evaluate[A](className: String, methodName: String, outDir: String)(using Typeable[A]): A = {
-    val loader = new java.net.URLClassLoader(
-      Array(new java.io.File(outDir).toURI.toURL),
-      getClass.getClassLoader
-    ) {
-      override protected def loadClass(name: String, resolve: Boolean): Class[?] = synchronized {
-        val loaded = findLoadedClass(name)
-        val cls =
-          if loaded != null then loaded
-          else {
-            try findClass(name)
-            catch {
-              case _: ClassNotFoundException => super.loadClass(name, false)
-            }
-          }
-
-        if resolve then resolveClass(cls)
-        cls
-      }
-    }
-    val cls    = loader.loadClass(className + "$")
-    val module = cls.getField("MODULE$").get(null)
-    val method = cls.getMethod(methodName)
-    val result = method.invoke(module)
-    result.asInstanceOf[A]
-  }
-
   inline def requireTypeable[T]: Typeable[T] =
     summonFrom {
       case t: Typeable[T] => t
@@ -211,7 +120,7 @@ object TrackFileParser {
     val tempDir = Files.createTempDirectory("track-compile").toString
     compileFiles((scalaFile +: sourceFiles).distinct, tempDir, classpath) match {
       case Validated.Valid(compiledDir) =>
-        catchAllNec(evaluate[A](className, methodName, compiledDir))
+        catchAllNec(RuntimeEvaluator.evaluate[A](className, methodName, compiledDir))
       case Validated.Invalid(e) =>
         e.invalid
     }
@@ -223,5 +132,108 @@ object TrackFileParser {
       className = classNameFromFilePath(scalaFile),
       methodName = "playWrapper"
     ).andThen(identity)
+
+  private object DiagnosticParser {
+    private val DiagnosticErrorPattern =
+      "(?s)^class [^ ]+ at (.+?):(?:<[^>]+>|\\[[^\\]]+\\]) L(\\d+):\\s*(.*)$".r
+
+    def extractCompilationError(rawDiagnostic: String): CompilationError = {
+      val diagnostic = rawDiagnostic.trim
+      diagnostic match
+        case DiagnosticErrorPattern(filePath, lineNumber, message) =>
+          val normalizedPath = filePath.replace('\\', '/')
+          val fileName       = normalizedPath.split('/').lastOption.getOrElse(filePath)
+          CompilationError(fileName = fileName, lineNumber = lineNumber.toInt, message = message.trim)
+        case _ =>
+          CompilationError(fileName = "unknown", lineNumber = -1, message = diagnostic)
+    }
+  }
+
+  private object ClasspathResolver {
+    private val pathSeparator: String = File.pathSeparator
+
+    private def urlToClasspathEntry(url: URL): Option[String] =
+      if url.getProtocol == "file" then scala.util.Try(Path.of(url.toURI).toString).toOption
+      else None
+
+    private def classLocation(clazz: Class[?]): Option[String] =
+      Option(clazz.getProtectionDomain)
+        .flatMap(pd => Option(pd.getCodeSource))
+        .flatMap(cs => Option(cs.getLocation))
+        .flatMap(urlToClasspathEntry)
+
+    private def classLoaderEntries(loader: ClassLoader): List[String] = {
+      def loop(current: ClassLoader): List[String] =
+        if current == null then Nil
+        else {
+          val here = current match
+            case urlLoader: URLClassLoader => urlLoader.getURLs.toList.flatMap(urlToClasspathEntry)
+            case _                         => Nil
+          here ++ loop(current.getParent)
+        }
+
+      loop(loader)
+    }
+
+    def resolvedClasspath(): String = {
+      val fromProperty =
+        sys.props
+          .get("java.class.path")
+          .toList
+          .flatMap(_.split(pathSeparator).toList)
+          .filter(_.nonEmpty)
+
+      val fromClassLoaders =
+        classLoaderEntries(Thread.currentThread().getContextClassLoader) ++
+          classLoaderEntries(getClass.getClassLoader)
+
+      val anchors = List(
+        classLocation(classOf[Track]),
+        classLocation(classOf[app.syntax.MusicFile]),
+        classLocation(classOf[cats.data.Validated[?, ?]]),
+        classLocation(classOf[scala.deriving.Mirror]),
+        classLocation(classOf[scala.collection.immutable.List[?]]),
+        classLocation(classOf[dotty.tools.dotc.Driver])
+      ).flatten
+
+      val primary =
+        (fromClassLoaders ++ anchors).distinct
+
+      val fallback =
+        fromProperty.distinct
+
+      val entries = if primary.nonEmpty then primary else fallback
+      entries.mkString(pathSeparator)
+    }
+  }
+
+  private object RuntimeEvaluator {
+    def evaluate[A](className: String, methodName: String, outDir: String): A = {
+      val loader = new java.net.URLClassLoader(
+        Array(new java.io.File(outDir).toURI.toURL),
+        TrackFileParser.getClass.getClassLoader
+      ) {
+        override protected def loadClass(name: String, resolve: Boolean): Class[?] = synchronized {
+          val loaded = findLoadedClass(name)
+          val cls =
+            if loaded != null then loaded
+            else {
+              try findClass(name)
+              catch {
+                case _: ClassNotFoundException => super.loadClass(name, false)
+              }
+            }
+
+          if resolve then resolveClass(cls)
+          cls
+        }
+      }
+      val cls    = loader.loadClass(className + "$")
+      val module = cls.getField("MODULE$").get(null)
+      val method = cls.getMethod(methodName)
+      val result = method.invoke(module)
+      result.asInstanceOf[A]
+    }
+  }
 
 }

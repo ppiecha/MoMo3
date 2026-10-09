@@ -62,6 +62,25 @@ class TrackCompilerSpec extends FunSuite {
     }
   }
 
+  test("compile fails hard when generator lengths are inconsistent") {
+    val track = Track.track(
+      Track.time(4, 4),
+      Track.duration(4),
+      Track.note(60, 62),
+      Track.velocity(100, 90)
+    )
+    val timing = valid(TimingContext.from(960, 120))
+
+    TrackCompiler.compile(track, timing) match {
+      case Valid(_) =>
+        fail("Expected validation failure for mismatched generator lengths")
+      case Invalid(errors) =>
+        assert(
+          errors.toChain.toList.contains(DomainError.TrackLengthMismatch(time = 2, duration = 1, notes = 2, velocity = 2))
+        )
+    }
+  }
+
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(errors) =>

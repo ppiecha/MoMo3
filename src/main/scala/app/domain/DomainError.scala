@@ -24,6 +24,7 @@ enum DomainError {
   case EmptyTracks
   case NegativeDuration(duration: Double)
   case DurationMismatch(actual: Double, expected: Double)
+  case TrackLengthMismatch(time: Int, duration: Int, notes: Int, velocity: Int)
 
   override def toString: String = this match {
     case InvalidPpq(value)                   => s"Invalid PPQ value: $value"
@@ -45,6 +46,8 @@ enum DomainError {
     case EmptyTracks                         => "No tracks provided for playback plan."
     case NegativeDuration(duration)          => s"Negative duration: $duration"
     case DurationMismatch(actual, expected)  => s"Duration mismatch: actual=$actual, expected=$expected"
+    case TrackLengthMismatch(time, duration, notes, velocity) =>
+      s"Track generator lengths mismatch: time=$time, duration=$duration, notes=$notes, velocity=$velocity"
   }
 
 }
