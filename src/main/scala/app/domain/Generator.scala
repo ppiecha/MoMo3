@@ -3,6 +3,8 @@ package app.domain
 import app.syntax.Extensions.repeat
 import cats.data.{NonEmptyList, ValidatedNec}
 
+final case class Chord(notes: NonEmptyList[Int])
+
 enum Generator[A]:
   case NoteGen(steps: Seq[Chord]) extends Generator[Note]
   case VelocityGen(s: Seq[Int])   extends Generator[Velocity]
@@ -21,14 +23,17 @@ enum Generator[A]:
 
 object Generator {
 
-  def parse[A](seq: Generator[A], ppq: Ppq): Seq[ValidatedNec[DomainError, A]] =
-    seq match {
-      case NoteGen(s)     => s.map(MidiValue[NoteTag])
-      case VelocityGen(s) => s.map(MidiValue[VelocityTag])
-    }
+  def parseNotes(seq: Generator[Note]): Seq[ValidatedNec[DomainError, NonEmptyList[Note]]] =
+    seq match
+      case NoteGen(chords) =>
+        chords.map(chord => chord.notes.traverse(MidiValue[NoteTag]))
 
   def parseTicks(seq: TickGenerator, ppq: Ppq): Seq[ValidatedNec[DomainError, Tick]] =
     seq.values.map(d => Tick.fromDouble(d, ppq))
+
+  def parseVelocity(seq: Generator[Velocity]): Seq[ValidatedNec[DomainError, Velocity]] =
+    seq match
+      case VelocityGen(values) => values.map(MidiValue[VelocityTag])
 
   def note(args: NoteArg*): Generator[Note] = {
     val chords: Seq[Chord] = args.map {

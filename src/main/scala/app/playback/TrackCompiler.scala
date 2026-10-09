@@ -17,26 +17,28 @@ object TrackCompiler {
     timingContext: TimingContext
   ): ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] = {
     val at       = accumulateTimes(track, timingContext)
-    val note     = Generator.parse(track.noteGen, timingContext.ppq)
+    val notes    = Generator.parseNotes(track.noteGen)
     val duration = Generator.parseTicks(track.durGen, timingContext.ppq)
-    val velocity = Generator.parse(track.velGen, timingContext.ppq)
+    val velocity = Generator.parseVelocity(track.velGen)
 
     at
-      .zip(note)
+      .zip(notes)
       .zip(duration)
       .zip(velocity)
-      .flatMap { case (((t, n), d), v) =>
-        val events: ValidatedNec[DomainError, (AbsoluteMidiEvent, AbsoluteMidiEvent)] =
-          (t, n, d, v).mapN { (at, note, duration, velocity) =>
+      .flatMap { case (((t, chord), d), v) =>
+        val events: ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
+          (t, chord, d, v).mapN { (at, chord, duration, velocity) =>
             val nextAt = at + duration
-            (
-              AbsoluteMidiEvent(at, NoteOn(track.channel, note, velocity)),
-              AbsoluteMidiEvent(nextAt, NoteOff(track.channel, note))
-            )
+            chord.toList.flatMap { note =>
+              Seq(
+                AbsoluteMidiEvent(at, NoteOn(track.channel, note, velocity)),
+                AbsoluteMidiEvent(nextAt, NoteOff(track.channel, note))
+              )
+            }
           }
         events.fold(
           errors => Seq(errors.invalid[AbsoluteMidiEvent]),
-          { case (on, off) => Seq(on.validNec, off.validNec) }
+          chordEvents => chordEvents.map(_.validNec)
         )
       }
       .sequence

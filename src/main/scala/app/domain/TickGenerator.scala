@@ -1,4 +1,5 @@
 package app.domain
+import app.syntax.Extensions.repeat
 
 sealed trait TickGenerator { def values: Seq[Double] }
 

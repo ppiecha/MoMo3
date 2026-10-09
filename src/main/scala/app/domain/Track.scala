@@ -26,7 +26,7 @@ case class Track(
     )
 
   def muted: Track = {
-    this.copy(velGen = Track.velocity(Velocity.Zero).repeat(timeGen.length))
+    this.copy(velGen = velocity(Velocity.Zero).repeat(timeGen.length))
   }
 
   def compareDuration(duration: Double): IorNec[DomainError, Track] = {
@@ -73,12 +73,28 @@ object Track {
     track(timeGen, DurationGen(timeGen.values), noteGen)
   }
 
-  def rest(duration: Double)(using channel: Channel): Track = {
+  def rest(value: Double)(using channel: Channel): Track = {
     Track(
-      timeGen = time(duration),
-      durGen = Track.duration(duration),
+      timeGen = time(value),
+      durGen = duration(value),
       noteGen = note(Note.Zero),
       velGen = velocity(Velocity.Zero)
     )
+  }
+
+  def time(t: Double*): TimeGen = {
+    TimeGen(t)
+  }
+
+  def duration(d: Double*): DurationGen = {
+    DurationGen(d)
+  }
+
+  def note(args: NoteArg*): Generator[Note] = {
+    Generator.note(args*)
+  }
+
+  def velocity(v: Int*): Generator[Velocity] = {
+    Generator.velocity(v*)
   }
 }

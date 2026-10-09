@@ -42,6 +42,26 @@ class TrackCompilerSpec extends FunSuite {
     }
   }
 
+  test("compile emits events for each note in a chord step") {
+    val track = Track.track(
+      Track.time(4),
+      Track.duration(4),
+      Track.note((60, 64, 67)),
+      Track.velocity(100)
+    )
+    val timing = valid(TimingContext.from(960, 120))
+
+    TrackCompiler.compile(track, timing) match {
+      case Invalid(errors) =>
+        fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
+      case Valid(events) =>
+        assertEquals(events.size, 6)
+        assert(events.forall(event =>
+          event.command.isInstanceOf[MidiCommand.NoteOn] || event.command.isInstanceOf[MidiCommand.NoteOff]
+        ))
+    }
+  }
+
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(errors) =>
