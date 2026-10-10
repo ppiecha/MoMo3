@@ -5,6 +5,10 @@ lazy val root = project
   .settings(
     name := "MoMo3",
 
+    // Run app in a dedicated JVM so interactive key input is delivered to the app.
+    Compile / run / fork := true,
+    Compile / run / connectInput := true,
+
     // --- SemanticDB (Scalafix + IntelliJ) ---
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
@@ -21,6 +25,8 @@ lazy val root = project
       "com.github.pureconfig" %% "pureconfig-generic-scala3" % "0.17.10",
       "org.typelevel" %% "log4cats-core" % "2.8.0",
       "org.typelevel" %% "log4cats-slf4j" % "2.8.0",
+      "org.jline" % "jline" % "3.29.0",
+      "net.java.dev.jna" % "jna" % "5.14.0",
       "org.scala-lang" %% "scala3-compiler" % "3.3.7"
       ////> using dependency org.scala-lang::scala3-compiler:3.3.7
 

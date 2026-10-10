@@ -27,6 +27,13 @@ trait PlaybackController {
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
+  def status: IO[PlaybackStatus]
+}
+
+enum PlaybackStatus {
+  case Stopped
+  case Playing
+  case Paused
 }
 
 object PlaybackController {
@@ -94,6 +101,13 @@ private final class LivePlaybackController(
 
   override def elapsedTime: IO[FiniteDuration] =
     stateRef.get.map(_.elapsed)
+
+  override def status: IO[PlaybackStatus] =
+    stateRef.get.map { state =>
+      if state.fiber.nonEmpty then PlaybackStatus.Playing
+      else if state.activePlan.nonEmpty then PlaybackStatus.Paused
+      else PlaybackStatus.Stopped
+    }
 
 //  private def buildPlan(tracks: Tracks, timing: TimingContext) =
 //    IO.pure(PlaybackPlan.fromTracks(tracks, timing))

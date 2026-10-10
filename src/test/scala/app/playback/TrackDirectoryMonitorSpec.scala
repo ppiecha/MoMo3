@@ -1,6 +1,7 @@
 package app.playback
 
 import app.domain._
+import app.playback.PlaybackStatus
 import app.playback.TrackFileParser.classNameFromFilePath
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
@@ -191,5 +192,6 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       IO.unit
     }
     override def elapsedTime: IO[FiniteDuration] = IO.pure(0.millis)
+    override def status: IO[PlaybackStatus]      = IO.pure(PlaybackStatus.Stopped)
   }
 }
