@@ -43,10 +43,10 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       )
       .unsafeRunSync()
 
-    val result = monitor.scanOnce.unsafeRunSync()
+    val result = monitor.scanAndPlay.unsafeRunSync()
 
     assertEquals(extractFirstNoteFromPlan(result), 64)
-    assertEquals(harness.replaceCalls.size, 1)
+    assertEquals(harness.replaceCalls.size, 0)
     assert(result.size >= 4)
   }
 
@@ -71,7 +71,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       )
       .unsafeRunSync()
 
-    val firstResult = monitor.scanOnce.unsafeRunSync()
+    val firstResult = monitor.scanReplaceAndResume.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(firstResult), 60)
     assertEquals(harness.replaceCalls.size, 1)
 
@@ -83,7 +83,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
         |""".stripMargin
     )
 
-    val secondResult = monitor.scanOnce.unsafeRunSync()
+    val secondResult = monitor.scanReplaceAndResume.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(secondResult), 60)
     assertEquals(harness.replaceCalls.size, 1)
   }
@@ -115,13 +115,13 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       )
       .unsafeRunSync()
 
-    val firstResult = monitor.scanOnce.unsafeRunSync()
+    val firstResult = monitor.scanReplaceAndResume.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(firstResult), 52)
     assertEquals(harness.replaceCalls.size, 1)
 
     Files.delete(musicFile)
 
-    val secondResult = monitor.scanOnce.unsafeRunSync()
+    val secondResult = monitor.scanReplaceAndResume.unsafeRunSync()
     assertEquals(extractFirstNoteFromPlan(secondResult), 52)
     assertEquals(harness.replaceCalls.size, 1)
   }
@@ -191,7 +191,8 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       replaceCalls = replaceCalls :+ plan
       IO.unit
     }
-    override def elapsedTime: IO[FiniteDuration] = IO.pure(0.millis)
-    override def status: IO[PlaybackStatus]      = IO.pure(PlaybackStatus.Stopped)
+    override def elapsedTime: IO[FiniteDuration]      = IO.pure(0.millis)
+    override def status: IO[PlaybackStatus]           = IO.pure(PlaybackStatus.Stopped)
+    override def activePlan: IO[Option[PlaybackPlan]] = IO.pure(replaceCalls.lastOption)
   }
 }

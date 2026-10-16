@@ -30,9 +30,11 @@ import scala.jdk.CollectionConverters._
   * scan and a rebuild of the active playback.
   */
 trait TrackDirectoryMonitor {
-  def scanOnce: IO[PlaybackPlan]
-  def start: IO[Unit]
+  protected def scanOnce: IO[IorNec[DomainError, PlaybackPlan]]
+  protected def start: IO[Unit]
   def stop: IO[Unit]
+  def scanReplaceAndResume: IO[PlaybackPlan]
+  def scanAndPlay: IO[PlaybackPlan]
 }
 
 object TrackDirectoryMonitor {
@@ -116,17 +118,26 @@ object TrackDirectoryMonitor {
           )
       }
 
-    override def scanOnce: IO[PlaybackPlan] =
-      trackFiles().flatMap { trackSources =>
-        loadPlanFromMusic(trackSources)
-          .flatMap(applyScanResult)
+    override def scanOnce: IO[IorNec[DomainError, PlaybackPlan]] = {
+      stop *> // Stop the watcher before scanning to avoid concurrent modifications
+        trackFiles()
+          .flatMap { trackSources => loadPlanFromMusic(trackSources) }
+          .flatTap(_ => start) // Start the watcher after scanning
+    }
+
+    override def scanReplaceAndResume: IO[PlaybackPlan] =
+      scanOnce.flatMap {
+        case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.empty))
+        case Ior.Right(plan)        => replacePlanIfChanged(plan)
+        case Ior.Both(errors, plan) => logErrors(errors) *> replacePlanIfChanged(plan)
       }
 
-    private def applyScanResult(result: IorNec[DomainError, PlaybackPlan]): IO[PlaybackPlan] =
-      result match
-        case Ior.Left(errors)       => logErrors(errors) *> tracksRef.get
-        case Ior.Right(plan)        => replacePlanIfChanged(plan)
-        case Ior.Both(errors, plan) => logErrors(errors).as(plan)
+    override def scanAndPlay: IO[PlaybackPlan] =
+      scanOnce.flatMap {
+        case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.empty))
+        case Ior.Right(plan)        => playback.play(plan, policy) *> IO.pure(plan)
+        case Ior.Both(errors, plan) => logErrors(errors) *> playback.play(plan, policy) *> IO.pure(plan)
+      }
 
     override def start: IO[Unit] =
       watcherRef.get.flatMap {
@@ -190,7 +201,7 @@ object TrackDirectoryMonitor {
         IO.sleep(pollInterval) *>
           discardPendingEvents(watchService) *>
           logger.debug(s"Detected changes in $directory, rescanning...") *>
-          scanOnce.void
+          scanReplaceAndResume.void
       else IO.unit
 
     private def discardPendingEvents(watchService: WatchService): IO[Unit] =

@@ -50,8 +50,8 @@ object Main extends IOApp {
       )
       _ <-
         if env.startPlaybackOnStartup then
-          monitor.scanOnce *> monitor.start *> logger.debug("Startup playback is enabled. Playback started.")
-        else logger.debug("Startup playback is disabled. Waiting for console command.")
+          monitor.scanAndPlay *> logger.info("Startup playback is enabled. Playback started.")
+        else logger.warn("Startup playback is disabled. Waiting for console command.")
       _ <- PlaybackCommandConsole.run(env, monitor, controller, configSource)
     } yield ()
 

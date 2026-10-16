@@ -26,15 +26,6 @@ object PlaybackCommandConsole {
   private def printMenu: IO[Unit] =
     logger.debug(
       "(p) pause/play, (s) start/stop, (r) restart playback, (n) reload config, (c) force scan, (q) quit"
-//      """
-//        |Available commands:
-//        |r - reload (stop and start)
-//        |s - start if stopped, stop if playing
-//        |p - pause if playing, play if paused
-//        |n - reload config without restarting process
-//        |c - force scan (run scanOnce)
-//        |q - quit
-//        |""".stripMargin
     )
 
   private def readCommand(input: ConsoleInput): IO[Char] =
@@ -65,10 +56,8 @@ object PlaybackCommandConsole {
           case 'r' =>
             for {
               _ <- controller.stop
-              _ <- session.monitor.stop
-              _ <- session.monitor.scanOnce
-              _ <- session.monitor.start
-              _ <- logger.debug("Playback reloaded: stopped and started.")
+              _ <- session.monitor.scanAndPlay
+              _ <- logger.info("Playback reloaded.")
               _ <- loop(session)
             } yield ()
 
@@ -76,25 +65,15 @@ object PlaybackCommandConsole {
             controller.status.flatMap {
               case PlaybackStatus.Stopped =>
                 for {
-                  _ <- session.monitor.scanOnce
-                  _ <- session.monitor.start
-                  _ <- logger.debug("Playback started.")
+                  _ <- session.monitor.scanAndPlay
+                  _ <- logger.info("Playback started.")
                   _ <- loop(session)
                 } yield ()
 
-              case PlaybackStatus.Playing =>
+              case PlaybackStatus.Playing | PlaybackStatus.Paused =>
                 for {
                   _ <- controller.stop
-                  _ <- session.monitor.stop
-                  _ <- logger.debug("Playback stopped.")
-                  _ <- loop(session)
-                } yield ()
-
-              case PlaybackStatus.Paused =>
-                for {
-                  _ <- controller.stop
-                  _ <- session.monitor.stop
-                  _ <- logger.debug("Playback stopped.")
+                  _ <- logger.info("Playback stopped.")
                   _ <- loop(session)
                 } yield ()
             }
@@ -102,11 +81,11 @@ object PlaybackCommandConsole {
           case 'p' =>
             controller.status.flatMap {
               case PlaybackStatus.Playing =>
-                controller.pause *> logger.debug("Playback paused.") *> loop(session)
+                controller.pause *> logger.info("Playback paused.") *> loop(session)
               case PlaybackStatus.Paused =>
-                controller.resume *> logger.debug("Playback resumed.") *> loop(session)
+                controller.resume *> logger.info("Playback resumed.") *> loop(session)
               case PlaybackStatus.Stopped =>
-                logger.debug("Playback is stopped. Use 's' to start.") *> loop(session)
+                logger.info("Playback is stopped. Use 's' to start.") *> loop(session)
             }
 
           case 'n' =>
@@ -118,17 +97,16 @@ object PlaybackCommandConsole {
                 case Right(reloadedEnv) =>
                   for {
                     _          <- controller.stop
-                    _          <- session.monitor.stop
                     newMonitor <- createMonitor(reloadedEnv, controller)
                     _ <- previousStatus match {
                       case PlaybackStatus.Stopped =>
-                        logger.debug("Configuration reloaded. Playback remains stopped.")
+                        logger.info("Configuration reloaded. Playback remains stopped.")
                       case PlaybackStatus.Playing =>
-                        newMonitor.scanOnce *> newMonitor.start *> logger.debug(
+                        newMonitor.scanAndPlay *> logger.info(
                           "Configuration reloaded and playback restarted."
                         )
                       case PlaybackStatus.Paused =>
-                        newMonitor.scanOnce *> newMonitor.start *> controller.pause *> logger.debug(
+                        newMonitor.scanReplaceAndResume *> controller.pause *> logger.info(
                           "Configuration reloaded and playback restored in paused mode."
                         )
                     }
@@ -138,10 +116,10 @@ object PlaybackCommandConsole {
             }
 
           case 'c' =>
-            session.monitor.scanOnce *> logger.debug("Force scan completed.") *> loop(session)
+            session.monitor.scanReplaceAndResume *> logger.info("Force scan completed.") *> loop(session)
 
           case 'q' =>
-            controller.stop *> session.monitor.stop *> logger.debug("Quitting application.")
+            controller.stop *> session.monitor.stop *> logger.info("Quitting application.")
 
           case '\r' | '\n' =>
             loop(session)
