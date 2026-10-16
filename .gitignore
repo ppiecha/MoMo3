@@ -11,3 +11,4 @@ projects/
 *.log
 *.jar
 *.semanticdb
+*.cwt
