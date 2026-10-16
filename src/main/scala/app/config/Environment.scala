@@ -1,9 +1,9 @@
 package app.config
 
-import app.domain.*
+import app.domain._
 import cats.data.NonEmptyList
-import cats.syntax.all.*
-import pureconfig.*
+import cats.syntax.all._
+import pureconfig._
 
 case class TimingConfig(
   bpm: Int = 60,
@@ -15,7 +15,8 @@ case class EnvironmentConfig(
   synthConfig: SynthConfig = SynthConfig(),
   midiOutputConfig: MidiOutputConfig = MidiOutputConfig(),
   midi: MidiConfig = MidiConfig(),
-  paths: PathsConfig = PathsConfig()
+  paths: PathsConfig = PathsConfig(),
+  startPlaybackOnStartup: Boolean = true
 ) derives ConfigReader
 
 case class Environment private (
@@ -24,7 +25,8 @@ case class Environment private (
   synthConfig: SynthConfig = SynthConfig(),
   midiOutputConfig: MidiOutputConfig = MidiOutputConfig(),
   midiConfig: MidiConfig = MidiConfig(),
-  pathsConfig: PathsConfig = PathsConfig()
+  pathsConfig: PathsConfig = PathsConfig(),
+  startPlaybackOnStartup: Boolean = true
 )
 
 object Environment {
@@ -35,13 +37,14 @@ object Environment {
     midiOutputConfig: MidiOutputConfig = MidiOutputConfig(),
     midiConfig: MidiConfig = MidiConfig(),
     pathsConfig: PathsConfig = PathsConfig(),
+    startPlaybackOnStartup: Boolean = true,
     input: ConsoleInput = stdInput
   ): Either[DomainError, Environment] = {
     TimingContext
       .from(ppq, bpm)
-      .map(tc => Environment(tc, input, synthConfig, midiOutputConfig, midiConfig, pathsConfig))
+      .map(tc => Environment(tc, input, synthConfig, midiOutputConfig, midiConfig, pathsConfig, startPlaybackOnStartup))
       .toEither
-      .leftMap(errors => DomainError.ValidationFailed(ValidationError.InvalidConfig(errors.toNonEmptyList)))
+      .leftMap(errors => DomainError.InvalidConfig(errors.toNonEmptyList))
   }
 
   def fromConfig(
@@ -55,6 +58,7 @@ object Environment {
       midiOutputConfig = config.midiOutputConfig,
       midiConfig = config.midi,
       pathsConfig = config.paths,
+      startPlaybackOnStartup = config.startPlaybackOnStartup,
       input = input
     )
   }
@@ -67,10 +71,8 @@ object Environment {
       case Right(config) => fromConfig(config, input)
       case Left(failures) =>
         Left(
-          DomainError.ValidationFailed(
-            ValidationError.InvalidConfig(
-              NonEmptyList.of(ValidationError.InvalidMessage(failures.prettyPrint()))
-            )
+          DomainError.InvalidConfig(
+            NonEmptyList.of(DomainError.InvalidMessage(failures.prettyPrint()))
           )
         )
     }

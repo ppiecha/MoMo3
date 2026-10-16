@@ -1,18 +1,34 @@
 package app.playback
 
-import app.domain.{DomainError, Track}
-import cats.data.{NonEmptyChain, Validated, ValidatedNec}
-import dotty.tools.dotc.*
-import dotty.tools.dotc.reporting.*
-import dotty.tools.dotc.core.Contexts.*
-import cats.syntax.all.*
+import app.domain.DomainError
+import app.domain.Track
+import cats.data.NonEmptyChain
+import cats.data.Validated
+import cats.data.ValidatedNec
+import cats.syntax.all._
+import dotty.tools.dotc._
+import dotty.tools.dotc.core.Contexts._
+import dotty.tools.dotc.reporting._
 
-import java.nio.file.{Files, Path, Paths}
-import scala.reflect.Typeable
-import scala.compiletime.summonFrom
+import java.io.File
+import java.lang.reflect.InvocationTargetException
+import java.net.URL
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.Comparator
 import scala.compiletime.error
+import scala.compiletime.summonFrom
+import scala.reflect.Typeable
 
 object TrackFileParser {
+
+  final case class CompilationError(fileName: String, lineNumber: Int, message: String)
+
+  def extractCompilationError(rawDiagnostic: String): CompilationError =
+    DiagnosticParser.extractCompilationError(rawDiagnostic)
+
+  private def resolvedClasspath(): String = ClasspathResolver.resolvedClasspath()
 
   def classNameFromFilePath(path: Path): String = {
     val fileName = path.getFileName.toString
@@ -26,18 +42,24 @@ object TrackFileParser {
   def compileFile(
     scalaFile: String,
     outDir: String,
-    classpath: String = sys.props("java.class.path")
+    classpath: String = resolvedClasspath()
+  ): ValidatedNec[DomainError, String] =
+    compileFiles(Seq(scalaFile), outDir, classpath)
+
+  def compileFiles(
+    scalaFiles: Seq[String],
+    outDir: String,
+    classpath: String = resolvedClasspath()
   ): ValidatedNec[DomainError, String] = {
 
     val reporter = new StoreReporter()
 
-    val args = Array(
-      scalaFile,
+    val args = (scalaFiles.toArray ++ Array(
       "-d",
       outDir,
       "-classpath",
       classpath
-    )
+    ))
 
     val driver = new Driver:
       override protected def newCompiler(using Context) =
@@ -47,37 +69,17 @@ object TrackFileParser {
 
     if reporter.hasErrors then
       NonEmptyChain
-        .fromSeq(reporter.allErrors.map(e => DomainError.TrackFileParseFailed(e.toString)))
-        .getOrElse(NonEmptyChain.one(DomainError.TrackFileParseFailed("unknown error")))
+        .fromSeq(
+          reporter.allErrors.map { error =>
+            val parsedError = extractCompilationError(error.toString)
+            DomainError.MusicFileParseFailed(
+              s"${parsedError.fileName}:${parsedError.lineNumber}: ${parsedError.message}"
+            )
+          }
+        )
+        .getOrElse(NonEmptyChain.one(DomainError.MusicFileParseFailed("unknown error")))
         .invalid[String]
     else outDir.validNec[DomainError]
-  }
-
-  private def evaluate[A](className: String, methodName: String, outDir: String)(using Typeable[A]): A = {
-    val loader = new java.net.URLClassLoader(
-      Array(new java.io.File(outDir).toURI.toURL),
-      getClass.getClassLoader
-    ) {
-      override protected def loadClass(name: String, resolve: Boolean): Class[?] = synchronized {
-        val loaded = findLoadedClass(name)
-        val cls =
-          if loaded != null then loaded
-          else {
-            try findClass(name)
-            catch {
-              case _: ClassNotFoundException => super.loadClass(name, false)
-            }
-          }
-
-        if resolve then resolveClass(cls)
-        cls
-      }
-    }
-    val cls    = loader.loadClass(className + "$")
-    val module = cls.getField("MODULE$").get(null)
-    val method = cls.getMethod(methodName)
-    val result = method.invoke(module)
-    result.asInstanceOf[A]
   }
 
   inline def requireTypeable[T]: Typeable[T] =
@@ -90,27 +92,42 @@ object TrackFileParser {
         )
     }
 
+  def catchAllNec[A](thunk: => A): ValidatedNec[DomainError, A] =
+    try Validated.validNec(thunk)
+    catch {
+      case t: Throwable =>
+        val root = t match
+          case invocation: InvocationTargetException if invocation.getCause != null => invocation.getCause
+          case other                                                                => other
+
+        val formattedMessage =
+          Option(root.getMessage)
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .map(msg => s"${root.getClass.getSimpleName}: $msg")
+            .getOrElse(root.toString)
+
+        Validated.invalidNec(DomainError.MusicFileParseFailed(formattedMessage))
+    }
+
   inline def compileAndEvaluateFile[A](
     scalaFile: String,
     className: String,
     methodName: String,
-    classpath: String = sys.props("java.class.path")
+    sourceFiles: Seq[String] = Seq.empty,
+    classpath: String = resolvedClasspath()
   )(using Typeable[A]): ValidatedNec[DomainError, A] = {
     requireTypeable[A]
-    val tempDir = Files.createTempDirectory("track-compile").toString
-    compileFile(scalaFile, tempDir, classpath) match {
-      case Validated.Valid(compiledDir) =>
-        Validated
-          .catchNonFatal(evaluate[A](className, methodName, compiledDir))
-          .leftMap { e =>
-            NonEmptyChain.one(
-              DomainError.TrackFileParseFailed(
-                s"Evaluation failed for file '$scalaFile', class '$className', method '$methodName': ${e.getClass.getSimpleName}: ${e.getMessage}"
-              )
-            )
-          }
-      case Validated.Invalid(e) =>
-        e.invalid
+    val tempDir = Files.createTempDirectory("track-compile")
+    try {
+      compileFiles((scalaFile +: sourceFiles).distinct, tempDir.toString, classpath) match {
+        case Validated.Valid(compiledDir) =>
+          catchAllNec(RuntimeEvaluator.evaluate[A](className, methodName, compiledDir))
+        case Validated.Invalid(e) =>
+          e.invalid
+      }
+    } finally {
+      Cleanup.deleteDirectoryBestEffort(tempDir)
     }
   }
 
@@ -120,5 +137,132 @@ object TrackFileParser {
       className = classNameFromFilePath(scalaFile),
       methodName = "playWrapper"
     ).andThen(identity)
+
+  private object DiagnosticParser {
+    private val DiagnosticErrorPattern =
+      "(?s)^class [^ ]+ at (.+?):(?:<[^>]+>|\\[[^\\]]+\\]) L(\\d+):\\s*(.*)$".r
+
+    def extractCompilationError(rawDiagnostic: String): CompilationError = {
+      val diagnostic = rawDiagnostic.trim
+      diagnostic match
+        case DiagnosticErrorPattern(filePath, lineNumber, message) =>
+          val normalizedPath = filePath.replace('\\', '/')
+          val fileName       = normalizedPath.split('/').lastOption.getOrElse(filePath)
+          CompilationError(fileName = fileName, lineNumber = lineNumber.toInt, message = message.trim)
+        case _ =>
+          CompilationError(fileName = "unknown", lineNumber = -1, message = diagnostic)
+    }
+  }
+
+  private object ClasspathResolver {
+    private val pathSeparator: String = File.pathSeparator
+
+    private def urlToClasspathEntry(url: URL): Option[String] =
+      if url.getProtocol == "file" then scala.util.Try(Path.of(url.toURI).toString).toOption
+      else None
+
+    private def classLocation(clazz: Class[?]): Option[String] =
+      Option(clazz.getProtectionDomain)
+        .flatMap(pd => Option(pd.getCodeSource))
+        .flatMap(cs => Option(cs.getLocation))
+        .flatMap(urlToClasspathEntry)
+
+    private def classLoaderEntries(loader: ClassLoader): List[String] = {
+      def loop(current: ClassLoader): List[String] =
+        if current == null then Nil
+        else {
+          val here = current match
+            case urlLoader: URLClassLoader => urlLoader.getURLs.toList.flatMap(urlToClasspathEntry)
+            case _                         => Nil
+          here ++ loop(current.getParent)
+        }
+
+      loop(loader)
+    }
+
+    def resolvedClasspath(): String = {
+      val fromProperty =
+        sys.props
+          .get("java.class.path")
+          .toList
+          .flatMap(_.split(pathSeparator).toList)
+          .filter(_.nonEmpty)
+
+      val fromClassLoaders =
+        classLoaderEntries(Thread.currentThread().getContextClassLoader) ++
+          classLoaderEntries(getClass.getClassLoader)
+
+      val anchors = List(
+        classLocation(classOf[Track]),
+        classLocation(classOf[app.syntax.MusicFile]),
+        classLocation(classOf[cats.data.Validated[?, ?]]),
+        classLocation(classOf[scala.deriving.Mirror]),
+        classLocation(classOf[scala.collection.immutable.List[?]]),
+        classLocation(classOf[dotty.tools.dotc.Driver])
+      ).flatten
+
+      val primary =
+        (fromClassLoaders ++ anchors).distinct
+
+      val fallback =
+        fromProperty.distinct
+
+      val entries = if primary.nonEmpty then primary else fallback
+      entries.mkString(pathSeparator)
+    }
+  }
+
+  private object RuntimeEvaluator {
+    def evaluate[A](className: String, methodName: String, outDir: String): A = {
+      val loader = new java.net.URLClassLoader(
+        Array(new java.io.File(outDir).toURI.toURL),
+        TrackFileParser.getClass.getClassLoader
+      ) {
+        override protected def loadClass(name: String, resolve: Boolean): Class[?] = synchronized {
+          val loaded = findLoadedClass(name)
+          val cls =
+            if loaded != null then loaded
+            else {
+              try findClass(name)
+              catch {
+                case _: ClassNotFoundException => super.loadClass(name, false)
+              }
+            }
+
+          if resolve then resolveClass(cls)
+          cls
+        }
+      }
+      try {
+        val cls    = loader.loadClass(className + "$")
+        val module = cls.getField("MODULE$").get(null)
+        val method = cls.getMethod(methodName)
+        val result = method.invoke(module)
+        result.asInstanceOf[A]
+      } finally {
+        loader.close()
+      }
+    }
+  }
+
+  private object Cleanup {
+    def deleteDirectoryBestEffort(directory: Path): Unit =
+      try deleteDirectory(directory)
+      catch {
+        case _: Throwable => ()
+      }
+
+    private def deleteDirectory(directory: Path): Unit =
+      if Files.exists(directory) then {
+        val paths = Files.walk(directory)
+        try {
+          paths
+            .sorted(Comparator.reverseOrder())
+            .forEach(path => Files.deleteIfExists(path))
+        } finally {
+          paths.close()
+        }
+      }
+  }
 
 }

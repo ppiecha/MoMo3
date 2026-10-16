@@ -1,12 +1,15 @@
 package app.midi
 
-import cats.effect.*
-import cats.syntax.all.*
-
-import javax.sound.midi.{MidiDevice, MidiSystem, Receiver, ShortMessage}
-import app.config.{Environment, MidiOutputConfig}
-import app.domain.{DomainError, ValidationError}
+import app.config.MidiOutputConfig
+import app.domain.DomainError
 import cats.data.EitherT
+import cats.effect._
+import cats.syntax.all._
+
+import javax.sound.midi.MidiDevice
+import javax.sound.midi.MidiSystem
+import javax.sound.midi.Receiver
+import javax.sound.midi.ShortMessage
 
 object ReactiveSynth {
 
@@ -63,8 +66,7 @@ object ReactiveSynth {
           infos
             .map(MidiSystem.getMidiDevice)
             .find(dev => dev.getDeviceInfo.getName.contains(portName) && dev.getMaxReceivers != 0)
-
-        maybeDevice.toRight(DomainError.ValidationFailed(ValidationError.InvalidPort(portName)))
+        maybeDevice.toRight(DomainError.InvalidPort(portName))
       }
 
   def outputResource[F[_]: Async](

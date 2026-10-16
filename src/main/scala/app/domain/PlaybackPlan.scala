@@ -1,8 +1,9 @@
 package app.domain
 
 import app.playback.TrackCompiler
-import cats.data.ValidatedNec
-import cats.syntax.all.*
+import app.syntax.toIorNec
+import cats.data.IorNec
+import cats.syntax.all._
 
 case class PlaybackPlan(events: Seq[TimedEvent]) {
   def isEmpty: Boolean  = events.isEmpty
@@ -17,9 +18,9 @@ object PlaybackPlan {
   def fromTracks(
     tracks: Tracks,
     timingContext: TimingContext
-  ): ValidatedNec[ValidationError, PlaybackPlan] =
+  ): IorNec[DomainError, PlaybackPlan] =
     tracks.toSeq
-      .traverse(track => TrackCompiler.compile(track, timingContext))
+      .traverse(track => toIorNec(TrackCompiler.compile(track, timingContext)))
       .map(_.flatten)
       .map(events => PlaybackPlan(TimedEvent.fromAbsoluteEvents(events, timingContext)))
 }

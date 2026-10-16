@@ -49,8 +49,8 @@ object MidiValue {
 
   val VELOCITY_ZERO: MidiValue[VelocityTag] = Velocity(0)
 
-  def apply[A](value: Int)(using kind: MidiValueKind[A]): ValidatedNec[ValidationError, MidiValue[A]] =
-    if value >= 0 && value <= 127 then kind.construct(value).validNec[ValidationError]
-    else ValidationError.InvalidMidiValue(value).invalidNec[MidiValue[A]]
+  def apply[A](value: Int)(using kind: MidiValueKind[A]): ValidatedNec[DomainError, MidiValue[A]] =
+    if value >= 0 && value <= 127 then kind.construct(value).validNec[DomainError]
+    else DomainError.InvalidMidiValue(value).invalidNec[MidiValue[A]]
 
 }

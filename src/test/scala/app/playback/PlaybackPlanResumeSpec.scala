@@ -1,11 +1,12 @@
 package app.playback
 
-import app.domain.*
+import app.domain._
 import app.domain.given
-import cats.data.Validated.{Invalid, Valid}
+import cats.data.Validated.Invalid
+import cats.data.Validated.Valid
 import munit.FunSuite
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
 class PlaybackPlanResumeSpec extends FunSuite {
 
@@ -40,7 +41,7 @@ class PlaybackPlanResumeSpec extends FunSuite {
   private def velocity(value: Int): Velocity = valid(MidiValue[VelocityTag](value))
   private def tick(value: Int): Tick         = valid(Tick.fromInt(value))
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(errors) =>
       throw new IllegalStateException(s"Invalid test value: ${errors.toChain.toList.mkString(", ")}")

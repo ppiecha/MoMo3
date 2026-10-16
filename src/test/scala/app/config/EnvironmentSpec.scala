@@ -19,9 +19,9 @@ class EnvironmentSpec extends FunSuite {
     assertEquals(env.midiConfig.volume, 100)
     assertEquals(env.midiConfig.chorus, 0)
     assertEquals(env.midiConfig.reverb, 0)
-    assertEquals(env.pathsConfig.tracks, "projects/test1/tracks")
+    assertEquals(env.pathsConfig.tracks, "projects/test1/")
     assertEquals(env.pathsConfig.musicFile, "projects/test1/Music.scala")
-    assertEquals(env.pathsConfig.commonFile, "projects/test1/tracks/Common.scala")
+    assertEquals(env.startPlaybackOnStartup, true)
   }
 
   test("Environment.load should load from custom HOCON string") {
@@ -50,6 +50,7 @@ class EnvironmentSpec extends FunSuite {
         |  common-file = "custom-common.scala"
         |  polling-interval = 500
         |}
+        |start-playback-on-startup = false
         |""".stripMargin
 
     val result = Environment.load(ConfigSource.string(hocon))
@@ -68,6 +69,7 @@ class EnvironmentSpec extends FunSuite {
     assertEquals(env.pathsConfig.tracks, "custom-tracks")
     assertEquals(env.pathsConfig.musicFile, "custom-music.scala")
     assertEquals(env.pathsConfig.commonFile, "custom-common.scala")
+    assertEquals(env.startPlaybackOnStartup, false)
   }
 
   test("Environment.load should return error for invalid config") {

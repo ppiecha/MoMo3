@@ -1,21 +1,24 @@
 package app.playback
 
-import app.domain.{*, given}
+import app.domain.{_, given}
+import cats.data.Validated
 import cats.effect.IO
 import cats.effect.Ref
 import cats.effect.testkit.TestControl
 import cats.effect.unsafe.implicits.global
-import cats.data.Validated
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 
-import scala.concurrent.duration.*
+import scala.concurrent.duration._
 
-class PlaybackServiceSpec extends ScalaCheckSuite {
+class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
 
   property("fromAbsoluteEvents preserves cardinality") {
-    forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
+    forAll(
+      TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
+      TimedEventAndPlaybackExecutionSpec.genTimingContext
+    ) { (events, timingContext) =>
       val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
 
       assertEquals(timed.size, events.size)
@@ -23,35 +26,41 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
   }
 
   property("fromAbsoluteEvents sorts events by their absolute time") {
-    forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
+    forAll(
+      TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
+      TimedEventAndPlaybackExecutionSpec.genTimingContext
+    ) { (events, timingContext) =>
       val timed = TimedEvent.fromAbsoluteEvents(events, timingContext)
       val times = timed.map(_.event.at.value)
 
       assertEquals(times, times.sorted)
-      assertEquals(timed.map(_.event), events.sortBy(PlaybackServiceSpec.sortKey))
+      assertEquals(timed.map(_.event), events.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey))
     }
   }
 
   property("fromAbsoluteEvents computes delay deltas from consecutive timestamps") {
-    forAll(PlaybackServiceSpec.genAbsoluteMidiEvents, PlaybackServiceSpec.genTimingContext) { (events, timingContext) =>
-      val sorted   = events.sortBy(PlaybackServiceSpec.sortKey)
+    forAll(
+      TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
+      TimedEventAndPlaybackExecutionSpec.genTimingContext
+    ) { (events, timingContext) =>
+      val sorted   = events.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey)
       val timed    = TimedEvent.fromAbsoluteEvents(events, timingContext)
-      val expected = PlaybackServiceSpec.expectedDelays(sorted, timingContext)
+      val expected = TimedEventAndPlaybackExecutionSpec.expectedDelays(sorted, timingContext)
 
       assertEquals(timed.map(_.delay), expected)
     }
   }
 
   test("fromAbsoluteEvents sorts equal timestamps by command priority") {
-    val at       = PlaybackServiceSpec.valid(Tick.fromInt(480))
+    val at       = TimedEventAndPlaybackExecutionSpec.valid(Tick.fromInt(480))
     val channel  = Channel.Ch0
-    val note     = PlaybackServiceSpec.valid(MidiValue[NoteTag](60))
-    val velocity = PlaybackServiceSpec.valid(MidiValue[VelocityTag](100))
-    val bank     = PlaybackServiceSpec.valid(MidiValue[BankTag](1))
-    val program  = PlaybackServiceSpec.valid(MidiValue[ProgramTag](2))
-    val control  = PlaybackServiceSpec.valid(MidiValue[ControlTag](7))
-    val controlV = PlaybackServiceSpec.valid(MidiValue[ControlTag](90))
-    val timing   = PlaybackServiceSpec.valid(TimingContext.from(960, 120))
+    val note     = TimedEventAndPlaybackExecutionSpec.valid(MidiValue[NoteTag](60))
+    val velocity = TimedEventAndPlaybackExecutionSpec.valid(MidiValue[VelocityTag](100))
+    val bank     = TimedEventAndPlaybackExecutionSpec.valid(MidiValue[BankTag](1))
+    val program  = TimedEventAndPlaybackExecutionSpec.valid(MidiValue[ProgramTag](2))
+    val control  = TimedEventAndPlaybackExecutionSpec.valid(MidiValue[ControlTag](7))
+    val controlV = TimedEventAndPlaybackExecutionSpec.valid(MidiValue[ControlTag](90))
+    val timing   = TimedEventAndPlaybackExecutionSpec.valid(TimingContext.from(960, 120))
 
     val events = Vector(
       AbsoluteMidiEvent(at, MidiCommand.NoteOff(channel, note)),
@@ -67,14 +76,14 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
       Vector(
         MidiCommand.ControlChange(channel, control, controlV),
         MidiCommand.ProgramChange(channel, bank, program),
-        MidiCommand.NoteOn(channel, note, velocity),
-        MidiCommand.NoteOff(channel, note)
+        MidiCommand.NoteOff(channel, note),
+        MidiCommand.NoteOn(channel, note, velocity)
       )
     )
   }
 
   property("fromAbsoluteEvents returns an empty sequence for empty input") {
-    forAll(PlaybackServiceSpec.genTimingContext) { timingContext =>
+    forAll(TimedEventAndPlaybackExecutionSpec.genTimingContext) { timingContext =>
       assertEquals(TimedEvent.fromAbsoluteEvents(Vector.empty, timingContext), Vector.empty)
     }
   }
@@ -84,13 +93,13 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
       Tick.zero,
       MidiCommand.NoteOn(
         Channel.Ch0,
-        PlaybackServiceSpec.valid(MidiValue[NoteTag](60)),
-        PlaybackServiceSpec.valid(MidiValue[VelocityTag](100))
+        TimedEventAndPlaybackExecutionSpec.valid(MidiValue[NoteTag](60)),
+        TimedEventAndPlaybackExecutionSpec.valid(MidiValue[VelocityTag](100))
       )
     )
     val second = AbsoluteMidiEvent(
-      PlaybackServiceSpec.valid(Tick.fromInt(480)),
-      MidiCommand.NoteOff(Channel.Ch0, PlaybackServiceSpec.valid(MidiValue[NoteTag](60)))
+      TimedEventAndPlaybackExecutionSpec.valid(Tick.fromInt(480)),
+      MidiCommand.NoteOff(Channel.Ch0, TimedEventAndPlaybackExecutionSpec.valid(MidiValue[NoteTag](60)))
     )
     val plan = PlaybackPlan(
       Vector(
@@ -112,7 +121,7 @@ class PlaybackServiceSpec extends ScalaCheckSuite {
   }
 }
 
-object PlaybackServiceSpec {
+object TimedEventAndPlaybackExecutionSpec {
 
   def sortKey(event: AbsoluteMidiEvent): (Int, Int) =
     (event.at.value, commandOrder(event.command))
@@ -121,11 +130,11 @@ object PlaybackServiceSpec {
     command match {
       case MidiCommand.ControlChange(_, _, _) => 0
       case MidiCommand.ProgramChange(_, _, _) => 1
-      case MidiCommand.NoteOn(_, _, _)        => 2
-      case MidiCommand.NoteOff(_, _, _)       => 3
+      case MidiCommand.NoteOff(_, _, _)       => 2
+      case MidiCommand.NoteOn(_, _, _)        => 3
     }
 
-  private def valid[A](validated: cats.data.ValidatedNec[ValidationError, A]): A = validated match {
+  private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Validated.Valid(value) => value
     case Validated.Invalid(errors) =>
       throw new IllegalStateException(s"Generated invalid value: $errors")

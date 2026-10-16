@@ -1,19 +1,18 @@
-### 1. Model
-
-### 2. Tests
-- script to fix, fomat and run tests
-
-### 3. App
-- on start restart fluidsynth process if not running
+### App
 - loop to stop pause and resume playback and exit application
-- accord
 
-### 4. Config
-- simplify config
-- compile-only
- 
-### 5. Track utils & consts
-- if file only in compile-only then only compile
+### Update readme
 
-### 6. Update readme
+### Code
+
+- console message as info, playbackcontroller as debugs
+- Fix scanOnce + start
+- instrument na poziomie track-a   
+- 4.repeat(16)
+- one track function, rest options
+- for options zip with default values
+- control gen
+- note like c# - trait toMidiValue
+- Zdefiniowac instrumenty po nazwach w bankach, ulozyc w kategorie
+- czy dasie uproscic MidiValue[Tag] jako np Enum pobierajacy MidiValue
 

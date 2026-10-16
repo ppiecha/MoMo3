@@ -2,11 +2,9 @@ package app.domain
 
 import app.domain.Generator
 import app.domain.Generator._
-import cats.data.Validated.{Invalid, Valid}
-import cats.syntax.validated.*
-import app.domain.ValidationError
-import cats.data.{NonEmptyList, ValidatedNec}
-import app.syntax.Conversions.*
+import cats.data.Ior
+import cats.data.IorNec
+import cats.data.{NonEmptyChain => NEC}
 
 case class Track(
   timeGen: TimeGen,
@@ -28,13 +26,14 @@ case class Track(
     )
 
   def muted: Track = {
-    this.copy(velGen = Track.velocity(Velocity.Zero).repeat(timeGen.length))
+    this.copy(velGen = velocity(Velocity.Zero).repeat(timeGen.length))
   }
 
-  def validatedDuration(duration: Double): ValidatedNec[ValidationError, Track] = {
-    if duration < 0 then ValidationError.NegativeDuration(duration).invalidNec
-    if timeGen.duration != duration then ValidationError.DurationMismatch(timeGen.duration, duration).invalidNec
-    else this.validNec
+  def compareDuration(duration: Double): IorNec[DomainError, Track] = {
+    if duration < 0 then Ior.Left(NEC.one(DomainError.NegativeDuration(duration)))
+    else if timeGen.duration != duration then
+      Ior.Left(NEC.one(DomainError.DurationMismatch(timeGen.duration, duration)))
+    else Ior.Right(this)
   }
 
 }
@@ -74,10 +73,10 @@ object Track {
     track(timeGen, DurationGen(timeGen.values), noteGen)
   }
 
-  def rest(duration: Double)(using channel: Channel): Track = {
+  def rest(value: Double)(using channel: Channel): Track = {
     Track(
-      timeGen = time(duration),
-      durGen = Track.duration(duration),
+      timeGen = time(value),
+      durGen = duration(value),
       noteGen = note(Note.Zero),
       velGen = velocity(Velocity.Zero)
     )
@@ -91,12 +90,11 @@ object Track {
     DurationGen(d)
   }
 
-  def note(n: Int*): Generator[Note] = {
-    NoteGen(n)
+  def note(args: NoteArg*): Generator[Note] = {
+    Generator.note(args*)
   }
 
   def velocity(v: Int*): Generator[Velocity] = {
-    VelocityGen(v)
+    Generator.velocity(v*)
   }
-
 }

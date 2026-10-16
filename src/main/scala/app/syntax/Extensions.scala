@@ -1,8 +1,5 @@
 package app.syntax
 
-import app.domain.*
-import app.domain.Track.rest
-
 object Extensions {
 
   extension [A](seq: Seq[A]) {

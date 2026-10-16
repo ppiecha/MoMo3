@@ -1,12 +1,10 @@
 package app.domain
 
-import cats.data.{NonEmptyChain, NonEmptyList}
-import cats.syntax.all.*
+import cats.data.NonEmptyChain
+import cats.data.NonEmptyList
+import cats.syntax.all._
 
-def validationToDomainError(errors: NonEmptyChain[ValidationError]): NonEmptyChain[DomainError] =
-  errors.map(ve => DomainError.ValidationFailed(ve))
-
-enum ValidationError {
+enum DomainError {
   case InvalidPpq(value: Int)
   case InvalidBpm(value: Int)
   case InvalidTick(value: Int)
@@ -15,14 +13,18 @@ enum ValidationError {
   case InvalidVelocity(value: Int)
   case InvalidTimeValue(value: Long)
   case InvalidMessage(error: String)
-  case InvalidEvent(errors: NonEmptyChain[ValidationError])
-  case InvalidConfig(errors: NonEmptyList[ValidationError])
+  case InvalidEvent(errors: NonEmptyChain[DomainError])
+  case InvalidConfig(errors: NonEmptyList[DomainError])
   case InvalidPort(portName: String)
   case EmptyListInSlidingWindow
   case ChannelMismatch(channel1: Channel, channel2: Channel)
+  case PlaybackFailed(msg: String)
+  case TrackFileParseFailed(error: String)
+  case MusicFileParseFailed(error: String)
+  case EmptyTracks
   case NegativeDuration(duration: Double)
   case DurationMismatch(actual: Double, expected: Double)
-  case EmptyTracks
+  case TrackLengthMismatch(time: Int, duration: Int, notes: Int, velocity: Int)
 
   override def toString: String = this match {
     case InvalidPpq(value)                   => s"Invalid PPQ value: $value"
@@ -38,25 +40,14 @@ enum ValidationError {
     case InvalidPort(portName)               => s"Invalid port name: $portName"
     case EmptyListInSlidingWindow            => "Empty list in sliding window"
     case ChannelMismatch(channel1, channel2) => s"Channel mismatch between $channel1 and $channel2"
+    case PlaybackFailed(msg)                 => s"Playback failed: $msg"
+    case TrackFileParseFailed(error)         => s"Track file parse failed: $error"
+    case MusicFileParseFailed(error)         => s"Music file parse failed: $error"
+    case EmptyTracks                         => "No tracks provided for playback plan."
     case NegativeDuration(duration)          => s"Negative duration: $duration"
     case DurationMismatch(actual, expected)  => s"Duration mismatch: actual=$actual, expected=$expected"
-    case EmptyTracks                         => "No tracks provided for playback plan."
-  }
-
-}
-
-enum DomainError {
-  case ValidationFailed(err: ValidationError)
-  case PlaybackFailed(msg: String)
-  case TrackFileParseFailed(error: String)
-  case MusicFileParseFailed(error: String)
-
-  override def toString: String = this match {
-    case ValidationFailed(err)       => s"Validation failed: $err"
-    case PlaybackFailed(msg)         => s"Playback failed: $msg"
-    case TrackFileParseFailed(error) => s"Track file parse failed: $error"
-    case MusicFileParseFailed(error) => s"Music file parse failed: $error"
-
+    case TrackLengthMismatch(time, duration, notes, velocity) =>
+      s"Track generator lengths mismatch: time=$time, duration=$duration, notes=$notes, velocity=$velocity"
   }
 
 }

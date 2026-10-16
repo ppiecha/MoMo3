@@ -6,3 +6,9 @@
 .vscode/
 target/
 sf/
+project/
+projects/
+*.log
+*.jar
+*.semanticdb
+*.cwt

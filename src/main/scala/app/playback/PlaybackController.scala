@@ -1,13 +1,15 @@
 package app.playback
 
-import app.domain.{AbsoluteMidiEvent, DomainError, PlaybackPlan, TimingContext, Track, Tracks}
-import cats.effect.{FiberIO, IO, Ref}
-import cats.syntax.all.*
+import app.domain.AbsoluteMidiEvent
+import app.domain.PlaybackPlan
+import cats.effect.FiberIO
+import cats.effect.IO
+import cats.effect.Ref
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
-import cats.data.Validated.{Invalid, Valid}
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 
 /** High-level playback control for start, pause, resume, stop and replacing the current plan with a freshly compiled
   * set of tracks.
@@ -25,14 +27,22 @@ trait PlaybackController {
     policy: RepeatPolicy = RepeatPolicy.none
   ): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
+  def status: IO[PlaybackStatus]
+  def activePlan: IO[Option[PlaybackPlan]]
+}
+
+enum PlaybackStatus {
+  case Stopped
+  case Playing
+  case Paused
 }
 
 object PlaybackController {
   def live(
     send: AbsoluteMidiEvent => IO[Unit],
     logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-  ): PlaybackController =
-    new LivePlaybackController(send, logger)
+  ): IO[PlaybackController] =
+    Ref.of[IO, PlaybackState](PlaybackState()).map(stateRef => new LivePlaybackController(send, logger, stateRef))
 
   private[playback] def nextRepeat(
     repeatedPlan: PlaybackPlan,
@@ -50,63 +60,43 @@ private final case class PlaybackState(
 
 private final class LivePlaybackController(
   send: AbsoluteMidiEvent => IO[Unit],
-  logger: Logger[IO]
+  logger: Logger[IO],
+  stateRef: Ref[IO, PlaybackState]
 ) extends PlaybackController {
 
-  private val stateRef: Ref[IO, PlaybackState] = Ref.unsafe(PlaybackState())
+  private val zeroDuration: FiniteDuration = FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)
+
+  override def pause: IO[Unit] =
+    stateRef.modify { state =>
+      state.fiber match {
+        case Some(fiber) =>
+          (state.copy(fiber = None), fiber.cancel *> logger.debug("Playback paused"))
+        case None =>
+          (state, IO.unit)
+      }
+    }.flatten
+
+  override def resume: IO[Unit] =
+    stateRef.modify { state =>
+      val action = state.activePlan match {
+        case Some(plan) => start(plan, state.policy, state.elapsed)
+        case None       => IO.unit
+      }
+      (state, action)
+    }.flatten
+
+  override def stop: IO[Unit] =
+    stateRef.modify { state =>
+      val cancel = state.fiber.fold(IO.unit)(_.cancel)
+      (PlaybackState(), cancel *> logger.debug("Playback stopped"))
+    }.flatten
 
   override def play(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
     start(plan, policy, 0.millis)
 
-  override def pause: IO[Unit] =
-    stateRef.get.flatMap { state =>
-      state.fiber match {
-        case Some(fiber) =>
-          fiber.cancel *> stateRef.update(_.copy(fiber = None)).void *> logger.info("Playback paused")
-        case None =>
-          IO.unit
-      }
-    }
-
-  override def resume: IO[Unit] =
-    stateRef.get.flatMap { state =>
-      state.activePlan match {
-        case Some(plan) => start(plan, state.policy, state.elapsed)
-        case None       => IO.unit
-      }
-    }
-
-  override def stop: IO[Unit] =
-    stateRef.get.flatMap { state =>
-      state.fiber match {
-        case Some(fiber) => fiber.cancel
-        case None        => IO.unit
-      }
-    } *> stateRef.set(PlaybackState()) *> logger.info("Playback stopped")
-
-  override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
-    stateRef.get.flatMap { state =>
-      (
-        state.fiber match {
-          case Some(fiber) => fiber.cancel *> stateRef.update(_.copy(fiber = None))
-          case None        => IO.unit
-        }
-      ) *> start(plan, policy, state.elapsed)
-    }
-
-  override def elapsedTime: IO[FiniteDuration] =
-    stateRef.get.map(_.elapsed)
-
-//  private def buildPlan(tracks: Tracks, timing: TimingContext) =
-//    IO.pure(PlaybackPlan.fromTracks(tracks, timing))
-
-  private def start(
-    plan: PlaybackPlan,
-    policy: RepeatPolicy,
-    elapsed: FiniteDuration
-  ): IO[Unit] = {
+  private def start(plan: PlaybackPlan, policy: RepeatPolicy, elapsed: FiniteDuration): IO[Unit] = {
     val adjustedPlan =
-      if (elapsed <= FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)) plan
+      if (elapsed <= zeroDuration) plan
       else PlaybackPlanResume.resumeFrom(plan, elapsed)
 
     val task: IO[Unit] = repeatLoop(adjustedPlan, plan, policy, elapsed)
@@ -115,6 +105,25 @@ private final class LivePlaybackController(
       stateRef.update(_.copy(activePlan = Some(plan), elapsed = elapsed, policy = policy, fiber = Some(fiber)))
     }
   }
+
+  override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
+    stateRef.modify { state =>
+      val cancel = state.fiber.fold(IO.unit)(_.cancel)
+      (state.copy(fiber = None), cancel *> start(plan, policy, state.elapsed))
+    }.flatten
+
+  override def elapsedTime: IO[FiniteDuration] =
+    stateRef.get.map(_.elapsed)
+
+  override def status: IO[PlaybackStatus] =
+    stateRef.get.map { state =>
+      if state.fiber.nonEmpty then PlaybackStatus.Playing
+      else if state.activePlan.nonEmpty then PlaybackStatus.Paused
+      else PlaybackStatus.Stopped
+    }
+
+  override def activePlan: IO[Option[PlaybackPlan]] =
+    stateRef.get.map(_.activePlan)
 
   private def repeatLoop(
     initialPlan: PlaybackPlan,

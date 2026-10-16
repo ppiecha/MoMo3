@@ -1,12 +1,15 @@
 package app.domain
 
-import munit.CatsEffectSuite
-import TestTracks.*
 import app.config.Environment
-import app.domain.*
-import cats.data.{Validated, ValidatedNec}
-import cats.syntax.all.*
+import app.domain._
 import app.playback.TrackCompiler
+import cats.data.NonEmptyList
+import cats.data.Validated
+import cats.data.ValidatedNec
+import cats.syntax.all._
+import munit.CatsEffectSuite
+
+import TestTracks._
 
 class TrackSpec extends CatsEffectSuite {
 
@@ -17,7 +20,7 @@ class TrackSpec extends CatsEffectSuite {
     case Left(errors) => fail(s"Expected valid value but got errors: $errors")
   }
 
-  def validOrFail[A](validated: ValidatedNec[ValidationError, A]): A = validated match {
+  def validOrFail[A](validated: ValidatedNec[DomainError, A]): A = validated match {
     case Validated.Valid(value)    => value
     case Validated.Invalid(errors) => fail(s"Expected valid value but got errors: $errors")
   }
@@ -33,8 +36,30 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("note should create note generators from one or more values") {
-    assertEquals(Track.note(60), Generator.NoteGen(Seq(60)))
-    assertEquals(Track.note(60, 62, 64), Generator.NoteGen(Seq(60, 62, 64)))
+    assertEquals(Track.note(60), Generator.NoteGen(Seq(Chord(NonEmptyList.one(60)))))
+    assertEquals(
+      Track.note(60, 62, 64),
+      Generator.NoteGen(
+        Seq(
+          Chord(NonEmptyList.one(60)),
+          Chord(NonEmptyList.one(62)),
+          Chord(NonEmptyList.one(64))
+        )
+      )
+    )
+  }
+
+  test("note should allow tuple chords mixed with single notes") {
+    assertEquals(
+      Track.note((60, 64, 67), 30, 40),
+      Generator.NoteGen(
+        Seq(
+          Chord(NonEmptyList(60, List(64, 67))),
+          Chord(NonEmptyList.one(30)),
+          Chord(NonEmptyList.one(40))
+        )
+      )
+    )
   }
 
   test("velocity should create velocity generators from one or more values") {
