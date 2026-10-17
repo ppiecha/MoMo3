@@ -31,7 +31,7 @@ class PlaybackPlanResumeSpec extends FunSuite {
 
   private val samplePlan: PlaybackPlan = PlaybackPlan(
     Vector(
-      TimedEvent(10.millis, AbsoluteMidiEvent(Tick.zero, MidiCommand.NoteOn(Channel.Ch0, note(60), velocity(100)))),
+      TimedEvent(10.millis, AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOn(Channel.Ch0, note(60), velocity(100)))),
       TimedEvent(20.millis, AbsoluteMidiEvent(tick(480), MidiCommand.NoteOff(Channel.Ch0, note(60)))),
       TimedEvent(30.millis, AbsoluteMidiEvent(tick(960), MidiCommand.NoteOn(Channel.Ch0, note(62), velocity(100))))
     )

@@ -37,7 +37,7 @@ class TickSpec extends FunSuite with ScalaCheckSuite {
   }
 
   test("Tick.zero should be 0") {
-    assertEquals(Tick.zero.value, 0)
+    assertEquals(Tick.Zero.value, 0)
   }
 
   test("Tick.fromInt should accept non-negative values") {
@@ -67,17 +67,17 @@ class TickSpec extends FunSuite with ScalaCheckSuite {
   }
 
   test("Tick addition should work correctly") {
-    val tick1  = Tick.fromInt(100).getOrElse(Tick.zero)
-    val tick2  = Tick.fromInt(50).getOrElse(Tick.zero)
+    val tick1  = Tick.fromInt(100).getOrElse(Tick.Zero)
+    val tick2  = Tick.fromInt(50).getOrElse(Tick.Zero)
     val result = tick1 + tick2
     assertEquals(result.value, 150)
   }
 
   property("Tick addition is associative") {
     forAll(Gen.choose(0, 10000), Gen.choose(0, 10000), Gen.choose(0, 10000)) { (a, b, c) =>
-      val tick1   = Tick.fromInt(a).getOrElse(Tick.zero)
-      val tick2   = Tick.fromInt(b).getOrElse(Tick.zero)
-      val tick3   = Tick.fromInt(c).getOrElse(Tick.zero)
+      val tick1   = Tick.fromInt(a).getOrElse(Tick.Zero)
+      val tick2   = Tick.fromInt(b).getOrElse(Tick.Zero)
+      val tick3   = Tick.fromInt(c).getOrElse(Tick.Zero)
       val result1 = (tick1 + tick2) + tick3
       val result2 = tick1 + (tick2 + tick3)
       assertEquals(result1.value, result2.value)
@@ -85,8 +85,8 @@ class TickSpec extends FunSuite with ScalaCheckSuite {
   }
 
   test("Tick subtraction should work correctly") {
-    val tick1  = Tick.fromInt(100).getOrElse(Tick.zero)
-    val tick2  = Tick.fromInt(30).getOrElse(Tick.zero)
+    val tick1  = Tick.fromInt(100).getOrElse(Tick.Zero)
+    val tick2  = Tick.fromInt(30).getOrElse(Tick.Zero)
     val result = tick1 - tick2
     assertEquals(result.value, 70)
   }

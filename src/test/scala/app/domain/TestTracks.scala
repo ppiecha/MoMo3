@@ -9,22 +9,22 @@ object TestTracks {
   val oneNoteTrack: Track =
     track(
       time(4),
-      duration(8),
-      note(60)
+      note(60),
+      durGen = Some(duration(8))
     )
 
   val twoNotesTrack: Track =
     track(
       time(4, 4),
-      duration(1, 1),
-      note(60, 62)
+      note(60, 62),
+      durGen = Some(duration(1, 1))
     )
 
   val threeNotesTrack: Track =
     track(
       time(4, 4, 2),
-      duration(1, 4d / 3, 2),
-      note(60, 64, 67)
+      note(60, 64, 67),
+      durGen = Some(duration(1, 4d / 3, 2))
     )
 
 }

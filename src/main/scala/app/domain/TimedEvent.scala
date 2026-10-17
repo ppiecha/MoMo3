@@ -17,7 +17,7 @@ object TimedEvent {
   def fromAbsoluteEvents(events: Seq[AbsoluteMidiEvent], timingContext: TimingContext): Seq[TimedEvent] = {
     events
       .sortBy(event => (event.at.value, commandOrder(event.command)))
-      .foldLeft((Tick.zero, Vector.empty[(Tick, AbsoluteMidiEvent)])) { case ((prev, acc), e) =>
+      .foldLeft((Tick.Zero, Vector.empty[(Tick, AbsoluteMidiEvent)])) { case ((prev, acc), e) =>
         val delta = e.at - prev
         (e.at, acc :+ (delta -> e))
       }

@@ -23,9 +23,9 @@ object TrackPresets {
 
     Track.track(
       time,
-      RhythmTools.durationsLike(time),
       Track.note(Vector.fill(steps)(NoteArg.Single(note))*),
-      Track.velocity(velocities*)
+      Some(RhythmTools.durationsLike(time)),
+      Some(Track.velocity(velocities*))
     )
   }
 
@@ -38,9 +38,9 @@ object TrackPresets {
 
     Track.track(
       time,
-      RhythmTools.durationsLike(time),
       Track.note(Vector.fill(steps)(NoteArg.Single(note))*),
-      RhythmTools.pulseVelocity(steps, strong = 88, weak = 70)
+      Some(RhythmTools.durationsLike(time)),
+      Some(RhythmTools.pulseVelocity(steps, strong = 88, weak = 70))
     )
   }
 
@@ -56,9 +56,9 @@ object TrackPresets {
 
     Track.track(
       time,
-      RhythmTools.durationsLike(time),
       Track.note(notes.map(NoteArg.Single.apply)*),
-      RhythmTools.pulseVelocity(steps, strong = 104, weak = 86)
+      Some(RhythmTools.durationsLike(time)),
+      Some(RhythmTools.pulseVelocity(steps, strong = 104, weak = 86))
     )
   }
 

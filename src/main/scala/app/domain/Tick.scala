@@ -16,7 +16,7 @@ object Tick {
     if value >= 0 then Tick.fromInt(value.toInt)
     else DomainError.InvalidTick(value.toInt).invalidNec[Tick]
 
-  val zero: Tick = 0
+  val Zero: Tick = 0
 
   extension (tick: Tick) {
     def value: Int           = tick

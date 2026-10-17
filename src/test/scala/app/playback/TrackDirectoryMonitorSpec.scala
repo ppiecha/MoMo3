@@ -138,8 +138,9 @@ class TrackDirectoryMonitorSpec extends FunSuite {
          |  given app.domain.Channel = app.domain.Channel.Ch0
          |  def apply(): app.domain.Track = app.domain.Track.track(
          |    timeGen = app.domain.Track.time(1),
-         |    durGen = app.domain.Track.duration(1),
-         |    noteGen = app.domain.Track.note($note)
+         |    noteGen = app.domain.Track.note($note),
+         |    durGen = Some(app.domain.Track.duration(1)),
+         |    velGen = Some(app.domain.Track.velocity(app.domain.Velocity.Default))
          |  )
          |}
          |""".stripMargin

@@ -90,7 +90,7 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
 
   test("executeWithProgress sends timed events in order") {
     val first = AbsoluteMidiEvent(
-      Tick.zero,
+      Tick.Zero,
       MidiCommand.NoteOn(
         Channel.Ch0,
         TimedEventAndPlaybackExecutionSpec.valid(MidiValue[NoteTag](60)),
@@ -178,7 +178,7 @@ object TimedEventAndPlaybackExecutionSpec {
 
   def expectedDelays(events: Seq[AbsoluteMidiEvent], timingContext: TimingContext): Vector[FiniteDuration] =
     events
-      .foldLeft((Tick.zero, Vector.empty[FiniteDuration])) { case ((prev, acc), event) =>
+      .foldLeft((Tick.Zero, Vector.empty[FiniteDuration])) { case ((prev, acc), event) =>
         val delta = event.at - prev
         (event.at, acc :+ delta.toMillis(timingContext.ppq, timingContext.bpm))
       }
