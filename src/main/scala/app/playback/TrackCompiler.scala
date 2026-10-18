@@ -1,10 +1,11 @@
 package app.playback
 
-import app.domain.MidiCommand.*
-import app.domain.*
-import cats.data.{NonEmptyList, ValidatedNec}
-import cats.syntax.all.*
+import app.domain.MidiCommand._
 import app.domain.MidiValue.given
+import app.domain._
+import cats.data.NonEmptyList
+import cats.data.ValidatedNec
+import cats.syntax.all._
 
 object TrackCompiler {
 
@@ -52,11 +53,10 @@ object TrackCompiler {
         .flatMap { case (((t, chord), d), v) =>
           val events: ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
             oneGenEventToAbsoluteMidiEvents(t, chord, d, v, track.channel)
-          val bank = MidiValue[BankTag](track.instrument.bank)
+          val bank    = MidiValue[BankTag](track.instrument.bank)
           val program = MidiValue[ProgramTag](track.instrument.program)
-          val eventsWithInstrument = (bank, program, events).mapN {
-            (bank, program, events) =>
-              AbsoluteMidiEvent(Tick.Zero, ProgramChange(track.channel, bank, program)) +: events
+          val eventsWithInstrument = (bank, program, events).mapN { (bank, program, events) =>
+            AbsoluteMidiEvent(Tick.Zero, ProgramChange(track.channel, bank, program)) +: events
           }
           eventsWithInstrument.fold(
             errors => Seq(errors.invalid[AbsoluteMidiEvent]),

@@ -10,7 +10,7 @@ class TrackCompilerSpec extends FunSuite {
   given Channel = Channel.Ch0
 
   test("compile returns InvalidMidiValue when note is out of range") {
-    val track = Track.track(Track.time(4), Track.note(200), durGen = Some(Track.duration(4)))
+    val track  = Track.track(Track.time(4), Track.note(200), durGen = Some(Track.duration(4)))
     val timing = valid(TimingContext.from(960, 120))
 
     TrackCompiler.compile(track, timing) match {
