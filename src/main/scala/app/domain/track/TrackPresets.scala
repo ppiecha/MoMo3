@@ -1,5 +1,7 @@
 package app.domain
 
+import app.domain.Channel._
+
 object TrackPresets {
 
   private def requirePositiveBars(bars: Int): Int = {
@@ -64,17 +66,17 @@ object TrackPresets {
 
   def houseGroovePattern(bars: Int = 1): Pattern = {
     val kick = {
-      given Channel = Channel.Ch9
+      given Channel = Channel9
       fourOnTheFloorKick(bars = bars, note = 36)
     }
 
     val hat = {
-      given Channel = Channel.Ch9
+      given Channel = Channel9
       offBeatHiHat(bars = bars, note = 42)
     }
 
     val bass = {
-      given Channel = Channel.Ch1
+      given Channel = Channel1
       minorPentatonicBassline(root = 36, bars = bars)
     }
 

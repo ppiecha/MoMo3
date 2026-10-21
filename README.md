@@ -1,31 +1,19 @@
 # MoMo3
 
-This project now uses Scala CLI instead of sbt.
+MoMo3 is a MIDI sequencer where music is written in a Scala DSL. Track files are compiled dynamically in the background when they change, so playback can be updated without restarting the application.
 
 ## Requirements
 
-- Scala CLI 1.12.x or newer
-- A MIDI output device or FluidSynth setup if you want to run the app end-to-end
+- Java 17
+- Scala 3.3.7
+- sbt
+- A MIDI output device where you can send MIDI messages. You can use a virtual MIDI port like loopMIDI on Windows or IAC Driver on macOS.
+- Listener for the MIDI output device (e.g. FluidSynth, CakeWalk Sonar, GarageBand, Ableton Live, etc.)
 
 ## Commands
 
-- Compile: `scala-cli compile .`
-- Run: `scala-cli run .`
-- Test: `scala-cli test .`
-- REPL: `scala-cli repl .`
+- Compile: `sbt compile`
+- Run: `sbt run`
+- Test: `sbt test`
 
 ## Track files
-
-Tracks in a monitored directory must be `.scala` files. Each file must define Scala `object` with a `def play: Track` method.
-
-## FluidSynth on Windows
-
-1. Install fluid-synth from https://www.fluidsynth.org/wiki/Download/#distributions \
-2. Install loopmidi from https://www.tobias-erichsen.de/software/loopmidi.html \
-3. Create a virtual MIDI port in loopMIDI, e.g. "ScalaToFluid" \
-4. Start FluidSynth with the following command, replacing the path to your soundfont file as
-
-```powershell
-cd C:\tools\fluidsynth\bin
-.\fluidsynth.exe -a wasapi -o midi.driver=winmidi -o midi.winmidi.device="0:ScalaToFluid" C:\tools\fluidsynth\soundfonts\soundfont.sf2
-```

@@ -12,6 +12,10 @@ extension (mc: MidiCommand) {
       List(new ShortMessage(ShortMessage.NOTE_ON, channel.value, note.value, velocity.value))
     case NoteOff(channel, note, velocity) =>
       List(new ShortMessage(ShortMessage.NOTE_OFF, channel.value, note.value, 0))
+    case AllNotesOff(channel) =>
+      List(new ShortMessage(ShortMessage.CONTROL_CHANGE, channel.value, 123, 0))
+    case AllSoundsOff(channel) =>
+      List(new ShortMessage(ShortMessage.CONTROL_CHANGE, channel.value, 120, 0))
     case ProgramChange(channel, bank, program) =>
       val msb = bank.value / 128
       val lsb = bank.value % 128

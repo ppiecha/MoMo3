@@ -27,14 +27,14 @@ object Generator {
   def parseNotes(seq: Generator[Note]): Seq[ValidatedNec[DomainError, NonEmptyList[Note]]] =
     seq match
       case NoteGen(chords) =>
-        chords.map(chord => chord.notes.traverse(MidiValue[NoteTag]))
+        chords.map(chord => chord.notes.traverse(Note.from))
 
-  def parseTicks(seq: TickGenerator, ppq: Ppq): Seq[ValidatedNec[DomainError, Tick]] =
-    seq.values.map(d => Tick.fromDouble(d, ppq))
+  def parseTicks(seq: TickGenerator)(using timingContext: TimingContext): Seq[ValidatedNec[DomainError, Tick]] =
+    seq.values.map(d => Tick.from(d))
 
   def parseVelocity(seq: Generator[Velocity]): Seq[ValidatedNec[DomainError, Velocity]] =
     seq match
-      case VelocityGen(values) => values.map(MidiValue[VelocityTag])
+      case VelocityGen(values) => values.map(Velocity.from)
 
   def note(args: NoteArg*): Generator[Note] = {
     val chords: Seq[Chord] = args.map {

@@ -15,12 +15,9 @@ object PlaybackPlan {
 
   def empty: PlaybackPlan = PlaybackPlan(Seq.empty)
 
-  def fromTracks(
-    tracks: Tracks,
-    timingContext: TimingContext
-  ): IorNec[DomainError, PlaybackPlan] =
+  def fromTracks(tracks: Tracks)(using timingContext: TimingContext): IorNec[DomainError, PlaybackPlan] =
     tracks.toSeq
-      .traverse(track => toIorNec(TrackCompiler.compile(track, timingContext)))
+      .traverse(track => toIorNec(TrackCompiler.compile(track)))
       .map(_.flatten)
-      .map(events => PlaybackPlan(TimedEvent.fromAbsoluteEvents(events, timingContext)))
+      .map(events => PlaybackPlan(TimedEvent.fromAbsoluteEvents(events)))
 }

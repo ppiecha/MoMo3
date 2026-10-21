@@ -7,13 +7,12 @@ import munit.FunSuite
 
 class TrackCompilerSpec extends FunSuite {
 
-  given Channel = Channel.Ch0
+  given Channel               = Channel.Channel0
+  private given TimingContext = valid(TimingContext.from(960, 120))
 
   test("compile returns InvalidMidiValue when note is out of range") {
-    val track  = Track.track(Track.time(4), Track.note(200), durGen = Some(Track.duration(4)))
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    val track = Track.track(Track.time(4), Track.note(200), durGen = Some(Track.duration(4)))
+    TrackCompiler.compile(track) match {
       case Valid(_) =>
         fail("Expected validation failure for invalid MIDI note")
       case Invalid(errors) =>
@@ -28,16 +27,41 @@ class TrackCompilerSpec extends FunSuite {
       durGen = Some(Track.duration(4, 4)),
       velGen = Some(Track.velocity(100, 90))
     )
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    TrackCompiler.compile(track) match {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
-        assertEquals(events.size, 6)
-        assert(events.count(_.command.isInstanceOf[MidiCommand.ProgramChange]) == 2)
+        assertEquals(events.size, 5)
+        assert(events.count(_.command.isInstanceOf[MidiCommand.ProgramChange]) == 1)
         assert(events.count(_.command.isInstanceOf[MidiCommand.NoteOn]) == 2)
         assert(events.count(_.command.isInstanceOf[MidiCommand.NoteOff]) == 2)
+    }
+  }
+
+  test("compile emits one program change per track with selected instrument") {
+    val instrument = Instrument(Instrument.Bank.Melodic, Instrument.Piano.BrightAcousticPiano)
+    val track = Track.track(
+      Track.time(4, 4),
+      Track.note(36, 38),
+      durGen = Some(Track.duration(4, 4)),
+      velGen = Some(Track.velocity(100, 90)),
+      instrument = instrument
+    )
+    val bank = valid(Bank.from(instrument.bank))
+    val prog = valid(Program.from(instrument.program))
+
+    TrackCompiler.compile(track) match {
+      case Invalid(errors) =>
+        fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
+      case Valid(events) =>
+        val programChanges = events.collect {
+          case event if event.command.isInstanceOf[MidiCommand.ProgramChange] => event
+        }
+        assertEquals(programChanges.size, 1)
+        assertEquals(
+          programChanges.head,
+          AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, prog))
+        )
     }
   }
 
@@ -48,9 +72,7 @@ class TrackCompilerSpec extends FunSuite {
       durGen = Some(Track.duration(4)),
       velGen = Some(Track.velocity(100))
     )
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    TrackCompiler.compile(track) match {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
@@ -72,9 +94,7 @@ class TrackCompilerSpec extends FunSuite {
       durGen = Some(Track.duration(4)),
       velGen = Some(Track.velocity(100, 90))
     )
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    TrackCompiler.compile(track) match {
       case Valid(_) =>
         fail("Expected validation failure for mismatched generator lengths")
       case Invalid(errors) =>

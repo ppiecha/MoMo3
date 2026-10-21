@@ -4,7 +4,7 @@ import munit.FunSuite
 
 class ArrangementAndPresetsSpec extends FunSuite {
 
-  given Channel = Channel.Ch0
+  given Channel = Channel.Channel0
 
   test("pattern repeat multiplies track length") {
     val lead = Track.track(

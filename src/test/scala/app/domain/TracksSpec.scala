@@ -7,7 +7,7 @@ import munit.FunSuite
 
 class TracksSpec extends FunSuite {
 
-  given Channel = Channel.Ch0
+  given Channel = Channel.Channel0
 
   test("Tracks.from accepts tracks with matching duration") {
     val first  = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))

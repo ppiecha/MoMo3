@@ -5,8 +5,9 @@
 
 ### Code
 
-- 4.repeat(16)
+- Time.from, Duration.from - timingContext implicit
+- send changed initial track controls after recompilation
 - control gen
 - note like c# - trait toMidiValue
-- czy dasie uproscic MidiValue[Tag] jako np Enum pobierajacy MidiValue
+- SuperCollider VST
 

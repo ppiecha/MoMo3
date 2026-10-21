@@ -70,7 +70,10 @@ private final class LivePlaybackController(
     stateRef.modify { state =>
       state.fiber match {
         case Some(fiber) =>
-          (state.copy(fiber = None), fiber.cancel *> logger.debug("Playback paused"))
+          (
+            state.copy(fiber = None),
+            fiber.cancel *> PlaybackExecution.sendAllNotesOff(send) *> logger.debug("Playback paused")
+          )
         case None =>
           (state, IO.unit)
       }
@@ -88,7 +91,7 @@ private final class LivePlaybackController(
   override def stop: IO[Unit] =
     stateRef.modify { state =>
       val cancel = state.fiber.fold(IO.unit)(_.cancel)
-      (PlaybackState(), cancel *> logger.debug("Playback stopped"))
+      (PlaybackState(), cancel *> PlaybackExecution.sendAllSoundsOff(send) *> logger.debug("Playback stopped"))
     }.flatten
 
   override def play(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
@@ -109,7 +112,10 @@ private final class LivePlaybackController(
   override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
     stateRef.modify { state =>
       val cancel = state.fiber.fold(IO.unit)(_.cancel)
-      (state.copy(fiber = None), cancel *> start(plan, policy, state.elapsed))
+      (
+        state.copy(fiber = None),
+        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> start(plan, policy, state.elapsed)
+      )
     }.flatten
 
   override def elapsedTime: IO[FiniteDuration] =

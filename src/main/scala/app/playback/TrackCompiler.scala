@@ -1,10 +1,9 @@
 package app.playback
 
 import app.domain.MidiCommand._
-import app.domain.MidiValue.given
 import app.domain._
-import cats.data.NonEmptyList
 import cats.data.ValidatedNec
+import cats.data.{NonEmptyList => NEL}
 import cats.syntax.all._
 
 object TrackCompiler {
@@ -15,7 +14,7 @@ object TrackCompiler {
     val noteLength     = track.noteGen.length
     val velocityLength = track.velGen.map(_.length).getOrElse(track.timeGen.length)
 
-    if timeLength == durationLength && durationLength == noteLength && noteLength == velocityLength then track.validNec
+    if timeLength == durationLength && durationLength == noteLength then track.validNec
     else
       DomainError
         .TrackLengthMismatch(
@@ -27,48 +26,45 @@ object TrackCompiler {
         .invalidNec
   }
 
-  private def accumulateTimes(track: Track, timingContext: TimingContext): Seq[ValidatedNec[DomainError, Tick]] =
+  private def accumulateTimes(track: Track)(using timingContext: TimingContext): Seq[ValidatedNec[DomainError, Tick]] =
     Generator
-      .parseTicks(track.timeGen, timingContext.ppq)
+      .parseTicks(track.timeGen)
       .scan(Tick.Zero.validNec[DomainError])((acc, tick) => (acc, tick).mapN(_ + _))
 
-  def compile(
-    track: Track,
-    timingContext: TimingContext
-  ): ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
+  def compile(track: Track)(using timingContext: TimingContext): ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
     validateAlignedLengths(track).andThen { track =>
-      val at    = accumulateTimes(track, timingContext)
+      val at    = accumulateTimes(track)
       val notes = Generator.parseNotes(track.noteGen)
       val duration = track.durGen
-        .map(Generator.parseTicks(_, timingContext.ppq))
-        .getOrElse(Generator.parseTicks(track.timeGen, timingContext.ppq))
+        .map(Generator.parseTicks)
+        .getOrElse(Generator.parseTicks(track.timeGen))
       val velocity = track.velGen
         .map(Generator.parseVelocity)
         .getOrElse(Generator.parseVelocity(Generator.velocity(Velocity.Default).repeat(track.timeGen.length)))
 
-      at
+      val dummy = (Tick.from(0), NEL.of(Note.from(0)), Tick.from(0))
+
+      val compiledEvents = at
         .zip(notes)
         .zip(duration)
-        .zip(velocity)
-        .flatMap { case (((t, chord), d), v) =>
-          val events: ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
-            oneGenEventToAbsoluteMidiEvents(t, chord, d, v, track.channel)
-          val bank    = MidiValue[BankTag](track.instrument.bank)
-          val program = MidiValue[ProgramTag](track.instrument.program)
-          val eventsWithInstrument = (bank, program, events).mapN { (bank, program, events) =>
-            AbsoluteMidiEvent(Tick.Zero, ProgramChange(track.channel, bank, program)) +: events
-          }
-          eventsWithInstrument.fold(
-            errors => Seq(errors.invalid[AbsoluteMidiEvent]),
-            chordEvents => chordEvents.map(_.validNec)
-          )
+        .zipAll(velocity, dummy, velocity.head)
+        .map { case (((t, chord), d), v) =>
+          oneGenEventToAbsoluteMidiEvents(t, chord, d, v, track.channel)
         }
         .sequence
+        .map(_.flatten)
+
+      val bank    = Bank.from(track.instrument.bank)
+      val program = Program.from(track.instrument.program)
+
+      (bank, program, compiledEvents).mapN { (bank, program, events) =>
+        AbsoluteMidiEvent(Tick.Zero, ProgramChange(track.channel, bank, program)) +: events
+      }
     }
 
   def oneGenEventToAbsoluteMidiEvents(
     at: ValidatedNec[DomainError, Tick],
-    chord: ValidatedNec[DomainError, NonEmptyList[Note]],
+    chord: ValidatedNec[DomainError, NEL[Note]],
     duration: ValidatedNec[DomainError, Tick],
     velocity: ValidatedNec[DomainError, Velocity],
     channel: Channel

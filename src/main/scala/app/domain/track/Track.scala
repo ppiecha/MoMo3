@@ -18,6 +18,8 @@ case class Track(
 
   val channel: Channel = ch
 
+  def initialControls: Seq[MidiCommand] = ???
+
   def ++(other: Track): Track =
     Track(
       timeGen = TimeGen(this.timeGen.values ++ other.timeGen.values),
@@ -33,7 +35,8 @@ case class Track(
         case (Some(v1), None)     => Some(v1)
         case (None, Some(v2))     => Some(v2)
         case (None, None)         => None
-      }
+      },
+      instrument = this.instrument
     )
 
   def muted: Track = {
@@ -58,7 +61,7 @@ object Track {
     velGen: Option[Generator[Velocity]] = None,
     instrument: Instrument = Instrument.Default
   )(using ch: Channel): Track = {
-    Track(timeGen, noteGen, durGen, velGen)
+    Track(timeGen, noteGen, durGen, velGen, instrument)
   }
 
   def empty(using ch: Channel): Track = {

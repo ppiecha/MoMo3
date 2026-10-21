@@ -13,7 +13,7 @@ import TestTracks._
 
 class TrackSpec extends CatsEffectSuite {
 
-  given Channel = Channel.Ch0
+  given Channel = Channel.Channel0
 
   def validOrFail[A](validated: Either[DomainError, A]): A = validated match {
     case Right(value) => value
@@ -82,6 +82,18 @@ class TrackSpec extends CatsEffectSuite {
     )
   }
 
+  test("track factory should keep provided instrument") {
+    val instrument = Instrument(Instrument.Bank.Percussion, Instrument.PercussionKit.ElectronicKit)
+
+    val track = Track.track(
+      Track.time(1, 2),
+      Track.note(60, 62),
+      instrument = instrument
+    )
+
+    assertEquals(track.instrument, instrument)
+  }
+
   test("rest should create a silent track with matching time and duration") {
     val rest = Track.rest(4)
 
@@ -143,20 +155,20 @@ class TrackSpec extends CatsEffectSuite {
       (
         Ppq.from(960),
         Bpm.from(60),
-        MidiValue[NoteTag](60),
-        MidiValue[VelocityTag](Velocity.Default)
+        Note.from(60),
+        Velocity.from(Velocity.Default)
       ).mapN((p, b, n, v) => (p, b, n, v))
     )
 
     val env     = validOrFail(Environment.from(ppq = ppq.value, bpm = bpm.value))
-    val events  = TrackCompiler.compile(oneNoteTrack, env.timingContext)
-    val channel = Channel.Ch0
-    val bank    = validOrFail(MidiValue[BankTag](Instrument.Default.bank))
-    val program = validOrFail(MidiValue[ProgramTag](Instrument.Default.program))
+    val events  = TrackCompiler.compile(oneNoteTrack)(using env.timingContext)
+    val channel = Channel.Channel0
+    val bank    = validOrFail(Bank.from(Instrument.Default.bank))
+    val program = validOrFail(Program.from(Instrument.Default.program))
     val expectedEvents = List(
       AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(channel, bank, program)),
       AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOn(channel, note, velocity)),
-      AbsoluteMidiEvent(validOrFail(Tick.fromInt(480)), MidiCommand.NoteOff(channel, note))
+      AbsoluteMidiEvent(validOrFail(Tick.from(8)(using env.timingContext)), MidiCommand.NoteOff(channel, note))
     )
 
     events match

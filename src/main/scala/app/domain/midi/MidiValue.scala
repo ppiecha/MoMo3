@@ -24,13 +24,32 @@ type Bank     = MidiValue[BankTag]
 type Program  = MidiValue[ProgramTag]
 type Control  = MidiValue[ControlTag]
 
+object Note {
+  final val Zero = 0
+  def from(value: Int): ValidatedNec[DomainError, Note] =
+    MidiValue[NoteTag](value)
+}
+
 object Velocity {
   final val Default = 120
   final val Zero    = 0
+  def from(value: Int): ValidatedNec[DomainError, Velocity] =
+    MidiValue[VelocityTag](value)
 }
 
-object Note {
-  final val Zero = 0
+object Bank {
+  def from(value: Int): ValidatedNec[DomainError, Bank] =
+    MidiValue[BankTag](value)
+}
+
+object Program {
+  def from(value: Int): ValidatedNec[DomainError, Program] =
+    MidiValue[ProgramTag](value)
+}
+
+object Control {
+  def from(value: Int): ValidatedNec[DomainError, Control] =
+    MidiValue[ControlTag](value)
 }
 
 object MidiValue {

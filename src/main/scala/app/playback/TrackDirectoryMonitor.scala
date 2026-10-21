@@ -112,25 +112,29 @@ object TrackDirectoryMonitor {
               musicTracks =>
                 Tracks
                   .from(musicTracks)
-                  .map(tracks => PlaybackPlan.fromTracks(tracks, timing))
+                  .map(tracks => PlaybackPlan.fromTracks(tracks)(using timing))
                   .flatten
             )
           )
       }
 
+    private def loadCurrentPlan: IO[IorNec[DomainError, PlaybackPlan]] =
+      trackFiles().flatMap(loadPlanFromMusic)
+
     override def scanOnce: IO[IorNec[DomainError, PlaybackPlan]] = {
-      stop *> // Stop the watcher before scanning to avoid concurrent modifications
-        trackFiles()
-          .flatMap { trackSources => loadPlanFromMusic(trackSources) }
-          .flatTap(_ => start) // Start the watcher after scanning
+      stop *>                               // Stop the watcher before scanning to avoid concurrent modifications
+        loadCurrentPlan.flatTap(_ => start) // Start the watcher after scanning
     }
 
-    override def scanReplaceAndResume: IO[PlaybackPlan] =
-      scanOnce.flatMap {
+    private def replaceWithScanResult(result: IorNec[DomainError, PlaybackPlan]): IO[PlaybackPlan] =
+      result match {
         case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.empty))
         case Ior.Right(plan)        => replacePlanIfChanged(plan)
         case Ior.Both(errors, plan) => logErrors(errors) *> replacePlanIfChanged(plan)
       }
+
+    override def scanReplaceAndResume: IO[PlaybackPlan] =
+      scanOnce.flatMap(replaceWithScanResult)
 
     override def scanAndPlay: IO[PlaybackPlan] =
       scanOnce.flatMap {
@@ -201,7 +205,10 @@ object TrackDirectoryMonitor {
         IO.sleep(pollInterval) *>
           discardPendingEvents(watchService) *>
           logger.debug(s"Detected changes in $directory, rescanning...") *>
-          scanReplaceAndResume.void
+          loadCurrentPlan
+            .flatMap(replaceWithScanResult)
+            .flatTap(_ => logger.debug(s"Rescan completed for $directory"))
+            .void
       else IO.unit
 
     private def discardPendingEvents(watchService: WatchService): IO[Unit] =
