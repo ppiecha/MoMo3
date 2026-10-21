@@ -25,9 +25,9 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     val directory = Files.createTempDirectory("track-monitor-music-entrypoint")
     val musicFile = Files.createTempFile("track-monitor-music-entrypoint-file", ".scala")
 
-    writeTrack(directory.resolve("Piano.scala"), 64)
-    writeTrack(directory.resolve("Drums.scala"), 36)
-    writeMusicCollectionFromTrackObjects(musicFile, List("Piano", "Drums"))
+    writeTrack(directory.resolve("Bass0.scala"), 64)
+    writeTrack(directory.resolve("Drums9.scala"), 36)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0", "Drums9"))
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
@@ -54,8 +54,8 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     val directory = Files.createTempDirectory("track-monitor-music-compile-gate")
     val musicFile = Files.createTempFile("track-monitor-music-compile-gate-file", ".scala")
 
-    writeTrack(directory.resolve("Piano.scala"), 60)
-    writeMusicCollectionFromTrackObjects(musicFile, List("Piano"))
+    writeTrack(directory.resolve("Bass0.scala"), 60)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"))
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
@@ -88,15 +88,46 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assertEquals(harness.replaceCalls.size, 1)
   }
 
+  test("watcher rescans a changed track and replaces playback") {
+    val directory = Files.createTempDirectory("track-monitor-watch-rescan")
+    val musicFile = Files.createTempFile("track-monitor-watch-rescan-music", ".scala")
+    val trackFile = directory.resolve("Bass0.scala")
+
+    writeTrack(trackFile, 60)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"))
+
+    val timing  = valid(TimingContext.from(480, 120))
+    val harness = new TrackDirectoryMonitorTestHarness()
+    val monitor = TrackDirectoryMonitor
+      .live(
+        directory = directory,
+        playback = harness,
+        timing = timing,
+        musicFile = musicFile,
+        policy = RepeatPolicy.none,
+        pollInterval = 10.millis
+      )
+      .unsafeRunSync()
+
+    try {
+      monitor.scanReplaceAndResume.unsafeRunSync()
+      IO.sleep(100.millis).unsafeRunSync()
+      writeTrack(trackFile, 67)
+
+      val updatedPlan = awaitReplacement(harness, 2, 10.seconds).unsafeRunSync()
+      assertEquals(extractFirstNoteFromPlan(updatedPlan), 67)
+    } finally monitor.stop.unsafeRunSync()
+  }
+
   test("missing music file keeps current plan unchanged") {
     val directory = Files.createTempDirectory("track-monitor-music-missing")
     val musicFile = directory.resolve("Music.scala")
 
-    writeTrack(directory.resolve("Piano.scala"), 52)
+    writeTrack(directory.resolve("Bass0.scala"), 52)
     Files.writeString(
       musicFile,
       """object Music extends app.syntax.MusicFile {
-        |  def play: Seq[app.domain.Track] = Seq(Piano())
+        |  def play: Seq[app.domain.Track] = Seq(Bass0())
         |}
         |""".stripMargin
     )
@@ -135,11 +166,12 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     Files.writeString(
       path,
       s"""object ${classNameFromFilePath(path)} {
-         |  given app.domain.Channel = app.domain.Channel.Ch0
+         |  given app.domain.Channel = app.domain.Channel.Channel0
          |  def apply(): app.domain.Track = app.domain.Track.track(
          |    timeGen = app.domain.Track.time(1),
-         |    durGen = app.domain.Track.duration(1),
-         |    noteGen = app.domain.Track.note($note)
+         |    noteGen = app.domain.Track.note($note),
+         |    durGen = Some(app.domain.Track.duration(1)),
+         |    velGen = Some(app.domain.Track.velocity(app.domain.Velocity.Default))
          |  )
          |}
          |""".stripMargin
@@ -180,8 +212,21 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       }
       .getOrElse(throw new IllegalStateException("missing NoteOn event in playback plan"))
 
+  private def awaitReplacement(
+    harness: TrackDirectoryMonitorTestHarness,
+    count: Int,
+    remaining: FiniteDuration
+  ): IO[PlaybackPlan] =
+    IO.defer {
+      harness.replaceCalls.lift(count - 1) match {
+        case Some(plan)                         => IO.pure(plan)
+        case None if remaining <= Duration.Zero => IO.raiseError(new AssertionError("playback was not replaced"))
+        case None => IO.sleep(25.millis) *> awaitReplacement(harness, count, remaining - 25.millis)
+      }
+    }
+
   private final class TrackDirectoryMonitorTestHarness extends PlaybackController {
-    var replaceCalls: List[PlaybackPlan] = Nil
+    @volatile var replaceCalls: List[PlaybackPlan] = Nil
 
     override def play(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] = IO.unit
     override def pause: IO[Unit]                                          = IO.unit

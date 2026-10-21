@@ -1,5 +1,7 @@
 ThisBuild / scalaVersion := "3.3.7"
 
+Compile / unmanagedSourceDirectories += baseDirectory.value / "projects"
+
 lazy val root = project
   .in(file("."))
   .settings(

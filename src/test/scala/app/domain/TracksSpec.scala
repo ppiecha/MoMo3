@@ -7,11 +7,11 @@ import munit.FunSuite
 
 class TracksSpec extends FunSuite {
 
-  given Channel = Channel.Ch0
+  given Channel = Channel.Channel0
 
   test("Tracks.from accepts tracks with matching duration") {
-    val first  = Track.track(Track.time(4), Track.duration(4), Track.note(60))
-    val second = Track.track(Track.time(4), Track.duration(4), Track.note(62))
+    val first  = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))
+    val second = Track.track(Track.time(4), Track.note(62), durGen = Some(Track.duration(4)))
 
     Tracks.from(Validated.Valid(Seq(first, second))) match {
       case Ior.Right(tracks) =>
@@ -46,8 +46,8 @@ class TracksSpec extends FunSuite {
   }
 
   test("Tracks.from rejects tracks with mismatched duration") {
-    val reference = Track.track(Track.time(4), Track.duration(4), Track.note(60))
-    val mismatch  = Track.track(Track.time(2), Track.duration(2), Track.note(62))
+    val reference = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))
+    val mismatch  = Track.track(Track.time(2), Track.note(62), durGen = Some(Track.duration(2)))
 
     val result = Tracks.from(Validated.Valid(Seq(reference, mismatch)))
     result match {
@@ -64,9 +64,9 @@ class TracksSpec extends FunSuite {
   }
 
   test("Tracks.from accumulates duration mismatches for multiple tracks") {
-    val reference = Track.track(Track.time(4), Track.duration(4), Track.note(60))
-    val mismatch1 = Track.track(Track.time(2), Track.duration(2), Track.note(62))
-    val mismatch2 = Track.track(Track.time(1), Track.duration(1), Track.note(64))
+    val reference = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))
+    val mismatch1 = Track.track(Track.time(2), Track.note(62), durGen = Some(Track.duration(2)))
+    val mismatch2 = Track.track(Track.time(1), Track.note(64), durGen = Some(Track.duration(1)))
 
     Tracks.from(Validated.Valid(Seq(reference, mismatch1, mismatch2))) match {
       case Ior.Both(errors, tracks) =>
@@ -85,9 +85,9 @@ class TracksSpec extends FunSuite {
   }
 
   test("Tracks.from returns Left when no valid tracks remain") {
-    val negative = Track.track(Track.time(-1), Track.duration(-1), Track.note(60))
-    val second   = Track.track(Track.time(2), Track.duration(2), Track.note(62))
-    val third    = Track.track(Track.time(1), Track.duration(1), Track.note(64))
+    val negative = Track.track(Track.time(-1), Track.note(60), durGen = Some(Track.duration(-1)))
+    val second   = Track.track(Track.time(2), Track.note(62), durGen = Some(Track.duration(2)))
+    val third    = Track.track(Track.time(1), Track.note(64), durGen = Some(Track.duration(1)))
 
     Tracks.from(Validated.Valid(Seq(negative, second, third))) match {
       case Ior.Left(errors) =>

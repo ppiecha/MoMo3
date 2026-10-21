@@ -1,5 +1,7 @@
 package app.domain
 
+import app.domain.Channel._
+
 object TrackPresets {
 
   private def requirePositiveBars(bars: Int): Int = {
@@ -23,9 +25,9 @@ object TrackPresets {
 
     Track.track(
       time,
-      RhythmTools.durationsLike(time),
       Track.note(Vector.fill(steps)(NoteArg.Single(note))*),
-      Track.velocity(velocities*)
+      Some(RhythmTools.durationsLike(time)),
+      Some(Track.velocity(velocities*))
     )
   }
 
@@ -38,9 +40,9 @@ object TrackPresets {
 
     Track.track(
       time,
-      RhythmTools.durationsLike(time),
       Track.note(Vector.fill(steps)(NoteArg.Single(note))*),
-      RhythmTools.pulseVelocity(steps, strong = 88, weak = 70)
+      Some(RhythmTools.durationsLike(time)),
+      Some(RhythmTools.pulseVelocity(steps, strong = 88, weak = 70))
     )
   }
 
@@ -56,25 +58,25 @@ object TrackPresets {
 
     Track.track(
       time,
-      RhythmTools.durationsLike(time),
       Track.note(notes.map(NoteArg.Single.apply)*),
-      RhythmTools.pulseVelocity(steps, strong = 104, weak = 86)
+      Some(RhythmTools.durationsLike(time)),
+      Some(RhythmTools.pulseVelocity(steps, strong = 104, weak = 86))
     )
   }
 
   def houseGroovePattern(bars: Int = 1): Pattern = {
     val kick = {
-      given Channel = Channel.Ch9
+      given Channel = Channel9
       fourOnTheFloorKick(bars = bars, note = 36)
     }
 
     val hat = {
-      given Channel = Channel.Ch9
+      given Channel = Channel9
       offBeatHiHat(bars = bars, note = 42)
     }
 
     val bass = {
-      given Channel = Channel.Ch1
+      given Channel = Channel1
       minorPentatonicBassline(root = 36, bars = bars)
     }
 

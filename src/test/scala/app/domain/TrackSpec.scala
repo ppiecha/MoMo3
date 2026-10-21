@@ -13,7 +13,7 @@ import TestTracks._
 
 class TrackSpec extends CatsEffectSuite {
 
-  given Channel = Channel.Ch0
+  given Channel = Channel.Channel0
 
   def validOrFail[A](validated: Either[DomainError, A]): A = validated match {
     case Right(value) => value
@@ -70,34 +70,61 @@ class TrackSpec extends CatsEffectSuite {
   test("track overloads should provide default duration and velocity generators") {
     val expected = Track(
       timeGen = Track.time(1, 2),
-      durGen = Track.duration(1, 2),
       noteGen = Track.note(60, 62),
-      velGen = Track.velocity(Velocity.Default, Velocity.Default)
+      durGen = None,
+      velGen = None
     )
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)
     assertEquals(
-      Track.track(Track.time(1, 2), Track.duration(3, 4), Track.note(60, 62)),
-      expected.copy(durGen = Track.duration(3, 4))
+      Track.track(Track.time(1, 2), Track.note(60, 62), durGen = Some(Track.duration(3, 4))),
+      expected.copy(durGen = Some(Track.duration(3, 4)))
     )
+  }
+
+  test("track factory should keep provided instrument") {
+    val instrument = Instrument(Instrument.Bank.Percussion, Instrument.PercussionKit.ElectronicKit)
+
+    val track = Track.track(
+      Track.time(1, 2),
+      Track.note(60, 62),
+      instrument = instrument
+    )
+
+    assertEquals(track.instrument, instrument)
   }
 
   test("rest should create a silent track with matching time and duration") {
     val rest = Track.rest(4)
 
     assertEquals(rest.timeGen, Track.time(4))
-    assertEquals(rest.durGen, Track.duration(4))
+    assertEquals(rest.durGen, Some(Track.duration(4)))
     assertEquals(rest.noteGen, Track.note(Note.Zero))
-    assertEquals(rest.velGen, Track.velocity(Velocity.Zero))
+    assertEquals(rest.velGen, Some(Track.velocity(Velocity.Zero)))
   }
 
   test("track concatenation should concatenate every generator") {
-    val first  = Track.track(Track.time(1), Track.duration(2), Track.note(60), Track.velocity(70))
-    val second = Track.track(Track.time(3), Track.duration(4), Track.note(62), Track.velocity(80))
+    val first = Track.track(
+      Track.time(1),
+      Track.note(60),
+      durGen = Some(Track.duration(2)),
+      velGen = Some(Track.velocity(70))
+    )
+    val second = Track.track(
+      Track.time(3),
+      Track.note(62),
+      durGen = Some(Track.duration(4)),
+      velGen = Some(Track.velocity(80))
+    )
 
     assertEquals(
       first ++ second,
-      Track.track(Track.time(1, 3), Track.duration(2, 4), Track.note(60, 62), Track.velocity(70, 80))
+      Track.track(
+        Track.time(1, 3),
+        Track.note(60, 62),
+        durGen = Some(Track.duration(2, 4)),
+        velGen = Some(Track.velocity(70, 80))
+      )
     )
   }
 
@@ -107,14 +134,19 @@ class TrackSpec extends CatsEffectSuite {
 
     assertEquals(
       (first ++ second).durGen,
-      Track.duration(1, 2, 0.5)
+      Some(Track.duration(0.5))
     )
   }
 
   test("muted should preserve timing and notes while zeroing velocity") {
-    val track = Track.track(Track.time(1, 2), Track.duration(3, 4), Track.note(60, 62), Track.velocity(70, 80))
+    val track = Track.track(
+      Track.time(1, 2),
+      Track.note(60, 62),
+      durGen = Some(Track.duration(3, 4)),
+      velGen = Some(Track.velocity(70, 80))
+    )
 
-    assertEquals(track.muted, track.copy(velGen = Track.velocity(Velocity.Zero, Velocity.Zero)))
+    assertEquals(track.muted, track.copy(velGen = Some(Track.velocity(Velocity.Zero, Velocity.Zero))))
   }
 
   test("One note track midi stream should produce NoteOn and NoteOff message") {
@@ -123,17 +155,20 @@ class TrackSpec extends CatsEffectSuite {
       (
         Ppq.from(960),
         Bpm.from(60),
-        MidiValue[NoteTag](60),
-        MidiValue[VelocityTag](100)
+        Note.from(60),
+        Velocity.from(Velocity.Default)
       ).mapN((p, b, n, v) => (p, b, n, v))
     )
 
     val env     = validOrFail(Environment.from(ppq = ppq.value, bpm = bpm.value))
-    val events  = TrackCompiler.compile(oneNoteTrack, env.timingContext)
-    val channel = Channel.Ch0
+    val events  = TrackCompiler.compile(oneNoteTrack)(using env.timingContext)
+    val channel = Channel.Channel0
+    val bank    = validOrFail(Bank.from(Instrument.Default.bank))
+    val program = validOrFail(Program.from(Instrument.Default.program))
     val expectedEvents = List(
-      AbsoluteMidiEvent(Tick.zero, MidiCommand.NoteOn(channel, note, velocity)),
-      AbsoluteMidiEvent(validOrFail(Tick.fromInt(480)), MidiCommand.NoteOff(channel, note))
+      AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(channel, bank, program)),
+      AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOn(channel, note, velocity)),
+      AbsoluteMidiEvent(validOrFail(Tick.from(8)(using env.timingContext)), MidiCommand.NoteOff(channel, note))
     )
 
     events match

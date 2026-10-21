@@ -24,13 +24,32 @@ type Bank     = MidiValue[BankTag]
 type Program  = MidiValue[ProgramTag]
 type Control  = MidiValue[ControlTag]
 
-object Velocity {
-  final val Default = 100
-  final val Zero    = 0
-}
-
 object Note {
   final val Zero = 0
+  def from(value: Int): ValidatedNec[DomainError, Note] =
+    MidiValue[NoteTag](value)
+}
+
+object Velocity {
+  final val Default = 120
+  final val Zero    = 0
+  def from(value: Int): ValidatedNec[DomainError, Velocity] =
+    MidiValue[VelocityTag](value)
+}
+
+object Bank {
+  def from(value: Int): ValidatedNec[DomainError, Bank] =
+    MidiValue[BankTag](value)
+}
+
+object Program {
+  def from(value: Int): ValidatedNec[DomainError, Program] =
+    MidiValue[ProgramTag](value)
+}
+
+object Control {
+  def from(value: Int): ValidatedNec[DomainError, Control] =
+    MidiValue[ControlTag](value)
 }
 
 object MidiValue {
@@ -47,7 +66,7 @@ object MidiValue {
   given MidiValueKind[ProgramTag] with  { def construct(value: Int): MidiValue[ProgramTag] = Program(value)   }
   given MidiValueKind[ControlTag] with  { def construct(value: Int): MidiValue[ControlTag] = Control(value)   }
 
-  val VELOCITY_ZERO: MidiValue[VelocityTag] = Velocity(0)
+  val VelocityZero: MidiValue[VelocityTag] = Velocity(0)
 
   def apply[A](value: Int)(using kind: MidiValueKind[A]): ValidatedNec[DomainError, MidiValue[A]] =
     if value >= 0 && value <= 127 then kind.construct(value).validNec[DomainError]

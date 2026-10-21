@@ -8,25 +8,39 @@ import cats.data.{NonEmptyChain => NEC}
 
 case class Track(
   timeGen: TimeGen,
-  durGen: DurationGen,
   noteGen: Generator[Note],
-  velGen: Generator[Velocity]
+  durGen: Option[DurationGen],
+  velGen: Option[Generator[Velocity]],
+  instrument: Instrument = Instrument.Default
 )(using
   ch: Channel
 ) {
 
   val channel: Channel = ch
 
+  def initialControls: Seq[MidiCommand] = ???
+
   def ++(other: Track): Track =
     Track(
       timeGen = TimeGen(this.timeGen.values ++ other.timeGen.values),
-      durGen = DurationGen(this.durGen.values ++ other.durGen.values),
       noteGen = this.noteGen ++ other.noteGen,
-      velGen = this.velGen ++ other.velGen
+      durGen = (this.durGen, other.durGen) match {
+        case (Some(d1), Some(d2)) => Some(DurationGen(d1.values ++ d2.values))
+        case (Some(d1), None)     => Some(d1)
+        case (None, Some(d2))     => Some(d2)
+        case (None, None)         => None
+      },
+      velGen = (this.velGen, other.velGen) match {
+        case (Some(v1), Some(v2)) => Some(v1 ++ v2)
+        case (Some(v1), None)     => Some(v1)
+        case (None, Some(v2))     => Some(v2)
+        case (None, None)         => None
+      },
+      instrument = this.instrument
     )
 
   def muted: Track = {
-    this.copy(velGen = velocity(Velocity.Zero).repeat(timeGen.length))
+    this.copy(velGen = Some(velocity(Velocity.Zero).repeat(timeGen.length)))
   }
 
   def compareDuration(duration: Double): IorNec[DomainError, Track] = {
@@ -40,45 +54,31 @@ case class Track(
 
 object Track {
 
+  def track(
+    timeGen: TimeGen,
+    noteGen: Generator[Note],
+    durGen: Option[DurationGen] = None,
+    velGen: Option[Generator[Velocity]] = None,
+    instrument: Instrument = Instrument.Default
+  )(using ch: Channel): Track = {
+    Track(timeGen, noteGen, durGen, velGen, instrument)
+  }
+
   def empty(using ch: Channel): Track = {
     Track(
       timeGen = TimeGen(Seq.empty),
-      durGen = DurationGen(Seq.empty),
       noteGen = Generator.NoteGen(Seq.empty),
-      velGen = Generator.VelocityGen(Seq.empty)
+      durGen = Some(DurationGen(Seq.empty)),
+      velGen = Some(Generator.VelocityGen(Seq.empty))
     )
-  }
-
-  def track(
-    timeGen: TimeGen,
-    durGen: DurationGen,
-    noteGen: Generator[Note],
-    velGen: Generator[Velocity]
-  )(using ch: Channel): Track = {
-    Track(timeGen, durGen, noteGen, velGen)
-  }
-
-  def track(
-    timeGen: TimeGen,
-    durGen: DurationGen,
-    noteGen: Generator[Note]
-  )(using ch: Channel): Track = {
-    track(timeGen, durGen, noteGen, velocity(Velocity.Default).repeat(timeGen.length))
-  }
-
-  def track(
-    timeGen: TimeGen,
-    noteGen: Generator[Note]
-  )(using ch: Channel): Track = {
-    track(timeGen, DurationGen(timeGen.values), noteGen)
   }
 
   def rest(value: Double)(using channel: Channel): Track = {
     Track(
       timeGen = time(value),
-      durGen = duration(value),
       noteGen = note(Note.Zero),
-      velGen = velocity(Velocity.Zero)
+      durGen = Some(duration(value)),
+      velGen = Some(velocity(Velocity.Zero))
     )
   }
 

@@ -1,17 +1,40 @@
 package app.playback
 
 import app.domain._
-import app.domain.given
-import munit.FunSuite
+import cats.effect.IO
+import cats.effect.Ref
+import munit.CatsEffectSuite
 
 import scala.concurrent.duration._
 
-class PlaybackControllerSpec extends FunSuite {
+class PlaybackControllerSpec extends CatsEffectSuite {
+
+  test("pause sends all notes off and stop sends all sounds off on every channel") {
+    val plan = PlaybackPlan(
+      Vector(
+        TimedEvent(1.hour, AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOff(Channel.Channel0, valid(Note.from(60)))))
+      )
+    )
+
+    for {
+      sent       <- Ref[IO].of(Vector.empty[AbsoluteMidiEvent])
+      controller <- PlaybackController.live(event => sent.update(_ :+ event))
+      _          <- controller.play(plan)
+      _          <- controller.pause
+      _          <- controller.stop
+      events     <- sent.get
+    } yield {
+      val expected =
+        Channel.values.toVector.map(MidiCommand.AllNotesOff.apply) ++
+          Channel.values.toVector.map(MidiCommand.AllSoundsOff.apply)
+      assertEquals(events.map(_.command), expected)
+    }
+  }
 
   test("replacement playback repeats the full plan after its resumed first pass") {
     val event = AbsoluteMidiEvent(
-      Tick.zero,
-      MidiCommand.NoteOff(Channel.Ch0, valid(MidiValue[NoteTag](60)))
+      Tick.Zero,
+      MidiCommand.NoteOff(Channel.Channel0, valid(Note.from(60)))
     )
     val fullReplacementPlan = PlaybackPlan(Vector(TimedEvent(10.millis, event)))
     val resumedPlan         = PlaybackPlanResume.resumeFrom(fullReplacementPlan, 10.millis)

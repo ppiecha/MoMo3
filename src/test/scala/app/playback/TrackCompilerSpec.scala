@@ -7,13 +7,12 @@ import munit.FunSuite
 
 class TrackCompilerSpec extends FunSuite {
 
-  given Channel = Channel.Ch0
+  given Channel               = Channel.Channel0
+  private given TimingContext = valid(TimingContext.from(960, 120))
 
   test("compile returns InvalidMidiValue when note is out of range") {
-    val track  = Track.track(Track.time(4), Track.duration(4), Track.note(200))
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    val track = Track.track(Track.time(4), Track.note(200), durGen = Some(Track.duration(4)))
+    TrackCompiler.compile(track) match {
       case Valid(_) =>
         fail("Expected validation failure for invalid MIDI note")
       case Invalid(errors) =>
@@ -24,41 +23,65 @@ class TrackCompilerSpec extends FunSuite {
   test("compile emits note-on and note-off for each source note") {
     val track = Track.track(
       Track.time(4, 4),
-      Track.duration(4, 4),
       Track.note(60, 62),
-      Track.velocity(100, 90)
+      durGen = Some(Track.duration(4, 4)),
+      velGen = Some(Track.velocity(100, 90))
     )
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    TrackCompiler.compile(track) match {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
-        assertEquals(events.size, 4)
-        assert(events.head.command.isInstanceOf[MidiCommand.NoteOn])
-        assert(events(1).command.isInstanceOf[MidiCommand.NoteOff])
-        assert(events(2).command.isInstanceOf[MidiCommand.NoteOn])
-        assert(events(3).command.isInstanceOf[MidiCommand.NoteOff])
+        assertEquals(events.size, 5)
+        assert(events.count(_.command.isInstanceOf[MidiCommand.ProgramChange]) == 1)
+        assert(events.count(_.command.isInstanceOf[MidiCommand.NoteOn]) == 2)
+        assert(events.count(_.command.isInstanceOf[MidiCommand.NoteOff]) == 2)
+    }
+  }
+
+  test("compile emits one program change per track with selected instrument") {
+    val instrument = Instrument(Instrument.Bank.Melodic, Instrument.Piano.BrightAcousticPiano)
+    val track = Track.track(
+      Track.time(4, 4),
+      Track.note(36, 38),
+      durGen = Some(Track.duration(4, 4)),
+      velGen = Some(Track.velocity(100, 90)),
+      instrument = instrument
+    )
+    val bank = valid(Bank.from(instrument.bank))
+    val prog = valid(Program.from(instrument.program))
+
+    TrackCompiler.compile(track) match {
+      case Invalid(errors) =>
+        fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
+      case Valid(events) =>
+        val programChanges = events.collect {
+          case event if event.command.isInstanceOf[MidiCommand.ProgramChange] => event
+        }
+        assertEquals(programChanges.size, 1)
+        assertEquals(
+          programChanges.head,
+          AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, prog))
+        )
     }
   }
 
   test("compile emits events for each note in a chord step") {
     val track = Track.track(
       Track.time(4),
-      Track.duration(4),
       Track.note((60, 64, 67)),
-      Track.velocity(100)
+      durGen = Some(Track.duration(4)),
+      velGen = Some(Track.velocity(100))
     )
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    TrackCompiler.compile(track) match {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
-        assertEquals(events.size, 6)
+        assertEquals(events.size, 7)
         assert(
           events.forall(event =>
-            event.command.isInstanceOf[MidiCommand.NoteOn] || event.command.isInstanceOf[MidiCommand.NoteOff]
+            event.command.isInstanceOf[MidiCommand.ProgramChange] ||
+              event.command.isInstanceOf[MidiCommand.NoteOn] ||
+              event.command.isInstanceOf[MidiCommand.NoteOff]
           )
         )
     }
@@ -67,13 +90,11 @@ class TrackCompilerSpec extends FunSuite {
   test("compile fails hard when generator lengths are inconsistent") {
     val track = Track.track(
       Track.time(4, 4),
-      Track.duration(4),
       Track.note(60, 62),
-      Track.velocity(100, 90)
+      durGen = Some(Track.duration(4)),
+      velGen = Some(Track.velocity(100, 90))
     )
-    val timing = valid(TimingContext.from(960, 120))
-
-    TrackCompiler.compile(track, timing) match {
+    TrackCompiler.compile(track) match {
       case Valid(_) =>
         fail("Expected validation failure for mismatched generator lengths")
       case Invalid(errors) =>

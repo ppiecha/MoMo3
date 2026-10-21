@@ -1,7 +1,6 @@
 package app.playback
 
 import app.domain._
-import app.domain.given
 import cats.data.Validated.Invalid
 import cats.data.Validated.Valid
 import munit.FunSuite
@@ -9,6 +8,8 @@ import munit.FunSuite
 import scala.concurrent.duration._
 
 class PlaybackPlanResumeSpec extends FunSuite {
+
+  private given TimingContext = valid(TimingContext.from(960, 120))
 
   test("resumeFrom keeps full plan when elapsed is non-positive") {
     val plan = samplePlan
@@ -31,15 +32,18 @@ class PlaybackPlanResumeSpec extends FunSuite {
 
   private val samplePlan: PlaybackPlan = PlaybackPlan(
     Vector(
-      TimedEvent(10.millis, AbsoluteMidiEvent(Tick.zero, MidiCommand.NoteOn(Channel.Ch0, note(60), velocity(100)))),
-      TimedEvent(20.millis, AbsoluteMidiEvent(tick(480), MidiCommand.NoteOff(Channel.Ch0, note(60)))),
-      TimedEvent(30.millis, AbsoluteMidiEvent(tick(960), MidiCommand.NoteOn(Channel.Ch0, note(62), velocity(100))))
+      TimedEvent(
+        10.millis,
+        AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOn(Channel.Channel0, note(60), velocity(100)))
+      ),
+      TimedEvent(20.millis, AbsoluteMidiEvent(tick(8), MidiCommand.NoteOff(Channel.Channel0, note(60)))),
+      TimedEvent(30.millis, AbsoluteMidiEvent(tick(4), MidiCommand.NoteOn(Channel.Channel0, note(62), velocity(100))))
     )
   )
 
-  private def note(value: Int): Note         = valid(MidiValue[NoteTag](value))
-  private def velocity(value: Int): Velocity = valid(MidiValue[VelocityTag](value))
-  private def tick(value: Int): Tick         = valid(Tick.fromInt(value))
+  private def note(value: Int): Note           = valid(Note.from(value))
+  private def velocity(value: Int): Velocity   = valid(Velocity.from(value))
+  private def tick(noteDuration: Double): Tick = valid(Tick.from(noteDuration))
 
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value

@@ -37,14 +37,15 @@ object Pattern {
 
   private[domain] def scaleVelocity(track: Track, scale: Double): Track = {
     val scaledVelocity = track.velGen match {
-      case Generator.VelocityGen(values) =>
+      case Some(Generator.VelocityGen(values)) =>
         Generator.VelocityGen(values.map(value => clampVelocity(math.round(value * scale).toInt)))
+      case None => Generator.VelocityGen(Seq.empty)
     }
     Track.track(
       timeGen = track.timeGen,
       durGen = track.durGen,
       noteGen = track.noteGen,
-      velGen = scaledVelocity
+      velGen = Some(scaledVelocity)
     )(using track.channel)
   }
 

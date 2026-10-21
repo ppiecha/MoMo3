@@ -9,22 +9,22 @@ class TrackFileParserSpec extends FunSuite {
 
   test("extractCompilationError parses file line and message from angle-bracket location") {
     val raw =
-      "class dotty.tools.dotc.reporting.Diagnostic$Error at projects\\test1\\Drums.scala:<154..154> L6: an identifier expected, but ')' found"
+      "class dotty.tools.dotc.reporting.Diagnostic$Error at projects\\test1\\Drums9.scala:<154..154> L6: an identifier expected, but ')' found"
 
     val parsed = TrackFileParser.extractCompilationError(raw)
 
-    assertEquals(parsed.fileName, "Drums.scala")
+    assertEquals(parsed.fileName, "Drums9.scala")
     assertEquals(parsed.lineNumber, 6)
     assertEquals(parsed.message, "an identifier expected, but ')' found")
   }
 
   test("extractCompilationError parses file line and message from square-bracket location") {
     val raw =
-      "class dotty.tools.dotc.reporting.Diagnostic$Error at C:\\temp\\Piano.scala:[21..32..41] L1: type TrackFile is not a member of app.syntax"
+      "class dotty.tools.dotc.reporting.Diagnostic$Error at C:\\temp\\Bass0.scala:[21..32..41] L1: type TrackFile is not a member of app.syntax"
 
     val parsed = TrackFileParser.extractCompilationError(raw)
 
-    assertEquals(parsed.fileName, "Piano.scala")
+    assertEquals(parsed.fileName, "Bass0.scala")
     assertEquals(parsed.lineNumber, 1)
     assertEquals(parsed.message, "type TrackFile is not a member of app.syntax")
   }

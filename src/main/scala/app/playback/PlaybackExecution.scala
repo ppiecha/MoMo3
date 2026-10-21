@@ -1,8 +1,12 @@
 package app.playback
 
 import app.domain.AbsoluteMidiEvent
+import app.domain.Channel
+import app.domain.MidiCommand
 import app.domain.PlaybackPlan
+import app.domain.Tick
 import app.domain.TimedEvent
+import cats.Applicative
 import cats.effect.Temporal
 import cats.syntax.all._
 
@@ -12,6 +16,18 @@ import scala.concurrent.duration.FiniteDuration
   * pause/resume at the current position.
   */
 object PlaybackExecution {
+
+  def sendAllNotesOff[F[_]: Applicative](send: AbsoluteMidiEvent => F[Unit]): F[Unit] =
+    sendToAllChannels(send, MidiCommand.AllNotesOff.apply)
+
+  def sendAllSoundsOff[F[_]: Applicative](send: AbsoluteMidiEvent => F[Unit]): F[Unit] =
+    sendToAllChannels(send, MidiCommand.AllSoundsOff.apply)
+
+  private def sendToAllChannels[F[_]: Applicative](
+    send: AbsoluteMidiEvent => F[Unit],
+    command: Channel => MidiCommand
+  ): F[Unit] =
+    Channel.values.toList.traverse_(channel => send(AbsoluteMidiEvent(Tick.Zero, command(channel))))
 
   def executeWithProgress[F[_]: Temporal](
     plan: PlaybackPlan,
