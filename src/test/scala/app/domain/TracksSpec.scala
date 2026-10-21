@@ -10,8 +10,8 @@ class TracksSpec extends FunSuite {
   given Channel = Channel.Channel0
 
   test("Tracks.from accepts tracks with matching duration") {
-    val first  = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))
-    val second = Track.track(Track.time(4), Track.note(62), durGen = Some(Track.duration(4)))
+    val first  = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
+    val second = Track.track(Track.time(4), Track.note(62), duration = Some(Track.duration(4)))
 
     Tracks.from(Validated.Valid(Seq(first, second))) match {
       case Ior.Right(tracks) =>
@@ -46,8 +46,8 @@ class TracksSpec extends FunSuite {
   }
 
   test("Tracks.from rejects tracks with mismatched duration") {
-    val reference = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))
-    val mismatch  = Track.track(Track.time(2), Track.note(62), durGen = Some(Track.duration(2)))
+    val reference = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
+    val mismatch  = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
 
     val result = Tracks.from(Validated.Valid(Seq(reference, mismatch)))
     result match {
@@ -57,16 +57,16 @@ class TracksSpec extends FunSuite {
           List(DomainError.DurationMismatch(actual = 2.0, expected = 4.0))
         )
         assertEquals(tracks.toSeq.size, 1) // Only the reference track is valid
-        assertEquals(tracks.toSeq.head.timeGen.duration, 4.0)
+        assertEquals(tracks.toSeq.head.timing.duration, 4.0)
       case _ =>
         fail("Expected duration mismatch validation errors")
     }
   }
 
   test("Tracks.from accumulates duration mismatches for multiple tracks") {
-    val reference = Track.track(Track.time(4), Track.note(60), durGen = Some(Track.duration(4)))
-    val mismatch1 = Track.track(Track.time(2), Track.note(62), durGen = Some(Track.duration(2)))
-    val mismatch2 = Track.track(Track.time(1), Track.note(64), durGen = Some(Track.duration(1)))
+    val reference = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
+    val mismatch1 = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
+    val mismatch2 = Track.track(Track.time(1), Track.note(64), duration = Some(Track.duration(1)))
 
     Tracks.from(Validated.Valid(Seq(reference, mismatch1, mismatch2))) match {
       case Ior.Both(errors, tracks) =>
@@ -78,16 +78,16 @@ class TracksSpec extends FunSuite {
           )
         )
         assertEquals(tracks.toSeq.size, 1) // Only the reference track is valid
-        assertEquals(tracks.toSeq.head.timeGen.duration, 4.0)
+        assertEquals(tracks.toSeq.head.timing.duration, 4.0)
       case _ =>
         fail("Expected duration mismatch validation errors")
     }
   }
 
   test("Tracks.from returns Left when no valid tracks remain") {
-    val negative = Track.track(Track.time(-1), Track.note(60), durGen = Some(Track.duration(-1)))
-    val second   = Track.track(Track.time(2), Track.note(62), durGen = Some(Track.duration(2)))
-    val third    = Track.track(Track.time(1), Track.note(64), durGen = Some(Track.duration(1)))
+    val negative = Track.track(Track.time(-1), Track.note(60), duration = Some(Track.duration(-1)))
+    val second   = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
+    val third    = Track.track(Track.time(1), Track.note(64), duration = Some(Track.duration(1)))
 
     Tracks.from(Validated.Valid(Seq(negative, second, third))) match {
       case Ior.Left(errors) =>

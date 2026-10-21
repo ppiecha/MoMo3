@@ -9,10 +9,10 @@ import cats.syntax.all._
 object TrackCompiler {
 
   private def validateAlignedLengths(track: Track): ValidatedNec[DomainError, Track] = {
-    val timeLength     = track.timeGen.length
-    val durationLength = track.durGen.map(_.length).getOrElse(track.timeGen.length)
-    val noteLength     = track.noteGen.length
-    val velocityLength = track.velGen.map(_.length).getOrElse(track.timeGen.length)
+    val timeLength     = track.timing.length
+    val durationLength = track.duration.map(_.length).getOrElse(track.timing.length)
+    val noteLength     = track.notes.length
+    val velocityLength = track.velocity.map(_.length).getOrElse(track.timing.length)
 
     if timeLength == durationLength && durationLength == noteLength then track.validNec
     else
@@ -28,19 +28,19 @@ object TrackCompiler {
 
   private def accumulateTimes(track: Track)(using timingContext: TimingContext): Seq[ValidatedNec[DomainError, Tick]] =
     Generator
-      .parseTicks(track.timeGen)
+      .parseTicks(track.timing)
       .scan(Tick.Zero.validNec[DomainError])((acc, tick) => (acc, tick).mapN(_ + _))
 
   def compile(track: Track)(using timingContext: TimingContext): ValidatedNec[DomainError, Seq[AbsoluteMidiEvent]] =
     validateAlignedLengths(track).andThen { track =>
       val at    = accumulateTimes(track)
-      val notes = Generator.parseNotes(track.noteGen)
-      val duration = track.durGen
+      val notes = Generator.parseNotes(track.notes)
+      val duration = track.duration
         .map(Generator.parseTicks)
-        .getOrElse(Generator.parseTicks(track.timeGen))
-      val velocity = track.velGen
+        .getOrElse(Generator.parseTicks(track.timing))
+      val velocity = track.velocity
         .map(Generator.parseVelocity)
-        .getOrElse(Generator.parseVelocity(Generator.velocity(Velocity.Default).repeat(track.timeGen.length)))
+        .getOrElse(Generator.parseVelocity(Generator.velocity(Velocity.Default).repeat(track.timing.length)))
 
       val dummy = (Tick.from(0), NEL.of(Note.from(0)), Tick.from(0))
 

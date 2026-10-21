@@ -17,7 +17,7 @@ object Tracks {
         case nonEmptyTracks => validateTrackDurations(nonEmptyTracks)
 
   private def validateTrackDurations(tracks: Seq[Track]): IorNec[DomainError, Tracks] = {
-    val expectedDuration = tracks.head.timeGen.duration
+    val expectedDuration = tracks.head.timing.duration
     val validated        = tracks.map(_.compareDuration(expectedDuration))
 
     val errors = validated.flatMap {

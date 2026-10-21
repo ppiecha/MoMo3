@@ -10,29 +10,29 @@ class ArrangementAndPresetsSpec extends FunSuite {
     val lead = Track.track(
       Track.time(8, 8),
       Track.note(60, 62),
-      durGen = Some(Track.duration(8, 8)),
-      velGen = Some(Track.velocity(90, 100))
+      duration = Some(Track.duration(8, 8)),
+      velocity = Some(Track.velocity(90, 100))
     )
 
     val pattern  = Pattern.from("lead", "lead" -> lead)
     val repeated = pattern.repeat(3)
 
-    assertEquals(repeated.tracks.head.timeGen.length, 6)
-    assertEquals(repeated.tracks.head.durGen.map(_.length), Some(6))
+    assertEquals(repeated.tracks.head.timing.length, 6)
+    assertEquals(repeated.tracks.head.duration.map(_.length), Some(6))
   }
 
   test("section render concatenates pattern blocks") {
     val a = Track.track(
       Track.time(4),
       Track.note(60),
-      durGen = Some(Track.duration(4)),
-      velGen = Some(Track.velocity(100))
+      duration = Some(Track.duration(4)),
+      velocity = Some(Track.velocity(100))
     )
     val b = Track.track(
       Track.time(8),
       Track.note(62),
-      durGen = Some(Track.duration(8)),
-      velGen = Some(Track.velocity(90))
+      duration = Some(Track.duration(8)),
+      velocity = Some(Track.velocity(90))
     )
 
     val p1 = Pattern.from("p1", "lead" -> a)
@@ -48,14 +48,14 @@ class ArrangementAndPresetsSpec extends FunSuite {
     val a = Track.track(
       Track.time(4),
       Track.note(60),
-      durGen = Some(Track.duration(4)),
-      velGen = Some(Track.velocity(100))
+      duration = Some(Track.duration(4)),
+      velocity = Some(Track.velocity(100))
     )
     val b = Track.track(
       Track.time(8),
       Track.note(64),
-      durGen = Some(Track.duration(8)),
-      velGen = Some(Track.velocity(95))
+      duration = Some(Track.duration(8)),
+      velocity = Some(Track.velocity(95))
     )
 
     val intro = Section.single("intro", Pattern.from("intro-pattern", "lead" -> a), repeats = 1)
@@ -78,7 +78,7 @@ class ArrangementAndPresetsSpec extends FunSuite {
     val pattern = TrackPresets.houseGroovePattern(bars = 2)
 
     assertEquals(pattern.trackNames, Vector("kick", "hat", "bass"))
-    assertEquals(pattern.tracks.map(_.timeGen.length).distinct.size, 1)
-    assertEquals(pattern.tracks.flatMap(_.durGen.toList).map(_.length).distinct.size, 1)
+    assertEquals(pattern.tracks.map(_.timing.length).distinct.size, 1)
+    assertEquals(pattern.tracks.flatMap(_.duration.toList).map(_.length).distinct.size, 1)
   }
 }

@@ -69,16 +69,16 @@ class TrackSpec extends CatsEffectSuite {
 
   test("track overloads should provide default duration and velocity generators") {
     val expected = Track(
-      timeGen = Track.time(1, 2),
-      noteGen = Track.note(60, 62),
-      durGen = None,
-      velGen = None
+      timing = Track.time(1, 2),
+      notes = Track.note(60, 62),
+      duration = None,
+      velocity = None
     )
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)
     assertEquals(
-      Track.track(Track.time(1, 2), Track.note(60, 62), durGen = Some(Track.duration(3, 4))),
-      expected.copy(durGen = Some(Track.duration(3, 4)))
+      Track.track(Track.time(1, 2), Track.note(60, 62), duration = Some(Track.duration(3, 4))),
+      expected.copy(duration = Some(Track.duration(3, 4)))
     )
   }
 
@@ -97,24 +97,24 @@ class TrackSpec extends CatsEffectSuite {
   test("rest should create a silent track with matching time and duration") {
     val rest = Track.rest(4)
 
-    assertEquals(rest.timeGen, Track.time(4))
-    assertEquals(rest.durGen, Some(Track.duration(4)))
-    assertEquals(rest.noteGen, Track.note(Note.Zero))
-    assertEquals(rest.velGen, Some(Track.velocity(Velocity.Zero)))
+    assertEquals(rest.timing, Track.time(4))
+    assertEquals(rest.duration, Some(Track.duration(4)))
+    assertEquals(rest.notes, Track.note(Note.Zero))
+    assertEquals(rest.velocity, Some(Track.velocity(Velocity.Zero)))
   }
 
   test("track concatenation should concatenate every generator") {
     val first = Track.track(
       Track.time(1),
       Track.note(60),
-      durGen = Some(Track.duration(2)),
-      velGen = Some(Track.velocity(70))
+      duration = Some(Track.duration(2)),
+      velocity = Some(Track.velocity(70))
     )
     val second = Track.track(
       Track.time(3),
       Track.note(62),
-      durGen = Some(Track.duration(4)),
-      velGen = Some(Track.velocity(80))
+      duration = Some(Track.duration(4)),
+      velocity = Some(Track.velocity(80))
     )
 
     assertEquals(
@@ -122,8 +122,8 @@ class TrackSpec extends CatsEffectSuite {
       Track.track(
         Track.time(1, 3),
         Track.note(60, 62),
-        durGen = Some(Track.duration(2, 4)),
-        velGen = Some(Track.velocity(70, 80))
+        duration = Some(Track.duration(2, 4)),
+        velocity = Some(Track.velocity(70, 80))
       )
     )
   }
@@ -133,7 +133,7 @@ class TrackSpec extends CatsEffectSuite {
     val second = Track.rest(0.5)
 
     assertEquals(
-      (first ++ second).durGen,
+      (first ++ second).duration,
       Some(Track.duration(0.5))
     )
   }
@@ -142,11 +142,11 @@ class TrackSpec extends CatsEffectSuite {
     val track = Track.track(
       Track.time(1, 2),
       Track.note(60, 62),
-      durGen = Some(Track.duration(3, 4)),
-      velGen = Some(Track.velocity(70, 80))
+      duration = Some(Track.duration(3, 4)),
+      velocity = Some(Track.velocity(70, 80))
     )
 
-    assertEquals(track.muted, track.copy(velGen = Some(Track.velocity(Velocity.Zero, Velocity.Zero))))
+    assertEquals(track.muted, track.copy(velocity = Some(Track.velocity(Velocity.Zero, Velocity.Zero))))
   }
 
   test("One note track midi stream should produce NoteOn and NoteOff message") {
