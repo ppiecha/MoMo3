@@ -11,7 +11,7 @@ class TrackCompilerSpec extends FunSuite {
   private given TimingContext = valid(TimingContext.from(960, 120))
 
   test("compile returns InvalidMidiValue when note is out of range") {
-    val track = Track.track(Track.time(4), Track.note(200), durGen = Some(Track.duration(4)))
+    val track = Track.track(Track.time(4), Track.note(200), duration = Some(Track.duration(4)))
     TrackCompiler.compile(track) match {
       case Valid(_) =>
         fail("Expected validation failure for invalid MIDI note")
@@ -24,8 +24,8 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4, 4),
       Track.note(60, 62),
-      durGen = Some(Track.duration(4, 4)),
-      velGen = Some(Track.velocity(100, 90))
+      duration = Some(Track.duration(4, 4)),
+      velocity = Some(Track.velocity(100, 90))
     )
     TrackCompiler.compile(track) match {
       case Invalid(errors) =>
@@ -43,8 +43,8 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4, 4),
       Track.note(36, 38),
-      durGen = Some(Track.duration(4, 4)),
-      velGen = Some(Track.velocity(100, 90)),
+      duration = Some(Track.duration(4, 4)),
+      velocity = Some(Track.velocity(100, 90)),
       instrument = instrument
     )
     val bank = valid(Bank.from(instrument.bank))
@@ -69,8 +69,8 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4),
       Track.note((60, 64, 67)),
-      durGen = Some(Track.duration(4)),
-      velGen = Some(Track.velocity(100))
+      duration = Some(Track.duration(4)),
+      velocity = Some(Track.velocity(100))
     )
     TrackCompiler.compile(track) match {
       case Invalid(errors) =>
@@ -91,8 +91,8 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4, 4),
       Track.note(60, 62),
-      durGen = Some(Track.duration(4)),
-      velGen = Some(Track.velocity(100, 90))
+      duration = Some(Track.duration(4)),
+      velocity = Some(Track.velocity(100, 90))
     )
     TrackCompiler.compile(track) match {
       case Valid(_) =>

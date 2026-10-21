@@ -36,16 +36,16 @@ object Pattern {
     (2 to times).foldLeft(track)((acc, _) => acc ++ track)
 
   private[domain] def scaleVelocity(track: Track, scale: Double): Track = {
-    val scaledVelocity = track.velGen match {
+    val scaledVelocity = track.velocity match {
       case Some(Generator.VelocityGen(values)) =>
         Generator.VelocityGen(values.map(value => clampVelocity(math.round(value * scale).toInt)))
       case None => Generator.VelocityGen(Seq.empty)
     }
     Track.track(
-      timeGen = track.timeGen,
-      durGen = track.durGen,
-      noteGen = track.noteGen,
-      velGen = Some(scaledVelocity)
+      timing = track.timing,
+      duration = track.duration,
+      notes = track.notes,
+      velocity = Some(scaledVelocity)
     )(using track.channel)
   }
 
