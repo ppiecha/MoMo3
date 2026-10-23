@@ -6,10 +6,10 @@ import cats.data.ValidatedNec
 
 final case class Chord(notes: NonEmptyList[Int])
 
-enum Generator[A]:
-  case NoteGen(steps: Seq[Chord]) extends Generator[Note]
-  case VelocityGen(s: Seq[Int])   extends Generator[Velocity]
+sealed trait Generator[A] {
 
+  import Generator.*
+  
   def ++(other: Generator[A]): Generator[A] = (this, other) match
     case (NoteGen(s1), NoteGen(s2))         => NoteGen(s1 ++ s2)
     case (VelocityGen(s1), VelocityGen(s2)) => VelocityGen(s1 ++ s2)
@@ -22,8 +22,18 @@ enum Generator[A]:
     case NoteGen(s)     => NoteGen(s.repeat(n))
     case VelocityGen(s) => VelocityGen(s.repeat(n))
 
-object Generator {
+  def transpose(semitones: Int): Generator[A] = {
+    this match
+      case NoteGen(steps) => NoteGen(steps.map(chord => Chord(chord.notes.map(_ + semitones))))
+      case VelocityGen(_) => this
+  }  
+    
+}
 
+object Generator {
+  case class NoteGen(steps: Seq[Chord]) extends Generator[Note] 
+  case class VelocityGen(s: Seq[Int])   extends Generator[Velocity]
+  
   def parseNotes(seq: Generator[Note]): Seq[ValidatedNec[DomainError, NonEmptyList[Note]]] =
     seq match
       case NoteGen(chords) =>
@@ -36,7 +46,7 @@ object Generator {
     seq match
       case VelocityGen(values) => values.map(Velocity.from)
 
-  def note(args: NoteArg*): Generator[Note] = {
+  def note(args: NoteArg*): NoteGen = {
     val chords: Seq[Chord] = args.map {
       case NoteArg.Single(n) => Chord(NonEmptyList.one(n))
       case NoteArg.Many(t) =>
@@ -45,10 +55,10 @@ object Generator {
           case h :: tail => Chord(NonEmptyList(h, tail))
           case Nil       => throw new IllegalArgumentException("Empty chord tuple")
     }
-    Generator.NoteGen(chords)
+    NoteGen(chords)
   }
 
-  def velocity(v: Int*): Generator[Velocity] = {
+  def velocity(v: Int*): VelocityGen = {
     VelocityGen(v)
   }
 

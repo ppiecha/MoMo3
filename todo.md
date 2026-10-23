@@ -5,9 +5,12 @@
 
 ### Code
 
-- Time.from, Duration.from - timingContext implicit
+- instrument optional, if None then don't send any midi messages
 - send changed initial track controls after recompilation
 - control gen
 - note like c# - trait toMidiValue
-- SuperCollider VST
+- fix duration mismatch
+- pianoHigh4 clank on 0 notes
+- track "active" enable/disable playback
+- bank names in sonar/sf/soundfont-presets.md
 

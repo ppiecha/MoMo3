@@ -72,14 +72,23 @@ object TrackCompiler {
     (at, chord, duration, velocity).mapN { (at, chord, duration, velocity) =>
       val nextAt = at + duration
       chord.toList.flatMap { note =>
-        note.value match {
-          case 0 => Seq.empty // Skip note 0 (rest)
-          case _ =>
-            Seq(
-              AbsoluteMidiEvent(at, NoteOn(channel, note, velocity)),
-              AbsoluteMidiEvent(nextAt, NoteOff(channel, note))
-            )
-        }
+        if note.value == 0 ||
+           velocity.value == 0 ||
+           duration.value == 0
+        then Seq.empty // Skip 0 (rest)
+        else
+          Seq(
+            AbsoluteMidiEvent(at, NoteOn(channel, note, velocity)),
+            AbsoluteMidiEvent(nextAt, NoteOff(channel, note))
+          )
+//        note.value match {
+//          case 0 => Seq.empty // Skip note 0 (rest)
+//          case _ =>
+//            Seq(
+//              AbsoluteMidiEvent(at, NoteOn(channel, note, velocity)),
+//              AbsoluteMidiEvent(nextAt, NoteOff(channel, note))
+//            )
+//        }
       }
     }
   }

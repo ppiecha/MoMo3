@@ -12,3 +12,5 @@ projects/
 *.jar
 *.semanticdb
 *.cwt
+*.scsyndef
+*.sc

@@ -112,9 +112,14 @@ private final class LivePlaybackController(
   override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
     stateRef.modify { state =>
       val cancel = state.fiber.fold(IO.unit)(_.cancel)
+      val initialChanges =
+        if state.elapsed > zeroDuration then
+          state.activePlan.fold(Vector.empty[AbsoluteMidiEvent])(PlaybackPlanDiff.changedInitialControlEvents(_, plan))
+        else Vector.empty[AbsoluteMidiEvent]
+      val sendInitialChanges = initialChanges.foldLeft(IO.unit)((action, event) => action *> send(event))
       (
         state.copy(fiber = None),
-        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> start(plan, policy, state.elapsed)
+        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> sendInitialChanges *> start(plan, policy, state.elapsed)
       )
     }.flatten
 

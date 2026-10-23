@@ -38,6 +38,39 @@ class TrackCompilerSpec extends FunSuite {
     }
   }
 
+  test("compile skips note-on and note-off when note, velocity, or duration is zero") {
+    val tracks = List(
+      Track.track(
+        Track.time(4),
+        Track.note(0),
+        duration = Some(Track.duration(4)),
+        velocity = Some(Track.velocity(100))
+      ),
+      Track.track(
+        Track.time(4),
+        Track.note(60),
+        duration = Some(Track.duration(4)),
+        velocity = Some(Track.velocity(0))
+      ),
+      Track.track(
+        Track.time(4),
+        Track.note(60),
+        duration = Some(Track.duration(0)),
+        velocity = Some(Track.velocity(100))
+      )
+    )
+
+    tracks.foreach { track =>
+      TrackCompiler.compile(track) match {
+        case Invalid(errors) =>
+          fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
+        case Valid(events) =>
+          assert(!events.exists(_.command.isInstanceOf[MidiCommand.NoteOn]))
+          assert(!events.exists(_.command.isInstanceOf[MidiCommand.NoteOff]))
+      }
+    }
+  }
+
   test("compile emits one program change per track with selected instrument") {
     val instrument = Instrument(Instrument.Bank.Melodic, Instrument.Piano.BrightAcousticPiano)
     val track = Track.track(

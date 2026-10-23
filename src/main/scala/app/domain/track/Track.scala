@@ -1,9 +1,10 @@
 package app.domain
 
 import app.domain.Generator
+import app.domain.Generator.{NoteGen, VelocityGen}
 import cats.data.Ior
 import cats.data.IorNec
-import cats.data.{NonEmptyChain => NEC}
+import cats.data.NonEmptyChain as NEC
 
 case class Track(
   timing: TimeGen,
@@ -88,11 +89,11 @@ object Track {
     DurationGen(d)
   }
 
-  def note(args: NoteArg*): Generator[Note] = {
+  def note(args: NoteArg*): NoteGen = {
     Generator.note(args*)
   }
 
-  def velocity(v: Int*): Generator[Velocity] = {
+  def velocity(v: Int*): VelocityGen = {
     Generator.velocity(v*)
   }
 }
