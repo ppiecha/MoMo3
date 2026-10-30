@@ -1,8 +1,8 @@
 package app.domain
 
 import cats.data.Ior
+import cats.data.NonEmptyChain as NEC
 import cats.data.Validated
-import cats.data.{NonEmptyChain => NEC}
 import munit.FunSuite
 
 class TracksSpec extends FunSuite {

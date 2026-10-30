@@ -1,7 +1,9 @@
 package app.syntax
 
-import app.domain.Generator.{NoteGen, VelocityGen}
-import app.domain.{Chord, Generator}
+import app.domain.Chord
+import app.domain.Generator
+import app.domain.Generator.NoteGen
+import app.domain.Generator.VelocityGen
 import cats.data.NonEmptyList
 
 object Extensions {

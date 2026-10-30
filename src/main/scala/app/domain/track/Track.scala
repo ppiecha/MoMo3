@@ -1,8 +1,12 @@
 package app.domain
 
 import app.domain.Generator
-import app.domain.Generator.{NoteGen, VelocityGen}
-import cats.data.{Ior, IorNec, NonEmptyList, NonEmptyChain as NEC}
+import app.domain.Generator.NoteGen
+import app.domain.Generator.VelocityGen
+import cats.data.Ior
+import cats.data.IorNec
+import cats.data.NonEmptyChain as NEC
+import cats.data.NonEmptyList
 
 case class Track(
   timing: TimeGen,
@@ -38,7 +42,7 @@ case class Track(
         case (None, None)         => None
       },
       instrument = (this.instrument, other.instrument) match {
-        case (Some(i1), Some(i2)) => Some(i1)
+        case (Some(i1), Some(_)) => Some(i1)
         case (Some(i1), None)     => Some(i1)
         case (None, Some(i2))     => Some(i2)
         case (None, None)         => None

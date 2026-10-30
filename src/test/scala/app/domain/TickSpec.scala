@@ -1,14 +1,14 @@
 package app.domain
 
-import app.domain._
+import app.domain.*
 import cats.data.Validated
-import cats.syntax.all._
+import cats.syntax.all.*
 import munit.FunSuite
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
-import org.scalacheck.Prop._
+import org.scalacheck.Prop.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class TickSpec extends FunSuite with ScalaCheckSuite {
 

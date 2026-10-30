@@ -1,7 +1,7 @@
 package app.domain
 
 import cats.data.ValidatedNec
-import cats.syntax.all._
+import cats.syntax.all.*
 
 type ValidatedBpm = ValidatedNec[DomainError, Bpm]
 

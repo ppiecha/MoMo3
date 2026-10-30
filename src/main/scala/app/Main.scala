@@ -1,6 +1,7 @@
 package app
 
-import app.config.{Environment, stdInput}
+import app.config.Environment
+import app.config.stdInput
 import app.console.PlaybackCommandConsole
 import app.domain.AbstractMidiEvent
 import app.midi.ReactiveSynth

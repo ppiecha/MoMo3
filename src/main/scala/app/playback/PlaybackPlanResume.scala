@@ -1,10 +1,12 @@
 package app.playback
 
 import app.domain.PlaybackPlan
-import app.domain.PlaybackPlan.{EmptyPlaybackPlan, PlaybackPlanData}
+import app.domain.PlaybackPlan.EmptyPlaybackPlan
+import app.domain.PlaybackPlan.PlaybackPlanData
 import app.domain.TimedEvent
 
-import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.MILLISECONDS
 
 /** Utility methods for rebuilding a playback plan starting from a previously elapsed moment in time.
   */

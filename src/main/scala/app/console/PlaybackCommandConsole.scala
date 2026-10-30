@@ -12,7 +12,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import pureconfig.ConfigSource
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object PlaybackCommandConsole {
 

@@ -1,10 +1,10 @@
 package app.playback
 
-import app.domain.MidiCommand.*
 import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
-import cats.data.{NonEmptyList, ValidatedNec}
+import app.domain.MidiCommand.*
 import cats.data.NonEmptyList
+import cats.data.ValidatedNec
 import cats.syntax.all.*
 
 object TrackCompiler {

@@ -1,6 +1,6 @@
 package app.playback
 
-import app.domain._
+import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import app.playback.PlaybackStatus
 import app.playback.TrackFileParser.classNameFromFilePath
@@ -13,7 +13,7 @@ import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchEvent
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class TrackDirectoryMonitorSpec extends FunSuite {
 

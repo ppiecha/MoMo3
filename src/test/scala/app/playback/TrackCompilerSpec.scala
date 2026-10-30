@@ -1,6 +1,6 @@
 package app.playback
 
-import app.domain._
+import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import cats.data.Validated.Invalid
 import cats.data.Validated.Valid

@@ -1,6 +1,11 @@
 package app.domain
 
-import cats.data.{Ior, IorNec, NonEmptyList, Validated, ValidatedNec, NonEmptyChain as NEC}
+import cats.data.Ior
+import cats.data.IorNec
+import cats.data.NonEmptyChain as NEC
+import cats.data.NonEmptyList
+import cats.data.Validated
+import cats.data.ValidatedNec
 
 opaque type Tracks = NonEmptyList[Track]
 

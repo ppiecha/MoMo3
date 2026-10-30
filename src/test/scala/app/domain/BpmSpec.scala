@@ -3,7 +3,7 @@ package app.domain
 import munit.FunSuite
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
-import org.scalacheck.Prop._
+import org.scalacheck.Prop.*
 
 class BpmSpec extends FunSuite with ScalaCheckSuite {
 

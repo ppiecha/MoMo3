@@ -1,11 +1,11 @@
 package app.playback
 
-import app.domain.Channel._
-import app.domain._
+import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
+import app.domain.Channel.*
 import app.domain.PlaybackPlan.PlaybackPlanData
-import cats.data.NonEmptyList
 import app.midi.toMidiMessages
+import cats.data.NonEmptyList
 import cats.data.Validated
 import cats.effect.IO
 import cats.effect.Ref
@@ -16,7 +16,7 @@ import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 
 import javax.sound.midi.ShortMessage
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
 

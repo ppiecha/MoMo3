@@ -2,7 +2,7 @@ package app.domain
 
 import cats.data.NonEmptyChain
 import cats.data.NonEmptyList
-import cats.syntax.all._
+import cats.syntax.all.*
 
 enum DomainError {
   case InvalidPpq(value: Int)

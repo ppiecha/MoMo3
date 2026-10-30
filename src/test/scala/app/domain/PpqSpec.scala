@@ -4,7 +4,7 @@ import cats.data.ValidatedNec
 import munit.FunSuite
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
-import org.scalacheck.Prop._
+import org.scalacheck.Prop.*
 
 class PpqSpec extends FunSuite with ScalaCheckSuite {
 

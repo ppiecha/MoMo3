@@ -1,8 +1,12 @@
 package app.playback
 
-import app.domain.AbstractMidiEvent.{AbsoluteMidiEvent, RestEvent}
+import app.domain.AbstractMidiEvent
+import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
+import app.domain.AbstractMidiEvent.RestEvent
+import app.domain.MidiCommand
+import app.domain.PlaybackPlan
 import app.domain.PlaybackPlan.PlaybackPlanData
-import app.domain.{AbstractMidiEvent, MidiCommand, PlaybackPlan, Tick}
+import app.domain.Tick
 import cats.data.NonEmptyList
 
 object PlaybackPlanDiff {

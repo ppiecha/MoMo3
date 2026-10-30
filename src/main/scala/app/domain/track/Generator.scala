@@ -1,7 +1,9 @@
 package app.domain
 
 import app.syntax.Extensions.repeat
-import cats.data.{NonEmptyList, Validated, ValidatedNec}
+import cats.data.NonEmptyList
+import cats.data.Validated
+import cats.data.ValidatedNec
 
 sealed trait Generator[A] {
 

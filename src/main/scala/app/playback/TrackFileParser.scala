@@ -5,10 +5,10 @@ import app.domain.Track
 import cats.data.NonEmptyChain
 import cats.data.Validated
 import cats.data.ValidatedNec
-import cats.syntax.all._
-import dotty.tools.dotc._
-import dotty.tools.dotc.core.Contexts._
-import dotty.tools.dotc.reporting._
+import cats.syntax.all.*
+import dotty.tools.dotc.*
+import dotty.tools.dotc.core.Contexts.*
+import dotty.tools.dotc.reporting.*
 
 import java.io.File
 import java.lang.reflect.InvocationTargetException

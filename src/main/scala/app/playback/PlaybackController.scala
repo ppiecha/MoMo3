@@ -1,12 +1,12 @@
 package app.playback
 
-import app.domain.AbstractMidiEvent.{AbsoluteMidiEvent, RestEvent}
-import app.domain.{AbstractMidiEvent, PlaybackPlan}
+import app.domain.AbstractMidiEvent
+import app.domain.AbstractMidiEvent.RestEvent
+import app.domain.PlaybackPlan
 import cats.data.NonEmptyList
 import cats.effect.FiberIO
 import cats.effect.IO
 import cats.effect.Ref
-import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import scala.concurrent.duration.DurationInt

@@ -1,6 +1,6 @@
 package app.playback
 
-import app.domain._
+import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import app.domain.PlaybackPlan.PlaybackPlanData
 import cats.effect.IO
@@ -8,7 +8,7 @@ import cats.effect.Ref
 import cats.effect.testkit.TestControl
 import munit.CatsEffectSuite
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class PlaybackControllerSpec extends CatsEffectSuite {
 

@@ -7,7 +7,10 @@ import app.domain.Track
 import app.domain.Tracks
 import app.playback.TrackFileParser.classNameFromFilePath
 import app.syntax.flatten
-import cats.data.{Ior, IorNec, NonEmptyChain, NonEmptyList, ValidatedNec}
+import cats.data.Ior
+import cats.data.IorNec
+import cats.data.NonEmptyChain
+import cats.data.ValidatedNec
 import cats.effect.FiberIO
 import cats.effect.IO
 import cats.effect.Ref

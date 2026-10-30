@@ -1,15 +1,15 @@
 package app.domain
 
-import app.domain._
-import app.playback.TrackCompiler
+import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
+import app.playback.TrackCompiler
 import cats.data.NonEmptyList
 import cats.data.Validated
 import cats.data.ValidatedNec
-import cats.syntax.all._
+import cats.syntax.all.*
 import munit.CatsEffectSuite
 
-import TestTracks._
+import TestTracks.*
 
 class TrackSpec extends CatsEffectSuite {
 

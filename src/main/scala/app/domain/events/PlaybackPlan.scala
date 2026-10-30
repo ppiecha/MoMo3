@@ -3,7 +3,7 @@ package app.domain
 import app.playback.TrackCompiler
 import app.syntax.toIorNec
 import cats.data.IorNec
-import cats.syntax.all._
+import cats.syntax.all.*
 
 sealed trait PlaybackPlan
 object PlaybackPlan {

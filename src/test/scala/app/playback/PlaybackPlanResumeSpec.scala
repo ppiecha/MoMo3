@@ -1,13 +1,14 @@
 package app.playback
 
-import app.domain._
+import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
-import app.domain.PlaybackPlan.{EmptyPlaybackPlan, PlaybackPlanData}
+import app.domain.PlaybackPlan.EmptyPlaybackPlan
+import app.domain.PlaybackPlan.PlaybackPlanData
 import cats.data.Validated.Invalid
 import cats.data.Validated.Valid
 import munit.FunSuite
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class PlaybackPlanResumeSpec extends FunSuite {
 

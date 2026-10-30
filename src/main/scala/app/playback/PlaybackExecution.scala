@@ -1,12 +1,18 @@
 package app.playback
 
+import app.domain.AbstractMidiEvent
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
-import app.domain.{AbstractMidiEvent, Channel, MidiCommand, PlaybackPlan, Tick, TimedEvent}
+import app.domain.Channel
+import app.domain.MidiCommand
+import app.domain.PlaybackPlan
+import app.domain.Tick
+import app.domain.TimedEvent
 import cats.Applicative
 import cats.effect.Temporal
 import cats.syntax.all.*
 
-import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.MILLISECONDS
 
 /** Executes a playback plan while reporting the elapsed time after every event. This is used by the controller to
   * pause/resume at the current position.

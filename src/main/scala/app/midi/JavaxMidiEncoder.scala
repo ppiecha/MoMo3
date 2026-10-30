@@ -4,7 +4,7 @@ import app.domain.MidiCommand
 
 import javax.sound.midi.ShortMessage
 
-import MidiCommand._
+import MidiCommand.*
 
 extension (mc: MidiCommand) {
   def toMidiMessages: List[ShortMessage] = mc match
