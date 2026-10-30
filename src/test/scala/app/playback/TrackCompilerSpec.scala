@@ -1,6 +1,7 @@
 package app.playback
 
 import app.domain._
+import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import cats.data.Validated.Invalid
 import cats.data.Validated.Valid
 import munit.FunSuite
@@ -25,16 +26,30 @@ class TrackCompilerSpec extends FunSuite {
       Track.time(4, 4),
       Track.note(60, 62),
       duration = Some(Track.duration(4, 4)),
-      velocity = Some(Track.velocity(100, 90))
+      velocity = Track.velocity(100)
     )
     TrackCompiler.compile(track) match {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
-        assertEquals(events.size, 5)
-        assert(events.count(_.command.isInstanceOf[MidiCommand.ProgramChange]) == 1)
-        assert(events.count(_.command.isInstanceOf[MidiCommand.NoteOn]) == 2)
-        assert(events.count(_.command.isInstanceOf[MidiCommand.NoteOff]) == 2)
+        val commands = events.toList.collect { case AbsoluteMidiEvent(_, command) => command }
+        assertEquals(events.length, 5)
+        assertEquals(commands.count {
+          case MidiCommand.ProgramChange(_, _, _) => true
+          case _                                  => false
+        }, 1)
+        assertEquals(commands.count {
+          case MidiCommand.NoteOn(_, _, _) => true
+          case _                           => false
+        }, 2)
+        assertEquals(commands.count {
+          case MidiCommand.NoteOff(_, _, _) => true
+          case _                            => false
+        }, 2)
+        assertEquals(
+          commands.collect { case MidiCommand.NoteOn(_, _, velocity) => velocity.value },
+          List(100, 100)
+        )
     }
   }
 
@@ -44,19 +59,19 @@ class TrackCompilerSpec extends FunSuite {
         Track.time(4),
         Track.note(0),
         duration = Some(Track.duration(4)),
-        velocity = Some(Track.velocity(100))
+        velocity = Track.velocity(100)
       ),
       Track.track(
         Track.time(4),
         Track.note(60),
         duration = Some(Track.duration(4)),
-        velocity = Some(Track.velocity(0))
+        velocity = Track.velocity(0)
       ),
       Track.track(
         Track.time(4),
         Track.note(60),
         duration = Some(Track.duration(0)),
-        velocity = Some(Track.velocity(100))
+        velocity = Track.velocity(100)
       )
     )
 
@@ -65,20 +80,26 @@ class TrackCompilerSpec extends FunSuite {
         case Invalid(errors) =>
           fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
         case Valid(events) =>
-          assert(!events.exists(_.command.isInstanceOf[MidiCommand.NoteOn]))
-          assert(!events.exists(_.command.isInstanceOf[MidiCommand.NoteOff]))
+          assert(!events.exists {
+            case AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, _, _))  => true
+            case _                                                  => false
+          })
+          assert(!events.exists {
+            case AbsoluteMidiEvent(_, MidiCommand.NoteOff(_, _, _)) => true
+            case _                                                  => false
+          })
       }
     }
   }
 
   test("compile emits one program change per track with selected instrument") {
-    val instrument = Instrument(Instrument.Bank.Melodic, Instrument.Piano.BrightAcousticPiano)
+    val instrument = Instrument(Bank.Default, Instrument.Piano.BrightAcousticPiano)
     val track = Track.track(
       Track.time(4, 4),
       Track.note(36, 38),
       duration = Some(Track.duration(4, 4)),
-      velocity = Some(Track.velocity(100, 90)),
-      instrument = instrument
+      velocity = Track.velocity(100, 90),
+      instrument = Some(instrument)
     )
     val bank = valid(Bank.from(instrument.bank))
     val prog = valid(Program.from(instrument.program))
@@ -87,14 +108,11 @@ class TrackCompilerSpec extends FunSuite {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
-        val programChanges = events.collect {
-          case event if event.command.isInstanceOf[MidiCommand.ProgramChange] => event
+        val programChanges = events.toList.collect {
+          case event @ AbsoluteMidiEvent(_, MidiCommand.ProgramChange(_, _, _)) => event
         }
         assertEquals(programChanges.size, 1)
-        assertEquals(
-          programChanges.head,
-          AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, prog))
-        )
+        assertEquals(programChanges.headOption, Some(AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, prog))))
     }
   }
 
@@ -103,19 +121,20 @@ class TrackCompilerSpec extends FunSuite {
       Track.time(4),
       Track.note((60, 64, 67)),
       duration = Some(Track.duration(4)),
-      velocity = Some(Track.velocity(100))
+      velocity = Track.velocity(100)
     )
     TrackCompiler.compile(track) match {
       case Invalid(errors) =>
         fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
       case Valid(events) =>
-        assertEquals(events.size, 7)
+        assertEquals(events.length, 7)
         assert(
-          events.forall(event =>
-            event.command.isInstanceOf[MidiCommand.ProgramChange] ||
-              event.command.isInstanceOf[MidiCommand.NoteOn] ||
-              event.command.isInstanceOf[MidiCommand.NoteOff]
-          )
+          events.toList.forall {
+            case AbsoluteMidiEvent(_, MidiCommand.ProgramChange(_, _, _)) => true
+            case AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, _, _))        => true
+            case AbsoluteMidiEvent(_, MidiCommand.NoteOff(_, _, _))       => true
+            case _                                                        => false
+          }
         )
     }
   }
@@ -125,7 +144,7 @@ class TrackCompilerSpec extends FunSuite {
       Track.time(4, 4),
       Track.note(60, 62),
       duration = Some(Track.duration(4)),
-      velocity = Some(Track.velocity(100, 90))
+      velocity = Track.velocity(100, 90)
     )
     TrackCompiler.compile(track) match {
       case Valid(_) =>
@@ -142,6 +161,6 @@ class TrackCompilerSpec extends FunSuite {
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Valid(value) => value
     case Invalid(errors) =>
-      throw new IllegalStateException(s"Invalid test value: ${errors.toChain.toList.mkString(", ")}")
+      fail(s"Invalid test value: ${errors.toChain.toList.mkString(", ")}")
   }
 }

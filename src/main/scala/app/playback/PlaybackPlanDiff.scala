@@ -1,27 +1,40 @@
 package app.playback
 
-import app.domain.AbsoluteMidiEvent
-import app.domain.MidiCommand
-import app.domain.PlaybackPlan
-import app.domain.Tick
+import app.domain.AbstractMidiEvent.{AbsoluteMidiEvent, RestEvent}
+import app.domain.PlaybackPlan.PlaybackPlanData
+import app.domain.{AbstractMidiEvent, MidiCommand, PlaybackPlan, Tick}
+import cats.data.NonEmptyList
 
 object PlaybackPlanDiff {
 
-  def changedInitialControlEvents(previous: PlaybackPlan, next: PlaybackPlan): Vector[AbsoluteMidiEvent] = {
-    val previousCounts = initialControlEvents(previous).groupMapReduce(identity)(_ => 1)(_ + _)
+  def changedInitialControlEvents(previous: PlaybackPlan, next: PlaybackPlan): NonEmptyList[AbstractMidiEvent] = {
+    val previousCounts = previous match {
+      case PlaybackPlan.EmptyPlaybackPlan => Map.empty[AbstractMidiEvent, Int]
+      case previous: PlaybackPlan.PlaybackPlanData =>
+        initialControlEvents(previous).groupMapReduce(identity)(_ => 1)(_ + _)
+    }
 
-    initialControlEvents(next).foldLeft((previousCounts, Vector.empty[AbsoluteMidiEvent])) {
-      case ((remaining, changes), event) =>
-        remaining.get(event) match {
-          case Some(count) if count > 0 =>
-            (remaining.updated(event, count - 1), changes)
-          case _ =>
-            (remaining, changes :+ event)
+    next match {
+      case PlaybackPlan.EmptyPlaybackPlan => NonEmptyList.one(RestEvent)
+      case next: PlaybackPlan.PlaybackPlanData =>
+        initialControlEvents(next)
+          .foldLeft((previousCounts, Vector.empty[AbstractMidiEvent])) { case ((remaining, changes), event) =>
+            remaining.get(event) match {
+              case Some(count) if count > 0 =>
+                (remaining.updated(event, count - 1), changes)
+              case _ =>
+                (remaining, changes :+ event)
+            }
+          }
+          ._2
+          .toList match {
+            case Nil          => NonEmptyList.one(RestEvent)
+            case head +: tail => NonEmptyList(head, tail)
         }
-    }._2
+    }
   }
 
-  private def initialControlEvents(plan: PlaybackPlan): Vector[AbsoluteMidiEvent] =
+  private def initialControlEvents(plan: PlaybackPlanData): Vector[AbsoluteMidiEvent] = {
     plan.events.iterator
       .map(_.event)
       .filter(_.at == Tick.Zero)
@@ -33,4 +46,5 @@ object PlaybackPlanDiff {
         }
       )
       .toVector
+  }
 }

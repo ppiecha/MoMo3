@@ -27,7 +27,7 @@ val stdInput = new ConsoleInput {
     }
 
     lazy val msvcrt: Msvcrt =
-      Native.load("msvcrt", classOf[Msvcrt]).asInstanceOf[Msvcrt]
+      Native.load("msvcrt", classOf[Msvcrt])
 
     def readKey(): Char = {
       val first = msvcrt._getwch()
@@ -46,15 +46,11 @@ val stdInput = new ConsoleInput {
           Option(readLine()).flatMap(_.headOption).getOrElse('\n')
       }
     } else {
-      val attributes = terminal.enterRawMode()
-      try {
-        val reader = terminal.reader()
-        var code   = reader.read()
-        while code == -1 do code = reader.read()
-        code.toChar
-      } finally {
-        terminal.setAttributes(attributes)
+      Iterator
+        .continually(terminal.reader().read())
+        .dropWhile(_ == -1)
+        .next()
+        .toChar
       }
-    }
   }
 }

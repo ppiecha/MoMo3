@@ -6,7 +6,8 @@
 .vscode/
 target/
 sf/
-project/
+project/*
+!project/plugins.sbt
 projects/
 *.log
 *.jar

@@ -39,11 +39,14 @@ object Velocity {
 }
 
 object Bank {
+  val Default: Int = 0
+  val Percussion: Int = 128
   def from(value: Int): ValidatedNec[DomainError, Bank] =
     MidiValue[BankTag](value)
 }
 
 object Program {
+  val Default = 0
   def from(value: Int): ValidatedNec[DomainError, Program] =
     MidiValue[ProgramTag](value)
 }

@@ -2,6 +2,9 @@ package app.playback
 
 import app.domain.Channel._
 import app.domain._
+import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
+import app.domain.PlaybackPlan.PlaybackPlanData
+import cats.data.NonEmptyList
 import app.midi.toMidiMessages
 import cats.data.Validated
 import cats.effect.IO
@@ -37,7 +40,10 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
       val times = timed.map(_.event.at.value)
 
       assertEquals(times, times.sorted)
-      assertEquals(timed.map(_.event), events.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey))
+      assertEquals(
+        timed.map(_.event).toVector,
+        events.toList.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey).toVector
+      )
     }
   }
 
@@ -46,11 +52,11 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
       TimedEventAndPlaybackExecutionSpec.genAbsoluteMidiEvents,
       TimedEventAndPlaybackExecutionSpec.genTimingContext
     ) { (events, timingContext) =>
-      val sorted   = events.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey)
+      val sorted   = events.toList.sortBy(TimedEventAndPlaybackExecutionSpec.sortKey)
       val timed    = TimedEvent.fromAbsoluteEvents(events)(using timingContext)
       val expected = TimedEventAndPlaybackExecutionSpec.expectedDelays(sorted, timingContext)
 
-      assertEquals(timed.map(_.delay), expected)
+      assertEquals(timed.map(_.delay).toVector, expected)
     }
   }
 
@@ -66,29 +72,31 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
     val controlV = TimedEventAndPlaybackExecutionSpec.valid(Control.from(90))
 
     val events = Vector(
-      AbsoluteMidiEvent(at, MidiCommand.NoteOff(channel, note)),
+      AbsoluteMidiEvent(at, MidiCommand.NoteOff(channel, note, TimedEventAndPlaybackExecutionSpec.valid(Velocity.from(0)))),
       AbsoluteMidiEvent(at, MidiCommand.ProgramChange(channel, bank, program)),
       AbsoluteMidiEvent(at, MidiCommand.ControlChange(channel, control, controlV)),
       AbsoluteMidiEvent(at, MidiCommand.NoteOn(channel, note, velocity))
     )
 
-    val ordered = TimedEvent.fromAbsoluteEvents(events)(using timing).map(_.event.command)
+    val ordered = TimedEvent
+      .fromAbsoluteEvents(NonEmptyList.fromListUnsafe(events.toList))(using timing)
+      .map(_.event.command)
 
     assertEquals(
       ordered,
-      Vector(
+      Seq(
         MidiCommand.ControlChange(channel, control, controlV),
         MidiCommand.ProgramChange(channel, bank, program),
-        MidiCommand.NoteOff(channel, note),
+        MidiCommand.NoteOff(channel, note, TimedEventAndPlaybackExecutionSpec.valid(Velocity.from(0))),
         MidiCommand.NoteOn(channel, note, velocity)
       )
     )
   }
 
-  property("fromAbsoluteEvents returns an empty sequence for empty input") {
-    forAll(TimedEventAndPlaybackExecutionSpec.genTimingContext) { timingContext =>
-      assertEquals(TimedEvent.fromAbsoluteEvents(Vector.empty)(using timingContext), Vector.empty)
-    }
+  test("fromAbsoluteEvents filters rest events") {
+    val timing = TimedEventAndPlaybackExecutionSpec.valid(TimingContext.from(960, 120))
+
+    assertEquals(TimedEvent.fromAbsoluteEvents(NonEmptyList.one(AbstractMidiEvent.RestEvent))(using timing), Seq.empty)
   }
 
   test("executeWithProgress sends timed events in order") {
@@ -103,17 +111,21 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
     )
     val second = AbsoluteMidiEvent(
       TimedEventAndPlaybackExecutionSpec.valid(Tick.from(8)),
-      MidiCommand.NoteOff(Channel.Channel0, TimedEventAndPlaybackExecutionSpec.valid(Note.from(60)))
+      MidiCommand.NoteOff(
+        Channel.Channel0,
+        TimedEventAndPlaybackExecutionSpec.valid(Note.from(60)),
+        TimedEventAndPlaybackExecutionSpec.valid(Velocity.from(0))
+      )
     )
-    val plan = PlaybackPlan(
-      Vector(
+    val plan = PlaybackPlanData(
+      Seq(
         TimedEvent(0.seconds, first),
         TimedEvent(10.millis, second)
       )
     )
 
     val io = for {
-      sent   <- Ref[IO].of(Vector.empty[AbsoluteMidiEvent])
+      sent   <- Ref[IO].of(Vector.empty[AbstractMidiEvent])
       result <- PlaybackExecution.executeWithProgress[IO](plan, event => sent.update(_ :+ event))
       events <- sent.get
     } yield (result, events)
@@ -121,12 +133,16 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
     val (result, events) = TestControl.executeEmbed(io).unsafeRunSync()
 
     assertEquals(result, 10.millis)
-    assertEquals(events, Vector(first, second))
+    assertEquals(events, Vector[AbstractMidiEvent](first, second))
   }
 
   test("all notes off and all sounds off encode as channel control changes") {
-    val notesOff  = MidiCommand.AllNotesOff(Channel4).toMidiMessages.head
-    val soundsOff = MidiCommand.AllSoundsOff(Channel4).toMidiMessages.head
+    val notesOff = MidiCommand.AllNotesOff(Channel4).toMidiMessages.headOption.getOrElse {
+      fail("All-notes-off should produce a MIDI message")
+    }
+    val soundsOff = MidiCommand.AllSoundsOff(Channel4).toMidiMessages.headOption.getOrElse {
+      fail("All-sounds-off should produce a MIDI message")
+    }
 
     assertEquals(
       (notesOff.getCommand, notesOff.getChannel, notesOff.getData1, notesOff.getData2),
@@ -139,7 +155,7 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
   }
 }
 
-object TimedEventAndPlaybackExecutionSpec {
+object TimedEventAndPlaybackExecutionSpec extends munit.Assertions {
 
   def sortKey(event: AbsoluteMidiEvent): (Int, Int) =
     (event.at.value, commandOrder(event.command))
@@ -157,7 +173,7 @@ object TimedEventAndPlaybackExecutionSpec {
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case Validated.Valid(value) => value
     case Validated.Invalid(errors) =>
-      throw new IllegalStateException(s"Generated invalid value: $errors")
+      fail(s"Generated invalid value: $errors")
   }
 
   private val genTimingContextForTicks = valid(TimingContext.from(960, 120))
@@ -195,8 +211,10 @@ object TimedEventAndPlaybackExecutionSpec {
       command <- genMidiCommand
     } yield AbsoluteMidiEvent(at, command)
 
-  val genAbsoluteMidiEvents: Gen[Vector[AbsoluteMidiEvent]] =
-    Gen.listOf(genAbsoluteMidiEvent).map(_.toVector)
+  val genAbsoluteMidiEvents: Gen[NonEmptyList[AbsoluteMidiEvent]] =
+    Gen.nonEmptyListOf(genAbsoluteMidiEvent).map(events =>
+      NonEmptyList.fromListUnsafe(events)
+    )
 
   def expectedDelays(events: Seq[AbsoluteMidiEvent], timingContext: TimingContext): Vector[FiniteDuration] =
     events

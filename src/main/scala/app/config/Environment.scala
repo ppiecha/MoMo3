@@ -6,39 +6,39 @@ import cats.syntax.all._
 import pureconfig._
 
 case class TimingConfig(
-  bpm: Int = 60,
-  ppq: Int = Ppq.DEFAULT_VALUE
+  bpm: Int,
+  ppq: Int
 ) derives ConfigReader
 
 case class EnvironmentConfig(
-  timingContext: TimingConfig = TimingConfig(),
-  synthConfig: SynthConfig = SynthConfig(),
-  midiOutputConfig: MidiOutputConfig = MidiOutputConfig(),
-  midi: MidiConfig = MidiConfig(),
-  paths: PathsConfig = PathsConfig(),
-  startPlaybackOnStartup: Boolean = true
+  timingContext: TimingConfig,
+  synthConfig: SynthConfig,
+  midiOutputConfig: MidiOutputConfig,
+  midi: MidiConfig,
+  paths: PathsConfig,
+  startPlaybackOnStartup: Boolean
 ) derives ConfigReader
 
 case class Environment private (
   timingContext: TimingContext,
-  input: ConsoleInput = stdInput,
-  synthConfig: SynthConfig = SynthConfig(),
-  midiOutputConfig: MidiOutputConfig = MidiOutputConfig(),
-  midiConfig: MidiConfig = MidiConfig(),
-  pathsConfig: PathsConfig = PathsConfig(),
-  startPlaybackOnStartup: Boolean = true
+  input: ConsoleInput,
+  synthConfig: SynthConfig,
+  midiOutputConfig: MidiOutputConfig,
+  midiConfig: MidiConfig,
+  pathsConfig: PathsConfig,
+  startPlaybackOnStartup: Boolean
 )
 
 object Environment {
   def from(
     bpm: Int,
-    ppq: Int = Ppq.DEFAULT_VALUE,
-    synthConfig: SynthConfig = SynthConfig(),
-    midiOutputConfig: MidiOutputConfig = MidiOutputConfig(),
-    midiConfig: MidiConfig = MidiConfig(),
-    pathsConfig: PathsConfig = PathsConfig(),
-    startPlaybackOnStartup: Boolean = true,
-    input: ConsoleInput = stdInput
+    ppq: Int,
+    synthConfig: SynthConfig,
+    midiOutputConfig: MidiOutputConfig,
+    midiConfig: MidiConfig,
+    pathsConfig: PathsConfig,
+    startPlaybackOnStartup: Boolean,
+    input: ConsoleInput
   ): Either[DomainError, Environment] = {
     TimingContext
       .from(ppq, bpm)
@@ -49,7 +49,7 @@ object Environment {
 
   def fromConfig(
     config: EnvironmentConfig,
-    input: ConsoleInput = stdInput
+    input: ConsoleInput
   ): Either[DomainError, Environment] = {
     from(
       bpm = config.timingContext.bpm,
@@ -64,8 +64,8 @@ object Environment {
   }
 
   def load(
-    source: ConfigSource = ConfigSource.default,
-    input: ConsoleInput = stdInput
+    source: ConfigSource,
+    input: ConsoleInput
   ): Either[DomainError, Environment] = {
     source.load[EnvironmentConfig] match {
       case Right(config) => fromConfig(config, input)

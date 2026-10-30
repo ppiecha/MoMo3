@@ -4,7 +4,7 @@ import app.domain.Bpm
 import app.domain.Ppq
 import cats.data.ValidatedNec
 
-case class TimingContext private (bpm: Bpm, ppq: Ppq = Ppq.DEFAULT_PPQ)
+case class TimingContext private (bpm: Bpm, ppq: Ppq)
 
 object TimingContext {
   def from(ppq: Int, bpm: Int): ValidatedNec[DomainError, TimingContext] = {
