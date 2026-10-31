@@ -13,4 +13,4 @@
 - track "active" enable/disable playback
 - track versions one after another
 - 3 wersje basu i fumcja ktora wybiera odpowiednia wersje z odpowiednim prowdopodobienstwem
-
+- warning jezeli playback jest pusty z powodu bledow podczas pierwszego uruchomienia

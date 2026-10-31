@@ -84,7 +84,7 @@ object TrackDirectoryMonitor {
   ) extends TrackDirectoryMonitor {
 
     val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
-    
+
     private def logErrors(errors: NonEmptyChain[DomainError]): IO[Unit] =
       errors.traverse_(error => logger.error(error.toString))
 
@@ -94,6 +94,11 @@ object TrackDirectoryMonitor {
         else playback.replace(plan, policy) *> tracksRef.set(plan) *> IO.pure(plan)
       }
     }
+
+    private def resolveSource(track: Track, files: Seq[Path]): Track =
+      track.withSource(track.source.map { name =>
+        files.find(_.getFileName.toString == name).map(_.toString).getOrElse(name)
+      })
 
     private def loadPlanFromMusic(trackSourceFiles: Seq[Path]): IO[IorNec[DomainError, PlaybackPlan]] =
       IO.blocking(Files.exists(musicFile)).flatMap {
@@ -113,10 +118,11 @@ object TrackDirectoryMonitor {
               musicErrors => Ior.left(musicErrors),
               musicTracks =>
                 Tracks
-                  .from(musicTracks)
+                  .from(musicTracks.map(_.map(resolveSource(_, trackSourceFiles))))
                   .leftMap(_.map {
-                    case mismatch: DomainError.DurationMismatch => mismatch.copy(source = Some(musicFile.toString))
-                    case other                                  => other
+                    case mismatch: DomainError.DurationMismatch =>
+                      mismatch.copy(source = mismatch.source.orElse(Some(musicFile.toString)))
+                    case other => other
                   })
                   .map(tracks => PlaybackPlan.fromTracks(tracks)(using timing))
                   .flatten
@@ -134,7 +140,8 @@ object TrackDirectoryMonitor {
 
     private def replaceWithScanResult(result: IorNec[DomainError, PlaybackPlan]): IO[PlaybackPlan] =
       result match {
-        case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.EmptyPlaybackPlan))
+        case Ior.Left(errors) =>
+          logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.EmptyPlaybackPlan))
         case Ior.Right(plan)        => replacePlanIfChanged(plan)
         case Ior.Both(errors, plan) => logErrors(errors) *> replacePlanIfChanged(plan)
       }
@@ -144,7 +151,10 @@ object TrackDirectoryMonitor {
 
     override def scanAndPlay: IO[PlaybackPlan] =
       scanOnce.flatMap {
-        case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.EmptyPlaybackPlan))
+        case Ior.Left(errors) =>
+          logErrors(errors) *>
+            logger.warn("Scan resulted in errors. No playback plan to play") *>
+            playback.activePlan.map(_.getOrElse(PlaybackPlan.EmptyPlaybackPlan))
         case Ior.Right(plan)        => playback.play(plan, policy) *> IO.pure(plan)
         case Ior.Both(errors, plan) => logErrors(errors) *> playback.play(plan, policy) *> IO.pure(plan)
       }

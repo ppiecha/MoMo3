@@ -29,7 +29,6 @@ object PlaybackExecution {
     send: AbstractMidiEvent => F[Unit],
     command: Channel => MidiCommand
   ): F[Unit] =
-    
     Channel.values.toList.traverse_(channel => send(AbsoluteMidiEvent(Tick.Zero, command(channel))))
 
   def executeWithProgress[F[_]: Temporal](
@@ -50,7 +49,7 @@ object PlaybackExecution {
       case PlaybackPlan.EmptyPlaybackPlan => Temporal[F].pure(FiniteDuration(0L, MILLISECONDS))
       case PlaybackPlan.PlaybackPlanData(events) =>
         loop(events.toVector, FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS))
-    } 
+    }
   }
 
   def executeWithProgress[F[_]: Temporal](

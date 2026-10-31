@@ -64,20 +64,23 @@ class PlaybackControllerSpec extends CatsEffectSuite {
   }
 
   test("plan diff includes changed initial control events but ignores note events and later events") {
-    val bank = valid(Bank.from(0))
-    val oldProgram = valid(Program.from(1))
-    val newProgram = valid(Program.from(2))
+    val bank         = valid(Bank.from(0))
+    val oldProgram   = valid(Program.from(1))
+    val newProgram   = valid(Program.from(2))
     val laterProgram = valid(Program.from(3))
-    val note = valid(Note.from(60))
-    val velocity = valid(Velocity.from(100))
-    val laterAt = valid(Tick.from(4)(using valid(TimingContext.from(960, 120))))
-    val oldInitial = AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, oldProgram))
-    val newInitial = AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, newProgram))
+    val note         = valid(Note.from(60))
+    val velocity     = valid(Velocity.from(100))
+    val laterAt      = valid(Tick.from(4)(using valid(TimingContext.from(960, 120))))
+    val oldInitial   = AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, oldProgram))
+    val newInitial   = AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, newProgram))
     val oldPlan = PlaybackPlanData(
       Seq(
         TimedEvent(0.millis, oldInitial),
         TimedEvent(0.millis, AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOn(Channel.Channel0, note, velocity))),
-        TimedEvent(1.second, AbsoluteMidiEvent(laterAt, MidiCommand.ProgramChange(Channel.Channel0, bank, laterProgram)))
+        TimedEvent(
+          1.second,
+          AbsoluteMidiEvent(laterAt, MidiCommand.ProgramChange(Channel.Channel0, bank, laterProgram))
+        )
       )
     )
     val newPlan = PlaybackPlanData(
@@ -96,13 +99,13 @@ class PlaybackControllerSpec extends CatsEffectSuite {
 
   test("replace sends changed initial control events before resuming the remaining plan") {
     given TimingContext = valid(TimingContext.from(960, 120))
-    val bank = valid(Bank.from(0))
-    val oldProgram = valid(Program.from(1))
-    val newProgram = valid(Program.from(2))
-    val note = valid(Note.from(60))
-    val velocity = valid(Velocity.from(100))
-    val middleAt = valid(Tick.from(4))
-    val finalAt = valid(Tick.from(8))
+    val bank            = valid(Bank.from(0))
+    val oldProgram      = valid(Program.from(1))
+    val newProgram      = valid(Program.from(2))
+    val note            = valid(Note.from(60))
+    val velocity        = valid(Velocity.from(100))
+    val middleAt        = valid(Tick.from(4))
+    val finalAt         = valid(Tick.from(8))
 
     def plan(program: Program): PlaybackPlan =
       PlaybackPlanData(
@@ -126,22 +129,25 @@ class PlaybackControllerSpec extends CatsEffectSuite {
       )
 
     val io = for {
-      sent <- Ref[IO].of(Vector.empty[AbstractMidiEvent])
+      sent       <- Ref[IO].of(Vector.empty[AbstractMidiEvent])
       controller <- PlaybackController.live(event => sent.update(_ :+ event))
-      _ <- controller.play(plan(oldProgram), RepeatPolicy.none)
-      _ <- awaitElapsed(controller)
-      _ <- controller.replace(plan(newProgram), RepeatPolicy.none)
-      events <- sent.get
-      _ <- controller.stop
-    } yield events.collect {
-      case event @ AbsoluteMidiEvent(_, MidiCommand.ProgramChange(_, _, _)) => event
+      _          <- controller.play(plan(oldProgram), RepeatPolicy.none)
+      _          <- awaitElapsed(controller)
+      _          <- controller.replace(plan(newProgram), RepeatPolicy.none)
+      events     <- sent.get
+      _          <- controller.stop
+    } yield events.collect { case event @ AbsoluteMidiEvent(_, MidiCommand.ProgramChange(_, _, _)) =>
+      event
     }
 
     val programChanges = TestControl.executeEmbed(io).unsafeRunSync()
-    assertEquals(programChanges.map(_.command), Vector(
-      MidiCommand.ProgramChange(Channel.Channel0, bank, oldProgram),
-      MidiCommand.ProgramChange(Channel.Channel0, bank, newProgram)
-    ))
+    assertEquals(
+      programChanges.map(_.command),
+      Vector(
+        MidiCommand.ProgramChange(Channel.Channel0, bank, oldProgram),
+        MidiCommand.ProgramChange(Channel.Channel0, bank, newProgram)
+      )
+    )
   }
 
   private def awaitElapsed(controller: PlaybackController): IO[Unit] =

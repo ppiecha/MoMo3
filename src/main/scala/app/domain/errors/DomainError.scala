@@ -27,6 +27,8 @@ enum DomainError {
   case TrackLengthMismatch(time: Int, duration: Int, notes: Int, velocity: Int)
   case NoValidTracksAndNoErrors
   case EmptyChord
+  case InvalidTrackPart(part: String, index: Int, error: DomainError)
+  case InSource(source: String, error: DomainError)
 
   override def toString: String = this match {
     case InvalidPpq(value)                   => s"Invalid PPQ value: $value"
@@ -52,8 +54,10 @@ enum DomainError {
       s"Duration mismatch: ${context}actual=$actual, expected=$expected"
     case TrackLengthMismatch(time, duration, notes, velocity) =>
       s"Track generator lengths mismatch: time=$time, duration=$duration, notes=$notes, velocity=$velocity"
-    case NoValidTracksAndNoErrors => "No valid tracks found and no errors reported"
-    case EmptyChord => "Rest chord cannot be converted to notes"
+    case NoValidTracksAndNoErrors             => "No valid tracks found and no errors reported"
+    case EmptyChord                           => "Rest chord cannot be converted to notes"
+    case InvalidTrackPart(part, index, error) => s"Invalid $part at index $index: $error"
+    case InSource(source, error)              => s"$error: source='$source'"
   }
 
 }

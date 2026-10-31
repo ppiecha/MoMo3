@@ -12,10 +12,10 @@ opaque type Tracks = NonEmptyList[Track]
 object Tracks {
   def from(tracks: ValidatedNec[String, List[Track]]): IorNec[DomainError, Tracks] = tracks match
     case Validated.Invalid(errors) => Ior.Left(errors.map(DomainError.MusicFileParseFailed.apply))
-    case Validated.Valid(tracks)   => tracks match
-      case Nil          => Ior.Left(NEC.one(DomainError.NoValidTracksAndNoErrors))
-      case head :: tail => validateTrackDurations(NonEmptyList(head, tail))
-
+    case Validated.Valid(tracks) =>
+      tracks match
+        case Nil          => Ior.Left(NEC.one(DomainError.NoValidTracksAndNoErrors))
+        case head :: tail => validateTrackDurations(NonEmptyList(head, tail))
 
   private def validateTrackDurations(tracks: NonEmptyList[Track]): IorNec[DomainError, Tracks] = {
     val expectedDuration = tracks.head.timing.duration

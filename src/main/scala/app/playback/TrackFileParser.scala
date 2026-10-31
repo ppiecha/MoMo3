@@ -79,7 +79,7 @@ object TrackFileParser {
       NonEmptyChain
         .fromSeq(
           reporter.allErrors.map { error =>
-            val parsed = DiagnosticParser.parse(error.toString)
+            val parsed      = DiagnosticParser.parse(error.toString)
             val parsedError = parsed.compilationError
             val context =
               if parsed.sourcePath == "unknown" then
@@ -151,7 +151,10 @@ object TrackFileParser {
     }
   }
 
-  inline def compileAndEvaluateFile(scalaFile: java.nio.file.Path, classpath: String): ValidatedNec[DomainError, Track] =
+  inline def compileAndEvaluateFile(
+    scalaFile: java.nio.file.Path,
+    classpath: String
+  ): ValidatedNec[DomainError, Track] =
     compileAndEvaluateFile[ValidatedNec[DomainError, Track]](
       scalaFile = scalaFile.toString,
       className = classNameFromFilePath(scalaFile),

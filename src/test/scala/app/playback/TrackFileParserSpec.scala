@@ -117,8 +117,8 @@ class TrackFileParserSpec extends FunSuite {
 
   test("catchAllNec keeps non-empty fallback when exception has null message") {
     val emptyIterator = classOf[java.util.Collections].getMethod("emptyIterator").invoke(new Object())
-    val next = classOf[java.util.Iterator[?]].getMethod("next")
-    val result = TrackFileParser.catchAllNec[AnyRef](next.invoke(emptyIterator))
+    val next          = classOf[java.util.Iterator[?]].getMethod("next")
+    val result        = TrackFileParser.catchAllNec[AnyRef](next.invoke(emptyIterator))
 
     result match
       case cats.data.Validated.Invalid(errors) =>

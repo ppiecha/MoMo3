@@ -34,7 +34,9 @@ object Generator {
           case Chord.Rest          => Validated.invalidNec(DomainError.EmptyChord)
         }
 
-  def parseTicks(seq: TickGenerator)(using timingContext: TimingContext): NonEmptyList[ValidatedNec[DomainError, Tick]] =
+  def parseTicks(seq: TickGenerator)(using
+    timingContext: TimingContext
+  ): NonEmptyList[ValidatedNec[DomainError, Tick]] =
     seq.values.map(d => Tick.from(d))
 
   def parseVelocity(seq: Generator[Velocity]): NonEmptyList[ValidatedNec[DomainError, Velocity]] =

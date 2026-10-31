@@ -42,7 +42,9 @@ object PlaybackController {
   def live(
     send: AbstractMidiEvent => IO[Unit]
   ): IO[PlaybackController] =
-    Ref.of[IO, PlaybackState](PlaybackState(None, 0.millis, RepeatPolicy.none, None)).map(stateRef => new LivePlaybackController(send, stateRef))
+    Ref
+      .of[IO, PlaybackState](PlaybackState(None, 0.millis, RepeatPolicy.none, None))
+      .map(stateRef => new LivePlaybackController(send, stateRef))
 
   private[playback] def nextRepeat(
     repeatedPlan: PlaybackPlan,
@@ -64,7 +66,7 @@ private final class LivePlaybackController(
 ) extends PlaybackController {
 
   val logger = Slf4jLogger.getLogger[IO]
-  
+
   private val zeroDuration: FiniteDuration = FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)
 
   override def pause: IO[Unit] =
@@ -92,7 +94,10 @@ private final class LivePlaybackController(
   override def stop: IO[Unit] =
     stateRef.modify { state =>
       val cancel = state.fiber.fold(IO.unit)(_.cancel)
-      (PlaybackState(None, 0.millis, RepeatPolicy.none, None), cancel *> PlaybackExecution.sendAllSoundsOff(send) *> logger.debug("Playback stopped"))
+      (
+        PlaybackState(None, 0.millis, RepeatPolicy.none, None),
+        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> logger.debug("Playback stopped")
+      )
     }.flatten
 
   override def play(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] =

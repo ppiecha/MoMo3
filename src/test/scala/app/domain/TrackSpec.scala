@@ -13,7 +13,7 @@ import TestTracks.*
 
 class TrackSpec extends CatsEffectSuite {
 
-  given Channel = Channel.Channel0
+  given Channel               = Channel.Channel0
   private given TimingContext = validOrFail(TimingContext.from(960, 60))
 
   def validOrFail[A](validated: Either[DomainError, A]): A = validated match {
@@ -78,7 +78,8 @@ class TrackSpec extends CatsEffectSuite {
       notes = Track.note(60, 62),
       duration = None,
       velocity = None,
-      instrument = None
+      instrument = None,
+      source = Some("TrackSpec.scala")
     )
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)

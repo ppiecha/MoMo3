@@ -7,7 +7,7 @@ class EnvironmentSpec extends FunSuite {
 
   private val testInput = new ConsoleInput {
     override def readLine(): String = ""
-    override def readKey(): Char     = '\n'
+    override def readKey(): Char    = '\n'
   }
 
   test("Environment.load should load configuration from default application.conf") {

@@ -17,7 +17,15 @@ class TrackCompilerSpec extends FunSuite {
       case Valid(_) =>
         fail("Expected validation failure for invalid MIDI note")
       case Invalid(errors) =>
-        assert(errors.toChain.toList.contains(DomainError.InvalidMidiValue(200)))
+        assertEquals(
+          errors.toChain.toList,
+          List(
+            DomainError.InSource(
+              "TrackCompilerSpec.scala",
+              DomainError.InvalidTrackPart("note", 0, DomainError.InvalidMidiValue(200))
+            )
+          )
+        )
     }
   }
 
@@ -34,18 +42,27 @@ class TrackCompilerSpec extends FunSuite {
       case Valid(events) =>
         val commands = events.toList.collect { case AbsoluteMidiEvent(_, command) => command }
         assertEquals(events.length, 5)
-        assertEquals(commands.count {
-          case MidiCommand.ProgramChange(_, _, _) => true
-          case _                                  => false
-        }, 1)
-        assertEquals(commands.count {
-          case MidiCommand.NoteOn(_, _, _) => true
-          case _                           => false
-        }, 2)
-        assertEquals(commands.count {
-          case MidiCommand.NoteOff(_, _, _) => true
-          case _                            => false
-        }, 2)
+        assertEquals(
+          commands.count {
+            case MidiCommand.ProgramChange(_, _, _) => true
+            case _                                  => false
+          },
+          1
+        )
+        assertEquals(
+          commands.count {
+            case MidiCommand.NoteOn(_, _, _) => true
+            case _                           => false
+          },
+          2
+        )
+        assertEquals(
+          commands.count {
+            case MidiCommand.NoteOff(_, _, _) => true
+            case _                            => false
+          },
+          2
+        )
         assertEquals(
           commands.collect { case MidiCommand.NoteOn(_, _, velocity) => velocity.value },
           List(100, 100)
@@ -81,8 +98,8 @@ class TrackCompilerSpec extends FunSuite {
           fail(s"Expected valid events but got errors: ${errors.toChain.toList.mkString(", ")}")
         case Valid(events) =>
           assert(!events.exists {
-            case AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, _, _))  => true
-            case _                                                  => false
+            case AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, _, _)) => true
+            case _                                                 => false
           })
           assert(!events.exists {
             case AbsoluteMidiEvent(_, MidiCommand.NoteOff(_, _, _)) => true
@@ -112,7 +129,10 @@ class TrackCompilerSpec extends FunSuite {
           case event @ AbsoluteMidiEvent(_, MidiCommand.ProgramChange(_, _, _)) => event
         }
         assertEquals(programChanges.size, 1)
-        assertEquals(programChanges.headOption, Some(AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, prog))))
+        assertEquals(
+          programChanges.headOption,
+          Some(AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(Channel.Channel0, bank, prog)))
+        )
     }
   }
 
@@ -152,7 +172,10 @@ class TrackCompilerSpec extends FunSuite {
       case Invalid(errors) =>
         assert(
           errors.toChain.toList.contains(
-            DomainError.TrackLengthMismatch(time = 2, duration = 1, notes = 2, velocity = 2)
+            DomainError.InSource(
+              "TrackCompilerSpec.scala",
+              DomainError.TrackLengthMismatch(time = 2, duration = 1, notes = 2, velocity = 2)
+            )
           )
         )
     }

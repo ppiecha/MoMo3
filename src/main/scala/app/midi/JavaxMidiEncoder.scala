@@ -17,8 +17,8 @@ extension (mc: MidiCommand) {
     case AllSoundsOff(channel) =>
       List(new ShortMessage(ShortMessage.CONTROL_CHANGE, channel.value, 120, 0))
     case ProgramChange(channel, bank, program) =>
-      val msb = bank.value / 128
-      val lsb = bank.value % 128
+      val msb = bank.value // / 128
+      val lsb = 0          // bank.value % 128
 
       List(
         new ShortMessage(ShortMessage.CONTROL_CHANGE, channel.value, 0, msb),          // Bank Select MSB (CC 0)

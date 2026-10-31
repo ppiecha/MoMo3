@@ -14,19 +14,21 @@ object Extensions {
 
   extension [A](nel: NonEmptyList[A]) {
     def repeat(count: Int): NonEmptyList[A] =
-      if count <= 1 then nel 
+      if count <= 1 then nel
       else NonEmptyList(nel.head, nel.tail ++ nel.repeat(count - 1).toList)
   }
-  
+
   extension [A](opt: Option[Generator[A]]) {
     def transpose(semitones: Int): Option[Generator[A]] = {
       opt match
-        case Some(gen) => gen match
-          case NoteGen(steps) => Some(NoteGen(steps.map {
-            case Chord.Voiced(notes) => Chord.Voiced(notes.map(_ + semitones))
-            case Chord.Rest    => Chord.Rest
-          }))
-          case VelocityGen(_) => Some(gen)
+        case Some(gen) =>
+          gen match
+            case NoteGen(steps) =>
+              Some(NoteGen(steps.map {
+                case Chord.Voiced(notes) => Chord.Voiced(notes.map(_ + semitones))
+                case Chord.Rest          => Chord.Rest
+              }))
+            case VelocityGen(_) => Some(gen)
         case None => None
     }
     def ++(other: Option[Generator[A]]): Option[Generator[A]] = {

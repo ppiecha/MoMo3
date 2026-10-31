@@ -39,7 +39,7 @@ object Velocity {
 }
 
 object Bank {
-  val Default: Int = 0
+  val Default: Int    = 0
   val Percussion: Int = 128
   def from(value: Int): ValidatedNec[DomainError, Bank] =
     MidiValue[BankTag](value)
@@ -67,11 +67,11 @@ object MidiValue {
   given MidiValueKind[NoteTag] with     { def construct(value: Int): MidiValue[NoteTag] = Note(value)         }
   given MidiValueKind[VelocityTag] with { def construct(value: Int): MidiValue[VelocityTag] = Velocity(value) }
   given MidiValueKind[BankTag] with {
-    override def maxValue: Int                       = 16383 // 14-bit Bank Select (MSB/LSB)
+    override def maxValue: Int                    = 16383 // 14-bit Bank Select (MSB/LSB)
     def construct(value: Int): MidiValue[BankTag] = Bank(value)
   }
-  given MidiValueKind[ProgramTag] with  { def construct(value: Int): MidiValue[ProgramTag] = Program(value)   }
-  given MidiValueKind[ControlTag] with  { def construct(value: Int): MidiValue[ControlTag] = Control(value)   }
+  given MidiValueKind[ProgramTag] with { def construct(value: Int): MidiValue[ProgramTag] = Program(value) }
+  given MidiValueKind[ControlTag] with { def construct(value: Int): MidiValue[ControlTag] = Control(value) }
 
   val VelocityZero: MidiValue[VelocityTag] = Velocity(0)
 

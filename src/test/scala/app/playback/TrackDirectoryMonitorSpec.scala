@@ -160,7 +160,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   }
 
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
-    case cats.data.Validated.Valid(value) => value
+    case cats.data.Validated.Valid(value)    => value
     case cats.data.Validated.Invalid(errors) => fail(s"Invalid test value: $errors")
   }
 
@@ -215,8 +215,8 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       .getOrElse(fail("Missing NoteOn event in playback plan"))
 
   private def planEvents(plan: PlaybackPlan): Seq[TimedEvent] = plan match {
-    case PlaybackPlan.EmptyPlaybackPlan              => Seq.empty
-    case PlaybackPlan.PlaybackPlanData(events)       => events
+    case PlaybackPlan.EmptyPlaybackPlan        => Seq.empty
+    case PlaybackPlan.PlaybackPlanData(events) => events
   }
 
   private def awaitReplacement(
@@ -233,7 +233,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     }
 
   private final class TrackDirectoryMonitorTestHarness extends PlaybackController {
-    private val replaceCallsRef = new AtomicReference[List[PlaybackPlan]](Nil)
+    private val replaceCallsRef          = new AtomicReference[List[PlaybackPlan]](Nil)
     def replaceCalls: List[PlaybackPlan] = replaceCallsRef.get()
 
     override def play(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] = IO.unit

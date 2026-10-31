@@ -54,8 +54,8 @@ class PlaybackPlanResumeSpec extends FunSuite {
   )
 
   private def planEvents(plan: PlaybackPlan): Vector[TimedEvent] = plan match {
-    case EmptyPlaybackPlan            => Vector.empty
-    case PlaybackPlanData(events)     => events.toVector
+    case EmptyPlaybackPlan        => Vector.empty
+    case PlaybackPlanData(events) => events.toVector
   }
 
   private def note(value: Int): Note           = valid(Note.from(value))

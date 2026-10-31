@@ -19,7 +19,9 @@ object TimedEvent {
       case MidiCommand.NoteOn(_, _, _)        => 3
     }
 
-  def fromAbsoluteEvents(events: NonEmptyList[AbstractMidiEvent])(using timingContext: TimingContext): Seq[TimedEvent] = {
+  def fromAbsoluteEvents(
+    events: NonEmptyList[AbstractMidiEvent]
+  )(using timingContext: TimingContext): Seq[TimedEvent] = {
     events
       .collect { case e: AbsoluteMidiEvent => e }
       .sortBy(event => (event.at.value, commandOrder(event.command)))

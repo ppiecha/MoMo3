@@ -8,12 +8,14 @@ import cats.data.IorNec
 import cats.data.NonEmptyChain as NEC
 import cats.data.NonEmptyList
 
+@SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 case class Track(
   timing: TimeGen,
   notes: Option[Generator[Note]],
   duration: Option[DurationGen],
   velocity: Option[Generator[Velocity]],
-  instrument: Option[Instrument]
+  instrument: Option[Instrument],
+  source: Option[String]
 )(using
   ch: Channel
 ) {
@@ -43,11 +45,14 @@ case class Track(
       },
       instrument = (this.instrument, other.instrument) match {
         case (Some(i1), Some(_)) => Some(i1)
-        case (Some(i1), None)     => Some(i1)
-        case (None, Some(i2))     => Some(i2)
-        case (None, None)         => None
-      }
+        case (Some(i1), None)    => Some(i1)
+        case (None, Some(i2))    => Some(i2)
+        case (None, None)        => None
+      },
+      source = this.source.orElse(other.source)
     )
+
+  def withSource(newSource: Option[String]): Track = this.copy(source = newSource)
 
   def muted: Track = {
     this.copy(velocity = Some(Generator.velocity(Velocity.Zero).repeat(timing.length)))
@@ -55,7 +60,8 @@ case class Track(
 
   def compareDuration(duration: Double): IorNec[DomainError, Track] = {
     if duration < 0 then Ior.Left(NEC.one(DomainError.NegativeDuration(duration)))
-    else if timing.duration != duration then Ior.Left(NEC.one(DomainError.DurationMismatch(timing.duration, duration, None)))
+    else if timing.duration != duration then
+      Ior.Left(NEC.one(DomainError.DurationMismatch(timing.duration, duration, source)))
     else Ior.Right(this)
   }
 
@@ -70,11 +76,11 @@ object Track {
     velocity: Option[Generator[Velocity]] = None,
     instrument: Option[Instrument] = None
   )(using ch: Channel): Track = {
-    Track(timing, notes, duration, velocity, instrument)
+    Track(timing, notes, duration, velocity, instrument, callerSource)
   }
 
   def rest(value: Double)(using channel: Channel): Track = {
-    Track(
+    track(
       timing = time(value),
       notes = None,
       duration = None,
@@ -82,6 +88,12 @@ object Track {
       instrument = None
     )
   }
+
+  private def callerSource: Option[String] =
+    new Throwable().getStackTrace.collectFirst {
+      case frame if Option(frame.getFileName).exists(_.endsWith(".scala")) && frame.getFileName != "Track.scala" =>
+        frame.getFileName
+    }
 
   def time(head: Double, tail: Double*): TimeGen = {
     TimeGen(NonEmptyList(head, tail.toList))

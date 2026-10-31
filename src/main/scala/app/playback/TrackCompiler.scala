@@ -27,13 +27,19 @@ object TrackCompiler {
         .invalidNec
   }
 
+  private def labelled[A](
+    part: String,
+    items: NonEmptyList[ValidatedNec[DomainError, A]]
+  ): NonEmptyList[ValidatedNec[DomainError, A]] =
+    NonEmptyList.fromListUnsafe(items.toList.zipWithIndex.map { case (item, index) =>
+      item.leftMap(_.map(DomainError.InvalidTrackPart(part, index, _)))
+    })
+
   private def accumulateTimes(
     track: Track
   )(using timingContext: TimingContext): NonEmptyList[ValidatedNec[DomainError, Tick]] = {
     NonEmptyList.fromListUnsafe(
-      Generator
-        .parseTicks(track.timing)
-        .toList
+      labelled("time", Generator.parseTicks(track.timing)).toList
         .scan(Tick.Zero.validNec[DomainError])((acc, tick) => (acc, tick).mapN(_ + _))
     )
   }
@@ -41,18 +47,26 @@ object TrackCompiler {
   def compile(track: Track)(using
     timingContext: TimingContext
   ): ValidatedNec[DomainError, NonEmptyList[AbstractMidiEvent]] =
+    withSource(track, compileUnlabelled(track))
+
+  private def withSource[A](track: Track, result: ValidatedNec[DomainError, A]): ValidatedNec[DomainError, A] =
+    track.source.fold(result)(source => result.leftMap(_.map(DomainError.InSource(source, _))))
+
+  private def compileUnlabelled(track: Track)(using
+    timingContext: TimingContext
+  ): ValidatedNec[DomainError, NonEmptyList[AbstractMidiEvent]] =
     validateAlignedLengths(track).andThen { track =>
       val at = accumulateTimes(track)
       val notes = track.notes
-        .map(Generator.parseNotes)
+        .map(n => labelled("note", Generator.parseNotes(n)))
         .getOrElse(Generator.parseNotes(Generator.note(NoteArg.Single(0)).repeat(track.timing.length)))
       val duration = track.duration
-        .map(Generator.parseTicks)
+        .map(d => labelled("duration", Generator.parseTicks(d)))
         .getOrElse(Generator.parseTicks(track.timing))
       val validatedVelocityDefault =
-        Generator.parseVelocity(Generator.velocity(Velocity.Default).repeat(track.timing.length))
+        labelled("velocity", Generator.parseVelocity(Generator.velocity(Velocity.Default).repeat(track.timing.length)))
       val velocity = track.velocity
-        .map(Generator.parseVelocity)
+        .map(v => labelled("velocity", Generator.parseVelocity(v)))
         .getOrElse(validatedVelocityDefault)
 
       val dummy = (Tick.from(0), NonEmptyList.of(Note.from(0)), Tick.from(0))

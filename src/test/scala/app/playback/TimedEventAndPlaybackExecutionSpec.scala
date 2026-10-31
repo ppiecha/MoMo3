@@ -72,7 +72,10 @@ class TimedEventAndPlaybackExecutionSpec extends ScalaCheckSuite {
     val controlV = TimedEventAndPlaybackExecutionSpec.valid(Control.from(90))
 
     val events = Vector(
-      AbsoluteMidiEvent(at, MidiCommand.NoteOff(channel, note, TimedEventAndPlaybackExecutionSpec.valid(Velocity.from(0)))),
+      AbsoluteMidiEvent(
+        at,
+        MidiCommand.NoteOff(channel, note, TimedEventAndPlaybackExecutionSpec.valid(Velocity.from(0)))
+      ),
       AbsoluteMidiEvent(at, MidiCommand.ProgramChange(channel, bank, program)),
       AbsoluteMidiEvent(at, MidiCommand.ControlChange(channel, control, controlV)),
       AbsoluteMidiEvent(at, MidiCommand.NoteOn(channel, note, velocity))
@@ -212,9 +215,7 @@ object TimedEventAndPlaybackExecutionSpec extends munit.Assertions {
     } yield AbsoluteMidiEvent(at, command)
 
   val genAbsoluteMidiEvents: Gen[NonEmptyList[AbsoluteMidiEvent]] =
-    Gen.nonEmptyListOf(genAbsoluteMidiEvent).map(events =>
-      NonEmptyList.fromListUnsafe(events)
-    )
+    Gen.nonEmptyListOf(genAbsoluteMidiEvent).map(events => NonEmptyList.fromListUnsafe(events))
 
   def expectedDelays(events: Seq[AbsoluteMidiEvent], timingContext: TimingContext): Vector[FiniteDuration] =
     events

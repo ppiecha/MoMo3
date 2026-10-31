@@ -32,8 +32,8 @@ object PlaybackPlanDiff {
           }
           ._2
           .toList match {
-            case Nil          => NonEmptyList.one(RestEvent)
-            case head +: tail => NonEmptyList(head, tail)
+          case Nil          => NonEmptyList.one(RestEvent)
+          case head +: tail => NonEmptyList(head, tail)
         }
     }
   }

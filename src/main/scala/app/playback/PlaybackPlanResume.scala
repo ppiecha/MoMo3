@@ -37,7 +37,7 @@ object PlaybackPlanResume {
             }
         }
       plan match {
-        case EmptyPlaybackPlan        => PlaybackPlan.EmptyPlaybackPlan
+        case EmptyPlaybackPlan => PlaybackPlan.EmptyPlaybackPlan
         case PlaybackPlanData(events) =>
           loop(elapsed, events.toVector, Vector.empty) match {
             case Vector()      => PlaybackPlan.EmptyPlaybackPlan

@@ -51,6 +51,6 @@ val stdInput = new ConsoleInput {
         .dropWhile(_ == -1)
         .next()
         .toChar
-      }
+    }
   }
 }
