@@ -13,6 +13,7 @@ sealed trait ProgramTag
 sealed trait ControlTag
 
 trait MidiValueKind[A] {
+  def maxValue: Int = 127
   def construct(value: Int): MidiValue[A]
 }
 
@@ -38,11 +39,14 @@ object Velocity {
 }
 
 object Bank {
+  val Default: Int    = 0
+  val Percussion: Int = 128
   def from(value: Int): ValidatedNec[DomainError, Bank] =
     MidiValue[BankTag](value)
 }
 
 object Program {
+  val Default = 0
   def from(value: Int): ValidatedNec[DomainError, Program] =
     MidiValue[ProgramTag](value)
 }
@@ -62,14 +66,17 @@ object MidiValue {
 
   given MidiValueKind[NoteTag] with     { def construct(value: Int): MidiValue[NoteTag] = Note(value)         }
   given MidiValueKind[VelocityTag] with { def construct(value: Int): MidiValue[VelocityTag] = Velocity(value) }
-  given MidiValueKind[BankTag] with     { def construct(value: Int): MidiValue[BankTag] = Bank(value)         }
-  given MidiValueKind[ProgramTag] with  { def construct(value: Int): MidiValue[ProgramTag] = Program(value)   }
-  given MidiValueKind[ControlTag] with  { def construct(value: Int): MidiValue[ControlTag] = Control(value)   }
+  given MidiValueKind[BankTag] with {
+    override def maxValue: Int                    = 16383 // 14-bit Bank Select (MSB/LSB)
+    def construct(value: Int): MidiValue[BankTag] = Bank(value)
+  }
+  given MidiValueKind[ProgramTag] with { def construct(value: Int): MidiValue[ProgramTag] = Program(value) }
+  given MidiValueKind[ControlTag] with { def construct(value: Int): MidiValue[ControlTag] = Control(value) }
 
   val VelocityZero: MidiValue[VelocityTag] = Velocity(0)
 
   def apply[A](value: Int)(using kind: MidiValueKind[A]): ValidatedNec[DomainError, MidiValue[A]] =
-    if value >= 0 && value <= 127 then kind.construct(value).validNec[DomainError]
+    if value >= 0 && value <= kind.maxValue then kind.construct(value).validNec[DomainError]
     else DomainError.InvalidMidiValue(value).invalidNec[MidiValue[A]]
 
 }

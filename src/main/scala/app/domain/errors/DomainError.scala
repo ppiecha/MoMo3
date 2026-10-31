@@ -2,7 +2,7 @@ package app.domain
 
 import cats.data.NonEmptyChain
 import cats.data.NonEmptyList
-import cats.syntax.all._
+import cats.syntax.all.*
 
 enum DomainError {
   case InvalidPpq(value: Int)
@@ -23,8 +23,12 @@ enum DomainError {
   case MusicFileParseFailed(error: String)
   case EmptyTracks
   case NegativeDuration(duration: Double)
-  case DurationMismatch(actual: Double, expected: Double)
+  case DurationMismatch(actual: Double, expected: Double, source: Option[String])
   case TrackLengthMismatch(time: Int, duration: Int, notes: Int, velocity: Int)
+  case NoValidTracksAndNoErrors
+  case EmptyChord
+  case InvalidTrackPart(part: String, index: Int, error: DomainError)
+  case InSource(source: String, error: DomainError)
 
   override def toString: String = this match {
     case InvalidPpq(value)                   => s"Invalid PPQ value: $value"
@@ -45,9 +49,15 @@ enum DomainError {
     case MusicFileParseFailed(error)         => s"Music file parse failed: $error"
     case EmptyTracks                         => "No tracks provided for playback plan."
     case NegativeDuration(duration)          => s"Negative duration: $duration"
-    case DurationMismatch(actual, expected)  => s"Duration mismatch: actual=$actual, expected=$expected"
+    case DurationMismatch(actual, expected, source) =>
+      val context = source.fold("")(s => s"source='$s', ")
+      s"Duration mismatch: ${context}actual=$actual, expected=$expected"
     case TrackLengthMismatch(time, duration, notes, velocity) =>
       s"Track generator lengths mismatch: time=$time, duration=$duration, notes=$notes, velocity=$velocity"
+    case NoValidTracksAndNoErrors             => "No valid tracks found and no errors reported"
+    case EmptyChord                           => "Rest chord cannot be converted to notes"
+    case InvalidTrackPart(part, index, error) => s"Invalid $part at index $index: $error"
+    case InSource(source, error)              => s"$error: source='$source'"
   }
 
 }

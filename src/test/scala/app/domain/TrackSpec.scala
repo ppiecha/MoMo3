@@ -1,19 +1,20 @@
 package app.domain
 
-import app.config.Environment
-import app.domain._
+import app.domain.*
+import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import app.playback.TrackCompiler
 import cats.data.NonEmptyList
 import cats.data.Validated
 import cats.data.ValidatedNec
-import cats.syntax.all._
+import cats.syntax.all.*
 import munit.CatsEffectSuite
 
-import TestTracks._
+import TestTracks.*
 
 class TrackSpec extends CatsEffectSuite {
 
-  given Channel = Channel.Channel0
+  given Channel               = Channel.Channel0
+  private given TimingContext = validOrFail(TimingContext.from(960, 60))
 
   def validOrFail[A](validated: Either[DomainError, A]): A = validated match {
     case Right(value) => value
@@ -26,24 +27,26 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("time should create time generators from one or more values") {
-    assertEquals(Track.time(2), TimeGen(Seq(2.0)))
-    assertEquals(Track.time(1, 2, 3), TimeGen(Seq(1.0, 2.0, 3.0)))
+    assertEquals(Track.time(2), TimeGen(NonEmptyList.one(2.0)))
+    assertEquals(Track.time(1, 2, 3), TimeGen(NonEmptyList.of(1.0, 2.0, 3.0)))
   }
 
   test("duration should create duration generators from one or more values") {
-    assertEquals(Track.duration(2), DurationGen(Seq(2.0)))
-    assertEquals(Track.duration(1, 2, 3), DurationGen(Seq(1.0, 2.0, 3.0)))
+    assertEquals(Track.duration(2), DurationGen(NonEmptyList.one(2.0)))
+    assertEquals(Track.duration(1, 2, 3), DurationGen(NonEmptyList.of(1.0, 2.0, 3.0)))
   }
 
   test("note should create note generators from one or more values") {
-    assertEquals(Track.note(60), Generator.NoteGen(Seq(Chord(NonEmptyList.one(60)))))
+    assertEquals(Track.note(60), Some(Generator.NoteGen(NonEmptyList.one(Chord.Voiced(NonEmptyList.one(60))))))
     assertEquals(
       Track.note(60, 62, 64),
-      Generator.NoteGen(
-        Seq(
-          Chord(NonEmptyList.one(60)),
-          Chord(NonEmptyList.one(62)),
-          Chord(NonEmptyList.one(64))
+      Some(
+        Generator.NoteGen(
+          NonEmptyList.of(
+            Chord.Voiced(NonEmptyList.one(60)),
+            Chord.Voiced(NonEmptyList.one(62)),
+            Chord.Voiced(NonEmptyList.one(64))
+          )
         )
       )
     )
@@ -52,27 +55,31 @@ class TrackSpec extends CatsEffectSuite {
   test("note should allow tuple chords mixed with single notes") {
     assertEquals(
       Track.note((60, 64, 67), 30, 40),
-      Generator.NoteGen(
-        Seq(
-          Chord(NonEmptyList(60, List(64, 67))),
-          Chord(NonEmptyList.one(30)),
-          Chord(NonEmptyList.one(40))
+      Some(
+        Generator.NoteGen(
+          NonEmptyList.of(
+            Chord.Voiced(NonEmptyList(60, List(64, 67))),
+            Chord.Voiced(NonEmptyList.one(30)),
+            Chord.Voiced(NonEmptyList.one(40))
+          )
         )
       )
     )
   }
 
   test("velocity should create velocity generators from one or more values") {
-    assertEquals(Track.velocity(70), Generator.VelocityGen(Seq(70)))
-    assertEquals(Track.velocity(70, 80, 90), Generator.VelocityGen(Seq(70, 80, 90)))
+    assertEquals(Track.velocity(70), Some(Generator.VelocityGen(NonEmptyList.one(70))))
+    assertEquals(Track.velocity(70, 80, 90), Some(Generator.VelocityGen(NonEmptyList.of(70, 80, 90))))
   }
 
-  test("track overloads should provide default duration and velocity generators") {
+  test("track factory leaves optional generators unset unless provided") {
     val expected = Track(
       timing = Track.time(1, 2),
       notes = Track.note(60, 62),
       duration = None,
-      velocity = None
+      velocity = None,
+      instrument = None,
+      source = Some("TrackSpec.scala")
     )
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)
@@ -83,24 +90,24 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("track factory should keep provided instrument") {
-    val instrument = Instrument(Instrument.Bank.Percussion, Instrument.PercussionKit.ElectronicKit)
+    val instrument = Instrument(Bank.Percussion, Instrument.PercussionKit.ElectronicKit)
 
     val track = Track.track(
       Track.time(1, 2),
       Track.note(60, 62),
-      instrument = instrument
+      instrument = Some(instrument)
     )
 
-    assertEquals(track.instrument, instrument)
+    assertEquals(track.instrument, Some(instrument))
   }
 
-  test("rest should create a silent track with matching time and duration") {
+  test("rest should create a track with no note, duration, or velocity generators") {
     val rest = Track.rest(4)
 
     assertEquals(rest.timing, Track.time(4))
-    assertEquals(rest.duration, Some(Track.duration(4)))
-    assertEquals(rest.notes, Track.note(Note.Zero))
-    assertEquals(rest.velocity, Some(Track.velocity(Velocity.Zero)))
+    assertEquals(rest.duration, None)
+    assertEquals(rest.notes, None)
+    assertEquals(rest.velocity, None)
   }
 
   test("track concatenation should concatenate every generator") {
@@ -108,13 +115,13 @@ class TrackSpec extends CatsEffectSuite {
       Track.time(1),
       Track.note(60),
       duration = Some(Track.duration(2)),
-      velocity = Some(Track.velocity(70))
+      velocity = Track.velocity(70)
     )
     val second = Track.track(
       Track.time(3),
       Track.note(62),
       duration = Some(Track.duration(4)),
-      velocity = Some(Track.velocity(80))
+      velocity = Track.velocity(80)
     )
 
     assertEquals(
@@ -123,18 +130,19 @@ class TrackSpec extends CatsEffectSuite {
         Track.time(1, 3),
         Track.note(60, 62),
         duration = Some(Track.duration(2, 4)),
-        velocity = Some(Track.velocity(70, 80))
+        velocity = Track.velocity(70, 80)
       )
     )
   }
 
   test("track concatenation should preserve correct duration type") {
-    val first  = Track.track(Track.time(1, 2), Track.note(60, 62))
+    val first =
+      Track.track(Track.time(1), Track.note(60), duration = Some(Track.duration(1)))
     val second = Track.rest(0.5)
 
     assertEquals(
       (first ++ second).duration,
-      Some(Track.duration(0.5))
+      Some(Track.duration(1))
     )
   }
 
@@ -143,36 +151,39 @@ class TrackSpec extends CatsEffectSuite {
       Track.time(1, 2),
       Track.note(60, 62),
       duration = Some(Track.duration(3, 4)),
-      velocity = Some(Track.velocity(70, 80))
+      velocity = Track.velocity(70, 80)
     )
 
-    assertEquals(track.muted, track.copy(velocity = Some(Track.velocity(Velocity.Zero, Velocity.Zero))))
+    assertEquals(
+      track.muted,
+      track.copy(velocity = Some(Generator.velocity(Velocity.Zero, Velocity.Zero)))
+    )
   }
 
   test("One note track midi stream should produce NoteOn and NoteOff message") {
 
-    val (ppq, bpm, note, velocity) = validOrFail(
+    val (note, velocity) = validOrFail(
       (
-        Ppq.from(960),
-        Bpm.from(60),
         Note.from(60),
         Velocity.from(Velocity.Default)
-      ).mapN((p, b, n, v) => (p, b, n, v))
+      ).mapN((n, v) => (n, v))
     )
 
-    val env     = validOrFail(Environment.from(ppq = ppq.value, bpm = bpm.value))
-    val events  = TrackCompiler.compile(oneNoteTrack)(using env.timingContext)
+    val events  = TrackCompiler.compile(oneNoteTrack)
     val channel = Channel.Channel0
     val bank    = validOrFail(Bank.from(Instrument.Default.bank))
     val program = validOrFail(Program.from(Instrument.Default.program))
-    val expectedEvents = List(
+    val expectedEvents: List[AbstractMidiEvent] = List(
       AbsoluteMidiEvent(Tick.Zero, MidiCommand.ProgramChange(channel, bank, program)),
       AbsoluteMidiEvent(Tick.Zero, MidiCommand.NoteOn(channel, note, velocity)),
-      AbsoluteMidiEvent(validOrFail(Tick.from(8)(using env.timingContext)), MidiCommand.NoteOff(channel, note))
+      AbsoluteMidiEvent(
+        validOrFail(Tick.from(8)),
+        MidiCommand.NoteOff(channel, note, validOrFail(Velocity.from(Velocity.Zero)))
+      )
     )
 
     events match
       case Validated.Invalid(errors) => fail(s"Expected valid events but got errors: $errors")
-      case Validated.Valid(events)   => assertEquals(events, expectedEvents)
+      case Validated.Valid(events)   => assertEquals(events.toList, expectedEvents)
   }
 }

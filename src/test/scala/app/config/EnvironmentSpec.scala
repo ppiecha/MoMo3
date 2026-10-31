@@ -5,8 +5,13 @@ import pureconfig.ConfigSource
 
 class EnvironmentSpec extends FunSuite {
 
+  private val testInput = new ConsoleInput {
+    override def readLine(): String = ""
+    override def readKey(): Char    = '\n'
+  }
+
   test("Environment.load should load configuration from default application.conf") {
-    val result = Environment.load()
+    val result = Environment.load(ConfigSource.default, testInput)
     assert(result.isRight, s"Expected successful load, got $result")
     val env = result.getOrElse(fail("Could not get environment"))
 
@@ -53,7 +58,7 @@ class EnvironmentSpec extends FunSuite {
         |start-playback-on-startup = false
         |""".stripMargin
 
-    val result = Environment.load(ConfigSource.string(hocon))
+    val result = Environment.load(ConfigSource.string(hocon), testInput)
     assert(result.isRight)
     val env = result.getOrElse(fail("Could not get environment"))
 
@@ -81,7 +86,7 @@ class EnvironmentSpec extends FunSuite {
         |}
         |""".stripMargin
 
-    val result = Environment.load(ConfigSource.string(hocon))
+    val result = Environment.load(ConfigSource.string(hocon), testInput)
     assert(result.isLeft)
   }
 

@@ -6,9 +6,12 @@
 .vscode/
 target/
 sf/
-project/
+project/*
+!project/plugins.sbt
 projects/
 *.log
 *.jar
 *.semanticdb
 *.cwt
+*.scsyndef
+*.sc

@@ -3,21 +3,16 @@ package app.domain
 import app.playback.TrackCompiler
 import app.syntax.toIorNec
 import cats.data.IorNec
-import cats.syntax.all._
+import cats.syntax.all.*
 
-case class PlaybackPlan(events: Seq[TimedEvent]) {
-  def isEmpty: Boolean  = events.isEmpty
-  def nonEmpty: Boolean = events.nonEmpty
-  def size: Int         = events.size
-}
-
+sealed trait PlaybackPlan
 object PlaybackPlan {
-
-  def empty: PlaybackPlan = PlaybackPlan(Seq.empty)
+  case class PlaybackPlanData(events: Seq[TimedEvent]) extends PlaybackPlan
+  case object EmptyPlaybackPlan                        extends PlaybackPlan
 
   def fromTracks(tracks: Tracks)(using timingContext: TimingContext): IorNec[DomainError, PlaybackPlan] =
     tracks.toSeq
       .traverse(track => toIorNec(TrackCompiler.compile(track)))
       .map(_.flatten)
-      .map(events => PlaybackPlan(TimedEvent.fromAbsoluteEvents(events)))
+      .map(events => PlaybackPlanData(TimedEvent.fromAbsoluteEvents(events)))
 }

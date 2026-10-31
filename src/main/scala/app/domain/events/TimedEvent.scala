@@ -1,5 +1,8 @@
 package app.domain
 
+import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
+import cats.data.NonEmptyList
+
 import scala.concurrent.duration.FiniteDuration
 
 case class TimedEvent(delay: FiniteDuration, event: AbsoluteMidiEvent)
@@ -16,8 +19,11 @@ object TimedEvent {
       case MidiCommand.NoteOn(_, _, _)        => 3
     }
 
-  def fromAbsoluteEvents(events: Seq[AbsoluteMidiEvent])(using timingContext: TimingContext): Seq[TimedEvent] = {
+  def fromAbsoluteEvents(
+    events: NonEmptyList[AbstractMidiEvent]
+  )(using timingContext: TimingContext): Seq[TimedEvent] = {
     events
+      .collect { case e: AbsoluteMidiEvent => e }
       .sortBy(event => (event.at.value, commandOrder(event.command)))
       .foldLeft((Tick.Zero, Vector.empty[(Tick, AbsoluteMidiEvent)])) { case ((prev, acc), e) =>
         val delta = e.at - prev

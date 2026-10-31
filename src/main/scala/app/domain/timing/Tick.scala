@@ -1,9 +1,9 @@
 package app.domain
 
 import cats.data.ValidatedNec
-import cats.syntax.all._
+import cats.syntax.all.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 opaque type Tick = Int
 object Tick {

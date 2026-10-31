@@ -5,10 +5,10 @@ import app.domain.Track
 import cats.data.NonEmptyChain
 import cats.data.Validated
 import cats.data.ValidatedNec
-import cats.syntax.all._
-import dotty.tools.dotc._
-import dotty.tools.dotc.core.Contexts._
-import dotty.tools.dotc.reporting._
+import cats.syntax.all.*
+import dotty.tools.dotc.*
+import dotty.tools.dotc.core.Contexts.*
+import dotty.tools.dotc.reporting.*
 
 import java.io.File
 import java.lang.reflect.InvocationTargetException
@@ -25,31 +25,39 @@ object TrackFileParser {
 
   final case class CompilationError(fileName: String, lineNumber: Int, message: String)
 
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  def unsafeCast[A](value: AnyRef): A =
+    value.asInstanceOf[A]
+
+  @SuppressWarnings(Array("org.wartremover.warts.Null"))
+  def unsafeJavaNull[T]: T = unsafeCast[T](null)
+
   def extractCompilationError(rawDiagnostic: String): CompilationError =
-    DiagnosticParser.extractCompilationError(rawDiagnostic)
+    DiagnosticParser.parse(rawDiagnostic).compilationError
 
-  private def resolvedClasspath(): String = ClasspathResolver.resolvedClasspath()
+  def resolvedClasspath(): String = ClasspathResolver.resolvedClasspath()
 
-  def classNameFromFilePath(path: Path): String = {
+  def classNameFromFilePath(path: Path): ValidatedNec[DomainError, String] = {
     val fileName = path.getFileName.toString
     if !fileName.endsWith(".scala") then
-      throw new IllegalArgumentException(s"File '$fileName' is not a Scala source file.")
-    val dotIndex = fileName.lastIndexOf('.')
-    if (dotIndex == -1) fileName
-    else fileName.substring(0, dotIndex)
+      Validated.invalidNec(DomainError.MusicFileParseFailed(s"File '$fileName' is not a Scala source file."))
+    else
+      val dotIndex = fileName.lastIndexOf('.')
+      if (dotIndex == -1) Validated.validNec(fileName)
+      else Validated.validNec(fileName.substring(0, dotIndex))
   }
 
   def compileFile(
     scalaFile: String,
     outDir: String,
-    classpath: String = resolvedClasspath()
+    classpath: String
   ): ValidatedNec[DomainError, String] =
     compileFiles(Seq(scalaFile), outDir, classpath)
 
   def compileFiles(
     scalaFiles: Seq[String],
     outDir: String,
-    classpath: String = resolvedClasspath()
+    classpath: String
   ): ValidatedNec[DomainError, String] = {
 
     val reporter = new StoreReporter()
@@ -71,9 +79,16 @@ object TrackFileParser {
       NonEmptyChain
         .fromSeq(
           reporter.allErrors.map { error =>
-            val parsedError = extractCompilationError(error.toString)
+            val parsed      = DiagnosticParser.parse(error.toString)
+            val parsedError = parsed.compilationError
+            val context =
+              if parsed.sourcePath == "unknown" then
+                scalaFiles
+                  .map(sourceContext)
+                  .mkString("sources=[", "; ", "]")
+              else sourceContext(parsed.sourcePath)
             DomainError.MusicFileParseFailed(
-              s"${parsedError.fileName}:${parsedError.lineNumber}: ${parsedError.message}"
+              s"$context, line=${parsedError.lineNumber}: ${parsedError.message}"
             )
           }
         )
@@ -112,17 +127,22 @@ object TrackFileParser {
 
   inline def compileAndEvaluateFile[A](
     scalaFile: String,
-    className: String,
+    className: ValidatedNec[DomainError, String],
     methodName: String,
-    sourceFiles: Seq[String] = Seq.empty,
-    classpath: String = resolvedClasspath()
+    sourceFiles: Seq[String],
+    classpath: String
   )(using Typeable[A]): ValidatedNec[DomainError, A] = {
     requireTypeable[A]
     val tempDir = Files.createTempDirectory("track-compile")
     try {
       compileFiles((scalaFile +: sourceFiles).distinct, tempDir.toString, classpath) match {
         case Validated.Valid(compiledDir) =>
-          catchAllNec(RuntimeEvaluator.evaluate[A](className, methodName, compiledDir))
+          className
+            .leftMap(_.map(error => addSourceContext(error, scalaFile)))
+            .andThen { cn =>
+              catchAllNec(RuntimeEvaluator.evaluate[A](cn, methodName, compiledDir))
+                .leftMap(_.map(error => addSourceContext(error, scalaFile)))
+            }
         case Validated.Invalid(e) =>
           e.invalid
       }
@@ -131,28 +151,50 @@ object TrackFileParser {
     }
   }
 
-  inline def compileAndEvaluateFile(scalaFile: java.nio.file.Path): ValidatedNec[DomainError, Track] =
+  inline def compileAndEvaluateFile(
+    scalaFile: java.nio.file.Path,
+    classpath: String
+  ): ValidatedNec[DomainError, Track] =
     compileAndEvaluateFile[ValidatedNec[DomainError, Track]](
       scalaFile = scalaFile.toString,
       className = classNameFromFilePath(scalaFile),
-      methodName = "playWrapper"
+      methodName = "playWrapper",
+      sourceFiles = Nil,
+      classpath = classpath
     ).andThen(identity)
 
   private object DiagnosticParser {
+    final case class Parsed(compilationError: CompilationError, sourcePath: String)
+
     private val DiagnosticErrorPattern =
       "(?s)^class [^ ]+ at (.+?):(?:<[^>]+>|\\[[^\\]]+\\]) L(\\d+):\\s*(.*)$".r
 
-    def extractCompilationError(rawDiagnostic: String): CompilationError = {
+    def parse(rawDiagnostic: String): Parsed = {
       val diagnostic = rawDiagnostic.trim
       diagnostic match
         case DiagnosticErrorPattern(filePath, lineNumber, message) =>
           val normalizedPath = filePath.replace('\\', '/')
           val fileName       = normalizedPath.split('/').lastOption.getOrElse(filePath)
-          CompilationError(fileName = fileName, lineNumber = lineNumber.toInt, message = message.trim)
+          Parsed(
+            CompilationError(fileName = fileName, lineNumber = lineNumber.toInt, message = message.trim),
+            sourcePath = filePath
+          )
         case _ =>
-          CompilationError(fileName = "unknown", lineNumber = -1, message = diagnostic)
+          Parsed(
+            CompilationError(fileName = "unknown", lineNumber = -1, message = diagnostic),
+            sourcePath = "unknown"
+          )
     }
   }
+
+  private def sourceContext(sourcePath: String): String = s"source='$sourcePath'"
+
+  private def addSourceContext(error: DomainError, sourcePath: String): DomainError =
+    error match {
+      case DomainError.MusicFileParseFailed(message) =>
+        DomainError.MusicFileParseFailed(s"${sourceContext(sourcePath)}: $message")
+      case other => other
+    }
 
   private object ClasspathResolver {
     private val pathSeparator: String = File.pathSeparator
@@ -235,10 +277,10 @@ object TrackFileParser {
       }
       try {
         val cls    = loader.loadClass(className + "$")
-        val module = cls.getField("MODULE$").get(null)
+        val module = cls.getField("MODULE$").get(unsafeJavaNull[AnyRef])
         val method = cls.getMethod(methodName)
         val result = method.invoke(module)
-        result.asInstanceOf[A]
+        unsafeCast[A](result)
       } finally {
         loader.close()
       }

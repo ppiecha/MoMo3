@@ -1,6 +1,7 @@
 package app.playback
 
-import app.domain._
+import app.domain.*
+import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import app.playback.PlaybackStatus
 import app.playback.TrackFileParser.classNameFromFilePath
 import cats.effect.IO
@@ -11,7 +12,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchEvent
-import scala.concurrent.duration._
+import java.util.concurrent.atomic.AtomicReference
+import scala.concurrent.duration.*
 
 class TrackDirectoryMonitorSpec extends FunSuite {
 
@@ -23,7 +25,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
 
   test("monitor builds plan from Music.scala entrypoint") {
     val directory = Files.createTempDirectory("track-monitor-music-entrypoint")
-    val musicFile = Files.createTempFile("track-monitor-music-entrypoint-file", ".scala")
+    val musicFile = directory.resolve("Music.scala")
 
     writeTrack(directory.resolve("Bass0.scala"), 64)
     writeTrack(directory.resolve("Drums9.scala"), 36)
@@ -47,12 +49,12 @@ class TrackDirectoryMonitorSpec extends FunSuite {
 
     assertEquals(extractFirstNoteFromPlan(result), 64)
     assertEquals(harness.replaceCalls.size, 0)
-    assert(result.size >= 4)
+    assert(planEvents(result).size >= 4)
   }
 
   test("scanOnce updates playback only when Music.scala compiles") {
     val directory = Files.createTempDirectory("track-monitor-music-compile-gate")
-    val musicFile = Files.createTempFile("track-monitor-music-compile-gate-file", ".scala")
+    val musicFile = directory.resolve("Music.scala")
 
     writeTrack(directory.resolve("Bass0.scala"), 60)
     writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"))
@@ -90,7 +92,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
 
   test("watcher rescans a changed track and replaces playback") {
     val directory = Files.createTempDirectory("track-monitor-watch-rescan")
-    val musicFile = Files.createTempFile("track-monitor-watch-rescan-music", ".scala")
+    val musicFile = directory.resolve("Music.scala")
     val trackFile = directory.resolve("Bass0.scala")
 
     writeTrack(trackFile, 60)
@@ -158,20 +160,20 @@ class TrackDirectoryMonitorSpec extends FunSuite {
   }
 
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
-    case cats.data.Validated.Valid(value) => value
-    case cats.data.Validated.Invalid(_)   => throw new IllegalStateException("invalid test value")
+    case cats.data.Validated.Valid(value)    => value
+    case cats.data.Validated.Invalid(errors) => fail(s"Invalid test value: $errors")
   }
 
   private def writeTrack(path: Path, note: Int): Unit =
     Files.writeString(
       path,
-      s"""object ${classNameFromFilePath(path)} {
+      s"""object ${valid(classNameFromFilePath(path))} {
          |  given app.domain.Channel = app.domain.Channel.Channel0
          |  def apply(): app.domain.Track = app.domain.Track.track(
          |    timing = app.domain.Track.time(1),
          |    notes = app.domain.Track.note($note),
          |    duration = Some(app.domain.Track.duration(1)),
-         |    velocity = Some(app.domain.Track.velocity(app.domain.Velocity.Default))
+         |    velocity = app.domain.Track.velocity(app.domain.Velocity.Default)
          |  )
          |}
          |""".stripMargin
@@ -202,15 +204,20 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     new WatchEvent[AnyRef] {
       override def kind: WatchEvent.Kind[AnyRef] = StandardWatchEventKinds.OVERFLOW
       override def count: Int                    = 1
-      override def context: AnyRef               = null
+      override def context: AnyRef               = Path.of("")
     }
 
   private def extractFirstNoteFromPlan(plan: PlaybackPlan): Int =
-    plan.events
+    planEvents(plan)
       .collectFirst { case TimedEvent(_, AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, note, _))) =>
         note.value
       }
-      .getOrElse(throw new IllegalStateException("missing NoteOn event in playback plan"))
+      .getOrElse(fail("Missing NoteOn event in playback plan"))
+
+  private def planEvents(plan: PlaybackPlan): Seq[TimedEvent] = plan match {
+    case PlaybackPlan.EmptyPlaybackPlan        => Seq.empty
+    case PlaybackPlan.PlaybackPlanData(events) => events
+  }
 
   private def awaitReplacement(
     harness: TrackDirectoryMonitorTestHarness,
@@ -226,14 +233,15 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     }
 
   private final class TrackDirectoryMonitorTestHarness extends PlaybackController {
-    @volatile var replaceCalls: List[PlaybackPlan] = Nil
+    private val replaceCallsRef          = new AtomicReference[List[PlaybackPlan]](Nil)
+    def replaceCalls: List[PlaybackPlan] = replaceCallsRef.get()
 
     override def play(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] = IO.unit
     override def pause: IO[Unit]                                          = IO.unit
     override def resume: IO[Unit]                                         = IO.unit
     override def stop: IO[Unit]                                           = IO.unit
     override def replace(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] = {
-      replaceCalls = replaceCalls :+ plan
+      replaceCallsRef.updateAndGet(calls => calls :+ plan)
       IO.unit
     }
     override def elapsedTime: IO[FiniteDuration]      = IO.pure(0.millis)

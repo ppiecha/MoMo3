@@ -1,7 +1,9 @@
 package app
 
 import app.config.Environment
+import app.config.stdInput
 import app.console.PlaybackCommandConsole
+import app.domain.AbstractMidiEvent
 import app.midi.ReactiveSynth
 import app.midi.toMidiMessages
 import app.playback.PlaybackController
@@ -16,7 +18,7 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import pureconfig.ConfigSource
 
 import java.nio.file.Paths
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 object Main extends IOApp {
 
@@ -34,7 +36,7 @@ object Main extends IOApp {
 
   private def monitorProgram(
     env: Environment,
-    sendEvent: app.domain.AbsoluteMidiEvent => IO[Unit],
+    sendEvent: AbstractMidiEvent => IO[Unit],
     configSource: ConfigSource,
     logger: Logger[IO]
   ): IO[Unit] =
@@ -61,13 +63,17 @@ object Main extends IOApp {
 
     val program =
       for {
-        env <- IO.fromEither(Environment.load(source = configSource).left.map(asRuntimeError))
+        env <- IO.fromEither(Environment.load(source = configSource, input = stdInput).left.map(asRuntimeError))
         _ <- liftDomainError(
           ReactiveSynth
             .outputResource[IO](env.midiOutputConfig)
             .use { sendMidi =>
-              val sendEvent = (event: app.domain.AbsoluteMidiEvent) =>
-                liftDomainError(sendMidi(event.command.toMidiMessages).value).void
+              val sendEvent = (event: AbstractMidiEvent) =>
+                event match {
+                  case event: AbstractMidiEvent.AbsoluteMidiEvent =>
+                    liftDomainError(sendMidi(event.command.toMidiMessages).value).void
+                  case AbstractMidiEvent.RestEvent => IO.unit
+                }
               EitherT.liftF(monitorProgram(env, sendEvent, configSource, logger))
             }
             .value

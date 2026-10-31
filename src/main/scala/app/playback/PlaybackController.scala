@@ -1,11 +1,12 @@
 package app.playback
 
-import app.domain.AbsoluteMidiEvent
+import app.domain.AbstractMidiEvent
+import app.domain.AbstractMidiEvent.RestEvent
 import app.domain.PlaybackPlan
+import cats.data.NonEmptyList
 import cats.effect.FiberIO
 import cats.effect.IO
 import cats.effect.Ref
-import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import scala.concurrent.duration.DurationInt
@@ -17,14 +18,14 @@ import scala.concurrent.duration.FiniteDuration
 trait PlaybackController {
   def play(
     plan: PlaybackPlan,
-    policy: RepeatPolicy = RepeatPolicy.none
+    policy: RepeatPolicy
   ): IO[Unit]
   def pause: IO[Unit]
   def resume: IO[Unit]
   def stop: IO[Unit]
   def replace(
     plan: PlaybackPlan,
-    policy: RepeatPolicy = RepeatPolicy.none
+    policy: RepeatPolicy
   ): IO[Unit]
   def elapsedTime: IO[FiniteDuration]
   def status: IO[PlaybackStatus]
@@ -39,10 +40,11 @@ enum PlaybackStatus {
 
 object PlaybackController {
   def live(
-    send: AbsoluteMidiEvent => IO[Unit],
-    logger: Logger[IO] = Slf4jLogger.getLogger[IO]
+    send: AbstractMidiEvent => IO[Unit]
   ): IO[PlaybackController] =
-    Ref.of[IO, PlaybackState](PlaybackState()).map(stateRef => new LivePlaybackController(send, logger, stateRef))
+    Ref
+      .of[IO, PlaybackState](PlaybackState(None, 0.millis, RepeatPolicy.none, None))
+      .map(stateRef => new LivePlaybackController(send, stateRef))
 
   private[playback] def nextRepeat(
     repeatedPlan: PlaybackPlan,
@@ -52,17 +54,18 @@ object PlaybackController {
 }
 
 private final case class PlaybackState(
-  activePlan: Option[PlaybackPlan] = None,
-  elapsed: FiniteDuration = FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS),
-  policy: RepeatPolicy = RepeatPolicy.none,
-  fiber: Option[FiberIO[Unit]] = None
+  activePlan: Option[PlaybackPlan],
+  elapsed: FiniteDuration,
+  policy: RepeatPolicy,
+  fiber: Option[FiberIO[Unit]]
 )
 
 private final class LivePlaybackController(
-  send: AbsoluteMidiEvent => IO[Unit],
-  logger: Logger[IO],
+  send: AbstractMidiEvent => IO[Unit],
   stateRef: Ref[IO, PlaybackState]
 ) extends PlaybackController {
+
+  val logger = Slf4jLogger.getLogger[IO]
 
   private val zeroDuration: FiniteDuration = FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)
 
@@ -91,10 +94,13 @@ private final class LivePlaybackController(
   override def stop: IO[Unit] =
     stateRef.modify { state =>
       val cancel = state.fiber.fold(IO.unit)(_.cancel)
-      (PlaybackState(), cancel *> PlaybackExecution.sendAllSoundsOff(send) *> logger.debug("Playback stopped"))
+      (
+        PlaybackState(None, 0.millis, RepeatPolicy.none, None),
+        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> logger.debug("Playback stopped")
+      )
     }.flatten
 
-  override def play(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
+  override def play(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] =
     start(plan, policy, 0.millis)
 
   private def start(plan: PlaybackPlan, policy: RepeatPolicy, elapsed: FiniteDuration): IO[Unit] = {
@@ -109,12 +115,17 @@ private final class LivePlaybackController(
     }
   }
 
-  override def replace(plan: PlaybackPlan, policy: RepeatPolicy = RepeatPolicy.none): IO[Unit] =
+  override def replace(plan: PlaybackPlan, policy: RepeatPolicy): IO[Unit] =
     stateRef.modify { state =>
       val cancel = state.fiber.fold(IO.unit)(_.cancel)
+      val initialChanges =
+        if state.elapsed > zeroDuration then
+          state.activePlan.fold(NonEmptyList.one(RestEvent))(PlaybackPlanDiff.changedInitialControlEvents(_, plan))
+        else NonEmptyList.one(RestEvent)
+      val sendInitialChanges = initialChanges.foldLeft(IO.unit)((action, event) => action *> send(event))
       (
         state.copy(fiber = None),
-        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> start(plan, policy, state.elapsed)
+        cancel *> PlaybackExecution.sendAllSoundsOff(send) *> sendInitialChanges *> start(plan, policy, state.elapsed)
       )
     }.flatten
 

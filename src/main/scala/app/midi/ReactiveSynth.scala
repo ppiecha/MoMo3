@@ -3,8 +3,8 @@ package app.midi
 import app.config.MidiOutputConfig
 import app.domain.DomainError
 import cats.data.EitherT
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 
 import javax.sound.midi.MidiDevice
 import javax.sound.midi.MidiSystem

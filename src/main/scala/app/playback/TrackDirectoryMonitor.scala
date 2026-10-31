@@ -5,6 +5,7 @@ import app.domain.PlaybackPlan
 import app.domain.TimingContext
 import app.domain.Track
 import app.domain.Tracks
+import app.playback.TrackFileParser.classNameFromFilePath
 import app.syntax.flatten
 import cats.data.Ior
 import cats.data.IorNec
@@ -14,7 +15,7 @@ import cats.effect.FiberIO
 import cats.effect.IO
 import cats.effect.Ref
 import cats.effect.Resource
-import cats.syntax.all._
+import cats.syntax.all.*
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
@@ -23,8 +24,8 @@ import java.nio.file.Path
 import java.nio.file.StandardWatchEventKinds
 import java.nio.file.WatchEvent
 import java.nio.file.WatchService
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 
 /** Watches a directory containing Scala track definitions. A new file, a deletion, or a modification triggers a full
   * scan and a rebuild of the active playback.
@@ -53,24 +54,23 @@ object TrackDirectoryMonitor {
     playback: PlaybackController,
     timing: TimingContext,
     musicFile: Path,
-    policy: RepeatPolicy = RepeatPolicy.none,
-    logger: Logger[IO] = Slf4jLogger.getLogger[IO],
+    policy: RepeatPolicy,
     pollInterval: FiniteDuration
-  ): IO[TrackDirectoryMonitor] =
+  ): IO[TrackDirectoryMonitor] = {
     for {
       watcherRef <- Ref.of[IO, Option[FiberIO[Unit]]](None)
-      tracksRef  <- Ref.of[IO, PlaybackPlan](PlaybackPlan.empty)
+      tracksRef  <- Ref.of[IO, PlaybackPlan](PlaybackPlan.EmptyPlaybackPlan)
     } yield new FileSystemTrackDirectoryMonitor(
       directory,
       playback,
       timing,
       musicFile,
       policy,
-      logger,
       pollInterval,
       watcherRef,
       tracksRef
     )
+  }
 
   private final class FileSystemTrackDirectoryMonitor(
     directory: Path,
@@ -78,11 +78,12 @@ object TrackDirectoryMonitor {
     timing: TimingContext,
     musicFile: Path,
     policy: RepeatPolicy,
-    logger: Logger[IO],
     pollInterval: FiniteDuration,
     watcherRef: Ref[IO, Option[FiberIO[Unit]]],
     tracksRef: Ref[IO, PlaybackPlan]
   ) extends TrackDirectoryMonitor {
+
+    val logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
     private def logErrors(errors: NonEmptyChain[DomainError]): IO[Unit] =
       errors.traverse_(error => logger.error(error.toString))
@@ -94,24 +95,35 @@ object TrackDirectoryMonitor {
       }
     }
 
+    private def resolveSource(track: Track, files: Seq[Path]): Track =
+      track.withSource(track.source.map { name =>
+        files.find(_.getFileName.toString == name).map(_.toString).getOrElse(name)
+      })
+
     private def loadPlanFromMusic(trackSourceFiles: Seq[Path]): IO[IorNec[DomainError, PlaybackPlan]] =
       IO.blocking(Files.exists(musicFile)).flatMap {
         case false =>
           IO.pure(Ior.left(NonEmptyChain.one(DomainError.TrackFileParseFailed(s"Music file not found: $musicFile"))))
         case true =>
           IO.blocking {
-            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, Seq[Track]]](
+            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, List[Track]]](
               scalaFile = musicFile.toString,
-              className = "Music",
+              className = classNameFromFilePath(musicFile.getFileName),
               methodName = "playWrapper",
-              sourceFiles = trackSourceFiles.map(_.toString)
+              sourceFiles = trackSourceFiles.map(_.toString),
+              classpath = TrackFileParser.resolvedClasspath()
             )
           }.map(
             _.fold(
               musicErrors => Ior.left(musicErrors),
               musicTracks =>
                 Tracks
-                  .from(musicTracks)
+                  .from(musicTracks.map(_.map(resolveSource(_, trackSourceFiles))))
+                  .leftMap(_.map {
+                    case mismatch: DomainError.DurationMismatch =>
+                      mismatch.copy(source = mismatch.source.orElse(Some(musicFile.toString)))
+                    case other => other
+                  })
                   .map(tracks => PlaybackPlan.fromTracks(tracks)(using timing))
                   .flatten
             )
@@ -128,7 +140,8 @@ object TrackDirectoryMonitor {
 
     private def replaceWithScanResult(result: IorNec[DomainError, PlaybackPlan]): IO[PlaybackPlan] =
       result match {
-        case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.empty))
+        case Ior.Left(errors) =>
+          logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.EmptyPlaybackPlan))
         case Ior.Right(plan)        => replacePlanIfChanged(plan)
         case Ior.Both(errors, plan) => logErrors(errors) *> replacePlanIfChanged(plan)
       }
@@ -138,7 +151,10 @@ object TrackDirectoryMonitor {
 
     override def scanAndPlay: IO[PlaybackPlan] =
       scanOnce.flatMap {
-        case Ior.Left(errors)       => logErrors(errors) *> playback.activePlan.map(_.getOrElse(PlaybackPlan.empty))
+        case Ior.Left(errors) =>
+          logErrors(errors) *>
+            logger.warn("Scan resulted in errors. No playback plan to play") *>
+            playback.activePlan.map(_.getOrElse(PlaybackPlan.EmptyPlaybackPlan))
         case Ior.Right(plan)        => playback.play(plan, policy) *> IO.pure(plan)
         case Ior.Both(errors, plan) => logErrors(errors) *> playback.play(plan, policy) *> IO.pure(plan)
       }

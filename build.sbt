@@ -1,12 +1,14 @@
 ThisBuild / scalaVersion := "3.3.7"
 
+wartremoverErrors ++= Warts.unsafe.filterNot(_.clazz == "MagicNumber")
+wartremoverCrossVersion := CrossVersion.binary
+
 Compile / unmanagedSourceDirectories += baseDirectory.value / "projects"
 
 lazy val root = project
   .in(file("."))
   .settings(
     name := "MoMo3",
-
     // Run app in a dedicated JVM so interactive key input is delivered to the app.
     Compile / run / fork := true,
     Compile / run / connectInput := true,

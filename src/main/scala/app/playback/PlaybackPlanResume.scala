@@ -1,9 +1,12 @@
 package app.playback
 
 import app.domain.PlaybackPlan
+import app.domain.PlaybackPlan.EmptyPlaybackPlan
+import app.domain.PlaybackPlan.PlaybackPlanData
 import app.domain.TimedEvent
 
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.MILLISECONDS
 
 /** Utility methods for rebuilding a playback plan starting from a previously elapsed moment in time.
   */
@@ -15,27 +18,32 @@ object PlaybackPlanResume {
     * delay. This is how a playback can resume smoothly without replaying the already-elapsed portion.
     */
   def resumeFrom(plan: PlaybackPlan, elapsed: FiniteDuration): PlaybackPlan = {
-    if (elapsed <= FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS)) {
-      return plan
-    }
-
-    @annotation.tailrec
-    def loop(
-      remaining: FiniteDuration,
-      events: Vector[TimedEvent],
-      acc: Vector[TimedEvent]
-    ): Vector[TimedEvent] =
-      events match {
-        case Vector() => acc
-        case head +: tail =>
-          if (remaining >= head.delay) {
-            loop(remaining - head.delay, tail, acc)
-          } else {
-            val shortened = TimedEvent(head.delay - remaining, head.event)
-            (acc :+ shortened) ++ tail
+    if elapsed <= FiniteDuration(0L, MILLISECONDS) then plan
+    else {
+      @annotation.tailrec
+      def loop(
+        remaining: FiniteDuration,
+        events: Vector[TimedEvent],
+        acc: Vector[TimedEvent]
+      ): Vector[TimedEvent] =
+        events match {
+          case Vector() => acc
+          case head +: tail =>
+            if (remaining >= head.delay) {
+              loop(remaining - head.delay, tail, acc)
+            } else {
+              val shortened = TimedEvent(head.delay - remaining, head.event)
+              (acc :+ shortened) ++ tail
+            }
+        }
+      plan match {
+        case EmptyPlaybackPlan => PlaybackPlan.EmptyPlaybackPlan
+        case PlaybackPlanData(events) =>
+          loop(elapsed, events.toVector, Vector.empty) match {
+            case Vector()      => PlaybackPlan.EmptyPlaybackPlan
+            case resumedEvents => PlaybackPlanData(resumedEvents)
           }
       }
-
-    PlaybackPlan(loop(elapsed, plan.events.toVector, Vector.empty))
+    }
   }
 }

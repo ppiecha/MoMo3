@@ -1,15 +1,14 @@
 package app.domain
 
-import app.config._
-import app.domain._
+import app.domain.*
 import cats.data.Validated
-import cats.syntax.all._
+import cats.syntax.all.*
 import munit.FunSuite
 import munit.ScalaCheckSuite
 import org.scalacheck.Gen
-import org.scalacheck.Prop._
+import org.scalacheck.Prop.*
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class TickSpec extends FunSuite with ScalaCheckSuite {
 
@@ -17,26 +16,15 @@ class TickSpec extends FunSuite with ScalaCheckSuite {
   given TimingContext       = timingContext
 
   test("Tick.fromDouble should convert 8 double note duration to ticks based on PPQ") {
-    val testEnv = Environment.from(bpm = 60)
-    testEnv match {
-      case Right(env) =>
-        val validatedTick = Tick.from(8)(using env.timingContext)
-        assert(validatedTick.isValid)
-        assertEquals(validatedTick.map(_.value), 480.validNec[DomainError])
-      case Left(err) => fail(s"Environment creation failed with errors: $err")
-    }
+    val validatedTick = Tick.from(8)
+    assert(validatedTick.isValid)
+    assertEquals(validatedTick.map(_.value), 480.validNec[DomainError])
   }
 
   test("toMillis should convert 4d/3 double note duration to finite duration in millis based on BPM") {
-    val testEnv = Environment.from(bpm = 60)
-    testEnv match {
-      case Right(env) =>
-        val validated =
-          Tick.from(4d / 3)(using env.timingContext).map(_.toMillis(using env.timingContext))
-        assert(validated.isValid)
-        assertEquals(validated, 3.seconds.validNec[DomainError])
-      case Left(err) => fail(s"Environment creation failed with errors: $err")
-    }
+    val validated = Tick.from(4d / 3).map(_.toMillis)
+    assert(validated.isValid)
+    assertEquals(validated, 3.seconds.validNec[DomainError])
   }
 
   test("Tick.zero should be 0") {

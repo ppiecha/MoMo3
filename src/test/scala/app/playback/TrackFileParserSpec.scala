@@ -3,7 +3,8 @@ package app.playback
 import app.domain.DomainError
 import munit.FunSuite
 
-import java.lang.reflect.InvocationTargetException
+import java.nio.file.Files
+import java.util.Comparator
 
 class TrackFileParserSpec extends FunSuite {
 
@@ -39,31 +40,91 @@ class TrackFileParserSpec extends FunSuite {
     assertEquals(parsed.message, "some unstructured compiler output")
   }
 
-  test("catchAllNec unwraps invocation target exception and keeps cause message") {
-    val result = TrackFileParser.catchAllNec[Int] {
-      throw new InvocationTargetException(new IllegalStateException("kill requested"))
+  test("compile errors include source path, file name, and class name") {
+    val directory = Files.createTempDirectory("track-file-parser-context")
+    val source    = directory.resolve("BrokenTrack.scala")
+    val output    = Files.createDirectory(directory.resolve("classes"))
+    Files.writeString(source, "object BrokenTrack { val broken = }")
+
+    try {
+      val result = TrackFileParser.compileFiles(
+        Seq(source.toString),
+        output.toString,
+        TrackFileParser.resolvedClasspath()
+      )
+
+      result match {
+        case cats.data.Validated.Invalid(errors) =>
+          val message = errors.toChain.toList.mkString("\n")
+          assert(message.contains(s"source='${source.toString}'"))
+          assert(!message.contains("file='"))
+          assert(!message.contains("class='"))
+          assert(message.contains("line="))
+        case _ =>
+          fail("Expected the invalid track source to fail compilation")
+      }
+    } finally {
+      val paths = Files.walk(directory)
+      try paths.sorted(Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      finally paths.close()
     }
+  }
+
+  test("evaluation errors include source path, file name, and class name") {
+    val directory = Files.createTempDirectory("track-file-parser-evaluation-context")
+    val source    = directory.resolve("BrokenEvaluation.scala")
+    Files.writeString(source, "object BrokenEvaluation {}")
+
+    try {
+      val result = TrackFileParser.compileAndEvaluateFile[String](
+        scalaFile = source.toString,
+        className = TrackFileParser.classNameFromFilePath(source),
+        methodName = "missingMethod",
+        sourceFiles = Nil,
+        classpath = TrackFileParser.resolvedClasspath()
+      )
+
+      result match {
+        case cats.data.Validated.Invalid(errors) =>
+          val message = errors.toChain.toList.mkString("\n")
+          assert(message.contains(s"source='${source.toString}'"))
+          assert(!message.contains("file='"))
+          assert(!message.contains("class='"))
+        case _ =>
+          fail("Expected the missing method to fail evaluation")
+      }
+    } finally {
+      val paths = Files.walk(directory)
+      try paths.sorted(Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      finally paths.close()
+    }
+  }
+
+  test("catchAllNec unwraps invocation target exception and keeps cause message") {
+    val parseInt = classOf[java.lang.Integer].getMethod("parseInt", classOf[String])
+    val result =
+      TrackFileParser.catchAllNec[AnyRef](parseInt.invoke(new Object(), "not-an-integer"))
 
     result match
       case cats.data.Validated.Invalid(errors) =>
         assertEquals(
           errors.toChain.toList,
-          List(DomainError.MusicFileParseFailed("IllegalStateException: kill requested"))
+          List(DomainError.MusicFileParseFailed("NumberFormatException: For input string: \"not-an-integer\""))
         )
       case _ =>
         fail("Expected invalid result")
   }
 
   test("catchAllNec keeps non-empty fallback when exception has null message") {
-    val result = TrackFileParser.catchAllNec[Int] {
-      throw new RuntimeException(null: String)
-    }
+    val emptyIterator = classOf[java.util.Collections].getMethod("emptyIterator").invoke(new Object())
+    val next          = classOf[java.util.Iterator[?]].getMethod("next")
+    val result        = TrackFileParser.catchAllNec[AnyRef](next.invoke(emptyIterator))
 
     result match
       case cats.data.Validated.Invalid(errors) =>
         assertEquals(
           errors.toChain.toList,
-          List(DomainError.MusicFileParseFailed("java.lang.RuntimeException"))
+          List(DomainError.MusicFileParseFailed("java.util.NoSuchElementException"))
         )
       case _ =>
         fail("Expected invalid result")

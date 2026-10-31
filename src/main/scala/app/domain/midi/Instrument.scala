@@ -4,12 +4,9 @@ case class Instrument(bank: Int, program: Int)
 
 object Instrument {
 
-  val Default: Instrument = Instrument(Bank.Melodic, Piano.AcousticGrandPiano)
+  val Default: Instrument = Instrument(Bank.Default, Piano.AcousticGrandPiano)
 
-  object Bank {
-    val Melodic: Int    = 0
-    val Percussion: Int = 128
-  }
+  def instrument(bank: Int, program: Int): Option[Instrument] = Some(Instrument(bank, program))
 
   object Piano {
     val AcousticGrandPiano: Int  = 0
