@@ -2,7 +2,9 @@ package app.domain
 
 import app.playback.TrackCompiler
 import app.syntax.toIorNec
+import cats.data.Ior
 import cats.data.IorNec
+import cats.data.NonEmptyList
 import cats.syntax.all.*
 
 sealed trait PlaybackPlan
@@ -11,8 +13,11 @@ object PlaybackPlan {
   case object EmptyPlaybackPlan                        extends PlaybackPlan
 
   def fromTracks(tracks: Tracks)(using timingContext: TimingContext): IorNec[DomainError, PlaybackPlan] =
-    tracks.toSeq
-      .traverse(track => toIorNec(TrackCompiler.compile(track)))
-      .map(_.flatten)
-      .map(events => PlaybackPlanData(TimedEvent.fromAbsoluteEvents(events)))
+    NonEmptyList.fromList(tracks.toSeq.toList.filter(_.isActive)) match
+      case None => Ior.Right(EmptyPlaybackPlan)
+      case Some(active) =>
+        active
+          .traverse(track => toIorNec(TrackCompiler.compile(track)))
+          .map(_.flatten)
+          .map(events => PlaybackPlanData(TimedEvent.fromAbsoluteEvents(events)))
 }

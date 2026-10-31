@@ -8,14 +8,15 @@ import cats.data.IorNec
 import cats.data.NonEmptyChain as NEC
 import cats.data.NonEmptyList
 
-@SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
+//@SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
 case class Track(
   timing: TimeGen,
   notes: Option[Generator[Note]],
   duration: Option[DurationGen],
   velocity: Option[Generator[Velocity]],
   instrument: Option[Instrument],
-  source: Option[String]
+  source: Option[String],
+  isActive: Boolean
 )(using
   ch: Channel
 ) {
@@ -49,7 +50,8 @@ case class Track(
         case (None, Some(i2))    => Some(i2)
         case (None, None)        => None
       },
-      source = this.source.orElse(other.source)
+      source = this.source.orElse(other.source),
+      isActive = this.isActive
     )
 
   def withSource(newSource: Option[String]): Track = this.copy(source = newSource)
@@ -74,9 +76,10 @@ object Track {
     notes: Option[Generator[Note]],
     duration: Option[DurationGen] = None,
     velocity: Option[Generator[Velocity]] = None,
-    instrument: Option[Instrument] = None
+    instrument: Option[Instrument] = None,
+    isActive: Boolean = true
   )(using ch: Channel): Track = {
-    Track(timing, notes, duration, velocity, instrument, callerSource)
+    Track(timing, notes, duration, velocity, instrument, callerSource, isActive)
   }
 
   def rest(value: Double)(using channel: Channel): Track = {

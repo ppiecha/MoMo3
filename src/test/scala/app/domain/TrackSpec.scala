@@ -52,6 +52,109 @@ class TrackSpec extends CatsEffectSuite {
     )
   }
 
+  test("note constants should cover chromatic pitches from A0 through C8") {
+    val pitches = List(
+      Note.a0,
+      Note.as0,
+      Note.b0,
+      Note.c1,
+      Note.cs1,
+      Note.d1,
+      Note.ds1,
+      Note.e1,
+      Note.f1,
+      Note.fs1,
+      Note.g1,
+      Note.gs1,
+      Note.a1,
+      Note.as1,
+      Note.b1,
+      Note.c2,
+      Note.cs2,
+      Note.d2,
+      Note.ds2,
+      Note.e2,
+      Note.f2,
+      Note.fs2,
+      Note.g2,
+      Note.gs2,
+      Note.a2,
+      Note.as2,
+      Note.b2,
+      Note.c3,
+      Note.cs3,
+      Note.d3,
+      Note.ds3,
+      Note.e3,
+      Note.f3,
+      Note.fs3,
+      Note.g3,
+      Note.gs3,
+      Note.a3,
+      Note.as3,
+      Note.b3,
+      Note.c4,
+      Note.cs4,
+      Note.d4,
+      Note.ds4,
+      Note.e4,
+      Note.f4,
+      Note.fs4,
+      Note.g4,
+      Note.gs4,
+      Note.a4,
+      Note.as4,
+      Note.b4,
+      Note.c5,
+      Note.cs5,
+      Note.d5,
+      Note.ds5,
+      Note.e5,
+      Note.f5,
+      Note.fs5,
+      Note.g5,
+      Note.gs5,
+      Note.a5,
+      Note.as5,
+      Note.b5,
+      Note.c6,
+      Note.cs6,
+      Note.d6,
+      Note.ds6,
+      Note.e6,
+      Note.f6,
+      Note.fs6,
+      Note.g6,
+      Note.gs6,
+      Note.a6,
+      Note.as6,
+      Note.b6,
+      Note.c7,
+      Note.cs7,
+      Note.d7,
+      Note.ds7,
+      Note.e7,
+      Note.f7,
+      Note.fs7,
+      Note.g7,
+      Note.gs7,
+      Note.a7,
+      Note.as7,
+      Note.b7,
+      Note.c8
+    )
+
+    assertEquals(pitches, (21 to 108).toList)
+    assertEquals(
+      Track.note(Note.a0, Note.as0, Note.b0, Note.c1, Note.cs1, Note.c8),
+      Track.note(21, 22, 23, 24, 25, 108)
+    )
+    assertEquals(
+      List(Note.c, Note.cs, Note.d, Note.ds, Note.e, Note.f, Note.fs, Note.g, Note.gs, Note.a, Note.as, Note.b),
+      (60 to 71).toList
+    )
+  }
+
   test("note should allow tuple chords mixed with single notes") {
     assertEquals(
       Track.note((60, 64, 67), 30, 40),
@@ -67,6 +170,27 @@ class TrackSpec extends CatsEffectSuite {
     )
   }
 
+  test("transpose should keep rest notes (0) untouched") {
+    import app.syntax.Extensions.*
+    assertEquals(
+      (Track.note(0) ++ Track.note(60)).transpose(24),
+      Track.note(0, 84)
+    )
+  }
+
+  test("PlaybackPlan.fromTracks should exclude inactive tracks") {
+    val active   = Track.track(Track.time(4), Track.note(60))
+    val inactive = Track.track(Track.time(4), Track.note(62), isActive = false)
+    val tracks   = Tracks.from(Validated.validNec(List(active, inactive))).right.getOrElse(fail("invalid tracks"))
+
+    val noteOns = (PlaybackPlan.fromTracks(tracks).right.getOrElse(fail("invalid plan")) match
+      case PlaybackPlan.PlaybackPlanData(events) => events.map(_.toString).mkString
+      case PlaybackPlan.EmptyPlaybackPlan        => ""
+    )
+    assert(noteOns.contains("60"))
+    assert(!noteOns.contains("62"))
+  }
+
   test("velocity should create velocity generators from one or more values") {
     assertEquals(Track.velocity(70), Some(Generator.VelocityGen(NonEmptyList.one(70))))
     assertEquals(Track.velocity(70, 80, 90), Some(Generator.VelocityGen(NonEmptyList.of(70, 80, 90))))
@@ -79,7 +203,8 @@ class TrackSpec extends CatsEffectSuite {
       duration = None,
       velocity = None,
       instrument = None,
-      source = Some("TrackSpec.scala")
+      source = Some("TrackSpec.scala"),
+      isActive = true
     )
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)

@@ -25,7 +25,7 @@ object Extensions {
           gen match
             case NoteGen(steps) =>
               Some(NoteGen(steps.map {
-                case Chord.Voiced(notes) => Chord.Voiced(notes.map(_ + semitones))
+                case Chord.Voiced(notes) => Chord.Voiced(notes.map(n => if n == 0 then n else n + semitones))
                 case Chord.Rest          => Chord.Rest
               }))
             case VelocityGen(_) => Some(gen)
