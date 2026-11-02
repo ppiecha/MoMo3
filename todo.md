@@ -7,4 +7,3 @@
 
 - control gen
 - track versions one after another
-- 3 wersje basu i fumcja ktora wybiera odpowiednia wersje z odpowiednim prowdopodobienstwem

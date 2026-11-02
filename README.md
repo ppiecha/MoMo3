@@ -1,6 +1,7 @@
 # MoMo3
 
-MoMo3 is a MIDI sequencer where music is written in a Scala DSL. Track files are compiled dynamically in the background when they change, so playback can be updated without restarting the application.
+MoMo3 is a MIDI sequencer where music is written in Scala DSL. \
+Track files are compiled dynamically in the background when they change, so playback can be updated without restarting the application.
 
 ## Requirements
 
