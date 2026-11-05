@@ -1,5 +1,6 @@
 package app.domain
 
+import app.syntax.Extensions.repeat
 import cats.data.Ior
 import cats.data.IorNec
 import cats.data.NonEmptyChain as NEC
@@ -10,6 +11,11 @@ import cats.data.ValidatedNec
 opaque type Tracks = NonEmptyList[Track]
 
 object Tracks {
+
+  def repeat(count: Int)(tracks: Tracks): Tracks = tracks.toNonEmptyList.repeat(count)
+
+  def of(head: => Track, tail: => Track*): Tracks = NonEmptyList.of(head, tail*)
+
   def from(tracks: ValidatedNec[String, List[Track]]): IorNec[DomainError, Tracks] = tracks match
     case Validated.Invalid(errors) => Ior.Left(errors.map(DomainError.MusicFileParseFailed.apply))
     case Validated.Valid(tracks) =>
@@ -47,6 +53,7 @@ object Tracks {
   }
 
   extension (tracks: Tracks) {
-    def toSeq: NonEmptyList[Track] = tracks
+    def toNonEmptyList: NonEmptyList[Track] = tracks
+    def toList: List[Track]                 = tracks.toList
   }
 }

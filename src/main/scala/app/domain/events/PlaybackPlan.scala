@@ -13,7 +13,7 @@ object PlaybackPlan {
   case object EmptyPlaybackPlan                        extends PlaybackPlan
 
   def fromTracks(tracks: Tracks)(using timingContext: TimingContext): IorNec[DomainError, PlaybackPlan] =
-    NonEmptyList.fromList(tracks.toSeq.toList.filter(_.isActive)) match
+    NonEmptyList.fromList(tracks.toNonEmptyList.toList.filter(_.isActive)) match
       case None => Ior.Right(EmptyPlaybackPlan)
       case Some(active) =>
         active

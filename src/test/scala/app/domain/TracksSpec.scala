@@ -15,7 +15,7 @@ class TracksSpec extends FunSuite {
 
     Tracks.from(Validated.Valid(List(first, second))) match {
       case Ior.Right(tracks) =>
-        assertEquals(tracks.toSeq.length, 2)
+        assertEquals(tracks.toNonEmptyList.length, 2)
       case _ =>
         fail(s"Expected valid tracks but got errors")
     }
@@ -60,8 +60,8 @@ class TracksSpec extends FunSuite {
           DomainError.DurationMismatch(2.0, 4.0, Some("Music.scala")).toString,
           "Duration mismatch: source='Music.scala', actual=2.0, expected=4.0"
         )
-        assertEquals(tracks.toSeq.length, 1) // Only the reference track is valid
-        assertEquals(tracks.toSeq.head.timing.duration, 0.25)
+        assertEquals(tracks.toNonEmptyList.length, 1) // Only the reference track is valid
+        assertEquals(tracks.toNonEmptyList.head.timing.duration, 0.25)
       case _ =>
         fail("Expected duration mismatch validation errors")
     }
@@ -81,8 +81,8 @@ class TracksSpec extends FunSuite {
             DomainError.DurationMismatch(actual = 1.0, expected = 0.25, source = Some("TracksSpec.scala"))
           )
         )
-        assertEquals(tracks.toSeq.length, 1) // Only the reference track is valid
-        assertEquals(tracks.toSeq.head.timing.duration, 0.25)
+        assertEquals(tracks.toNonEmptyList.length, 1) // Only the reference track is valid
+        assertEquals(tracks.toNonEmptyList.head.timing.duration, 0.25)
       case _ =>
         fail("Expected duration mismatch validation errors")
     }

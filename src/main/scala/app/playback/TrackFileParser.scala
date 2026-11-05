@@ -107,13 +107,18 @@ object TrackFileParser {
         )
     }
 
+  private def unwrapInitializerError(t: Throwable): Throwable = t match
+    case init: ExceptionInInitializerError if init.getCause != null => init.getCause
+    case other                                                      => other
+
   def catchAllNec[A](thunk: => A): ValidatedNec[DomainError, A] =
     try Validated.validNec(thunk)
     catch {
       case t: Throwable =>
         val root = t match
-          case invocation: InvocationTargetException if invocation.getCause != null => invocation.getCause
-          case other                                                                => other
+          case invocation: InvocationTargetException if invocation.getCause != null =>
+            unwrapInitializerError(invocation.getCause)
+          case other => unwrapInitializerError(other)
 
         val formattedMessage =
           Option(root.getMessage)
@@ -238,19 +243,15 @@ object TrackFileParser {
         classLocation(classOf[Track]),
         classLocation(classOf[app.syntax.MusicFile]),
         classLocation(classOf[cats.data.Validated[?, ?]]),
+        classLocation(classOf[cats.kernel.Semigroup[?]]),
         classLocation(classOf[scala.deriving.Mirror]),
         classLocation(classOf[scala.collection.immutable.List[?]]),
         classLocation(classOf[dotty.tools.dotc.Driver])
       ).flatten
 
-      val primary =
-        (fromClassLoaders ++ anchors).distinct
-
-      val fallback =
-        fromProperty.distinct
-
-      val entries = if primary.nonEmpty then primary else fallback
-      entries.mkString(pathSeparator)
+      // java.class.path must always be included: on Java 9+ the app class loader is not a URLClassLoader,
+      // so transitive dependencies (e.g. cats-kernel) would otherwise be missing.
+      (fromClassLoaders ++ fromProperty ++ anchors).distinct.mkString(pathSeparator)
     }
   }
 

@@ -4,13 +4,20 @@ import app.domain.Chord
 import app.domain.Generator
 import app.domain.Generator.NoteGen
 import app.domain.Generator.VelocityGen
+import app.generic.Concatenable
 import cats.data.NonEmptyList
 
 object Extensions {
 
-  extension [A](seq: Seq[A]) {
-    def repeat(count: Int): Seq[A] = if count <= 0 then Seq.empty else seq ++ seq.repeat(count - 1)
+  extension [A](a: A)(using concat: Concatenable[A]) {
+    def ++(other: A): A = concat.++(a, other)
+    def repeat(count: Int): A =
+      LazyList.iterate(a)(concat.++(_, a)).take(count).lastOption.getOrElse(a)
   }
+
+//  extension [A](seq: Seq[A]) {
+//    def repeat(count: Int): Seq[A] = if count <= 0 then Seq.empty else seq ++ seq.repeat(count - 1)
+//  }
 
   extension [A](nel: NonEmptyList[A]) {
     def repeat(count: Int): NonEmptyList[A] =

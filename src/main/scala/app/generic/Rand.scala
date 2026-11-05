@@ -6,16 +6,16 @@ import scala.util.Random
 
 object Rand {
 
-  def pRand[A](nel: NonEmptyList[A], repeat: Int)(using concat: Concatenable[A]): A = {
-    def pRandList[A](nel: NonEmptyList[A], repeat: Int)(using concat: Concatenable[A]): NonEmptyList[A] = {
+  def rand[A](nel: NonEmptyList[A], repeat: Int)(using concat: Concatenable[A]): A = {
+    def randList[A](nel: NonEmptyList[A], repeat: Int)(using concat: Concatenable[A]): NonEmptyList[A] = {
       if repeat <= 1 then NonEmptyList(nel.toList(Random.nextInt(nel.length)), Nil)
-      else NonEmptyList(nel.toList(Random.nextInt(nel.length)), pRandList(nel, repeat - 1).toList)
+      else NonEmptyList(nel.toList(Random.nextInt(nel.length)), randList(nel, repeat - 1).toList)
     }
-    val randList = pRandList(nel, repeat)
-    randList.tail.foldLeft(randList.head)((acc, elem) => concat.++(acc, elem))
+    val list = randList(nel, repeat)
+    list.tail.foldLeft(list.head)((acc, elem) => concat.++(acc, elem))
   }
 
-  def pWRand[A](nel: NonEmptyList[A], weights: NonEmptyList[Double], repeat: Int): NonEmptyList[A] = {
+  def wRand[A](nel: NonEmptyList[A], weights: NonEmptyList[Double], repeat: Int): NonEmptyList[A] = {
     require(nel.length == weights.length, "nel and weights must have same size")
     require(weights.forall(_ >= 0), "weights must be non‑negative")
 
@@ -34,7 +34,7 @@ object Rand {
     NonEmptyList(genOne, List.fill(repeat - 1)(genOne))
   }
 
-  def pWhite(low: Int, high: Int, repeat: Int): Seq[Int] = Seq.fill(repeat)(Random.between(low, high + 1))
+  def randInt(low: Int, high: Int, repeat: Int): Seq[Int] = Seq.fill(repeat)(Random.between(low, high + 1))
 
-  def pShuffle[A](seq: Seq[A], repeat: Int): Seq[A] = Random.shuffle(seq).repeat(repeat)
+  def shuffle[A](seq: Seq[A], repeat: Int): Seq[A] = Random.shuffle(seq).repeat(repeat)
 }

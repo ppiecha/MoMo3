@@ -80,7 +80,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     Files.writeString(
       musicFile,
       """object Music extends app.syntax.MusicFile {
-        |  def play: Seq[app.domain.Track] = Seq(MissingTrack())
+        |  def play: app.domain.Tracks = app.domain.Tracks.of(MissingTrack())
         |}
         |""".stripMargin
     )
@@ -129,7 +129,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     Files.writeString(
       musicFile,
       """object Music extends app.syntax.MusicFile {
-        |  def play: Seq[app.domain.Track] = Seq(Bass0())
+        |  def play: app.domain.Tracks = app.domain.Tracks.of(Bass0())
         |}
         |""".stripMargin
     )
@@ -185,7 +185,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     Files.writeString(
       path,
       s"""object Music extends app.syntax.MusicFile {
-         |  def play: Seq[app.domain.Track] = Seq(
+         |  def play: app.domain.Tracks = app.domain.Tracks.of(
          |      $tracks
          |  )
          |}

@@ -106,7 +106,7 @@ object TrackDirectoryMonitor {
           IO.pure(Ior.left(NonEmptyChain.one(DomainError.TrackFileParseFailed(s"Music file not found: $musicFile"))))
         case true =>
           IO.blocking {
-            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, List[Track]]](
+            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, Tracks]](
               scalaFile = musicFile.toString,
               className = classNameFromFilePath(musicFile.getFileName),
               methodName = "playWrapper",
@@ -118,7 +118,7 @@ object TrackDirectoryMonitor {
               musicErrors => Ior.left(musicErrors),
               musicTracks =>
                 Tracks
-                  .from(musicTracks.map(_.map(resolveSource(_, trackSourceFiles))))
+                  .from(musicTracks.map(_.toList.map(resolveSource(_, trackSourceFiles))))
                   .leftMap(_.map {
                     case mismatch: DomainError.DurationMismatch =>
                       mismatch.copy(source = mismatch.source.orElse(Some(musicFile.toString)))
