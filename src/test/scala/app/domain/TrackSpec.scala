@@ -14,6 +14,7 @@ import TestTracks.*
 class TrackSpec extends CatsEffectSuite {
 
   given Channel               = Channel.Channel0
+  given Option[Instrument]    = None
   private given TimingContext = validOrFail(TimingContext.from(960, 60))
 
   def validOrFail[A](validated: Either[DomainError, A]): A = validated match {
@@ -181,7 +182,7 @@ class TrackSpec extends CatsEffectSuite {
   test("PlaybackPlan.fromTracks should exclude inactive tracks") {
     val active   = Track.track(Track.time(4), Track.note(60))
     val inactive = Track.track(Track.time(4), Track.note(62), isActive = false)
-    val tracks   = Tracks.from(Validated.validNec(List(active, inactive))).right.getOrElse(fail("invalid tracks"))
+    val tracks   = Section.from(Validated.validNec(List(active, inactive))).right.getOrElse(fail("invalid tracks"))
 
     val noteOns = (PlaybackPlan.fromTracks(tracks).right.getOrElse(fail("invalid plan")) match
       case PlaybackPlan.PlaybackPlanData(events) => events.map(_.toString).mkString
@@ -219,9 +220,8 @@ class TrackSpec extends CatsEffectSuite {
 
     val track = Track.track(
       Track.time(1, 2),
-      Track.note(60, 62),
-      instrument = Some(instrument)
-    )
+      Track.note(60, 62)
+    )(using summon[Channel], Some(instrument))
 
     assertEquals(track.instrument, Some(instrument))
   }

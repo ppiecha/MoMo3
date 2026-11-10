@@ -15,6 +15,11 @@ object Rand {
     list.tail.foldLeft(list.head)((acc, elem) => concat.++(acc, elem))
   }
 
+  def rand[A](head: A, tail: A*)(using concat: Concatenable[A]): A = {
+    val nel = NonEmptyList(head, tail.toList)
+    rand(nel, 1)
+  }
+
   def wRand[A](nel: NonEmptyList[A], weights: NonEmptyList[Double], repeat: Int): NonEmptyList[A] = {
     require(nel.length == weights.length, "nel and weights must have same size")
     require(weights.forall(_ >= 0), "weights must be non‑negative")

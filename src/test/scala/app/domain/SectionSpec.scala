@@ -5,15 +5,16 @@ import cats.data.NonEmptyChain as NEC
 import cats.data.Validated
 import munit.FunSuite
 
-class TracksSpec extends FunSuite {
+class SectionSpec extends FunSuite {
 
-  given Channel = Channel.Channel0
+  given Channel            = Channel.Channel0
+  given Option[Instrument] = None
 
-  test("Tracks.from accepts tracks with matching duration") {
+  test("Section.from accepts tracks with matching duration") {
     val first  = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
     val second = Track.track(Track.time(4), Track.note(62), duration = Some(Track.duration(4)))
 
-    Tracks.from(Validated.Valid(List(first, second))) match {
+    Section.from(Validated.Valid(List(first, second))) match {
       case Ior.Right(tracks) =>
         assertEquals(tracks.toNonEmptyList.length, 2)
       case _ =>
@@ -21,8 +22,8 @@ class TracksSpec extends FunSuite {
     }
   }
 
-  test("Tracks.from returns parse failure for empty input") {
-    Tracks.from(Validated.Valid(List.empty)) match {
+  test("Section.from returns parse failure for empty input") {
+    Section.from(Validated.Valid(List.empty)) match {
       case Ior.Left(errors) =>
         assertEquals(
           errors.toChain.toList,
@@ -33,8 +34,8 @@ class TracksSpec extends FunSuite {
     }
   }
 
-  test("Tracks.from maps parser errors to MusicFileParseFailed") {
-    Tracks.from(Validated.Invalid(NEC.one("bad midi payload"))) match {
+  test("Section.from maps parser errors to MusicFileParseFailed") {
+    Section.from(Validated.Invalid(NEC.one("bad midi payload"))) match {
       case Ior.Left(errors) =>
         assertEquals(
           errors.toChain.toList,
@@ -45,16 +46,16 @@ class TracksSpec extends FunSuite {
     }
   }
 
-  test("Tracks.from rejects tracks with mismatched duration") {
+  test("Section.from rejects tracks with mismatched duration") {
     val reference = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
     val mismatch  = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
 
-    val result = Tracks.from(Validated.Valid(List(reference, mismatch)))
+    val result = Section.from(Validated.Valid(List(reference, mismatch)))
     result match {
       case Ior.Both(errors, tracks) =>
         assertEquals(
           errors.toChain.toList,
-          List(DomainError.DurationMismatch(actual = 0.5, expected = 0.25, source = Some("TracksSpec.scala")))
+          List(DomainError.DurationMismatch(actual = 0.5, expected = 0.25, source = Some("SectionSpec.scala")))
         )
         assertEquals(
           DomainError.DurationMismatch(2.0, 4.0, Some("Music.scala")).toString,
@@ -67,18 +68,18 @@ class TracksSpec extends FunSuite {
     }
   }
 
-  test("Tracks.from accumulates duration mismatches for multiple tracks") {
+  test("Section.from accumulates duration mismatches for multiple tracks") {
     val reference = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
     val mismatch1 = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
     val mismatch2 = Track.track(Track.time(1), Track.note(64), duration = Some(Track.duration(1)))
 
-    Tracks.from(Validated.Valid(List(reference, mismatch1, mismatch2))) match {
+    Section.from(Validated.Valid(List(reference, mismatch1, mismatch2))) match {
       case Ior.Both(errors, tracks) =>
         assertEquals(
           errors.toChain.toList,
           List(
-            DomainError.DurationMismatch(actual = 0.5, expected = 0.25, source = Some("TracksSpec.scala")),
-            DomainError.DurationMismatch(actual = 1.0, expected = 0.25, source = Some("TracksSpec.scala"))
+            DomainError.DurationMismatch(actual = 0.5, expected = 0.25, source = Some("SectionSpec.scala")),
+            DomainError.DurationMismatch(actual = 1.0, expected = 0.25, source = Some("SectionSpec.scala"))
           )
         )
         assertEquals(tracks.toNonEmptyList.length, 1) // Only the reference track is valid
@@ -88,12 +89,12 @@ class TracksSpec extends FunSuite {
     }
   }
 
-  test("Tracks.from returns Left when no valid tracks remain") {
+  test("Section.from returns Left when no valid tracks remain") {
     val negative = Track.track(Track.time(-1), Track.note(60), duration = Some(Track.duration(-1)))
     val second   = Track.track(Track.time(-1), Track.note(62), duration = Some(Track.duration(-1)))
     val third    = Track.track(Track.time(-1), Track.note(64), duration = Some(Track.duration(-1)))
 
-    Tracks.from(Validated.Valid(List(negative, second, third))) match {
+    Section.from(Validated.Valid(List(negative, second, third))) match {
       case Ior.Left(errors) =>
         assertEquals(
           errors.toChain.toList,

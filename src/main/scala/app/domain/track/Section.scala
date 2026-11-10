@@ -8,22 +8,22 @@ import cats.data.NonEmptyList
 import cats.data.Validated
 import cats.data.ValidatedNec
 
-opaque type Tracks = NonEmptyList[Track]
+opaque type Section = NonEmptyList[Track]
 
-object Tracks {
+object Section {
 
-  def repeat(count: Int)(tracks: Tracks): Tracks = tracks.toNonEmptyList.repeat(count)
+  def repeat(count: Int)(tracks: Section): Section = tracks.toNonEmptyList.repeat(count)
 
-  def of(head: => Track, tail: => Track*): Tracks = NonEmptyList.of(head, tail*)
+  def of(head: => Track, tail: => Track*): Section = NonEmptyList.of(head, tail*)
 
-  def from(tracks: ValidatedNec[String, List[Track]]): IorNec[DomainError, Tracks] = tracks match
+  def from(tracks: ValidatedNec[String, List[Track]]): IorNec[DomainError, Section] = tracks match
     case Validated.Invalid(errors) => Ior.Left(errors.map(DomainError.MusicFileParseFailed.apply))
     case Validated.Valid(tracks) =>
       tracks match
         case Nil          => Ior.Left(NEC.one(DomainError.NoValidTracksAndNoErrors))
-        case head :: tail => validateTrackDurations(NonEmptyList(head, tail))
+        case head :: tail => validateTracksDuration(NonEmptyList(head, tail))
 
-  private def validateTrackDurations(tracks: NonEmptyList[Track]): IorNec[DomainError, Tracks] = {
+  private def validateTracksDuration(tracks: Section): IorNec[DomainError, Section] = {
     val expectedDuration = tracks.head.timing.duration
     val validated        = tracks.map(_.compareDuration(expectedDuration))
 
@@ -52,7 +52,7 @@ object Tracks {
         }
   }
 
-  extension (tracks: Tracks) {
+  extension (tracks: Section) {
     def toNonEmptyList: NonEmptyList[Track] = tracks
     def toList: List[Track]                 = tracks.toList
   }

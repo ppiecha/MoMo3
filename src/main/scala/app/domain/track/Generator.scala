@@ -9,10 +9,6 @@ sealed trait Generator[A] {
 
   import Generator.*
 
-  def ++(other: Generator[A]): Generator[A] = (this, other) match
-    case (NoteGen(s1), NoteGen(s2))         => NoteGen(NonEmptyList(s1.head, s1.tail ++ s2.toList))
-    case (VelocityGen(s1), VelocityGen(s2)) => VelocityGen(NonEmptyList(s1.head, s1.tail ++ s2.toList))
-
   def length: Int = this match
     case NoteGen(s)     => s.length
     case VelocityGen(s) => s.length

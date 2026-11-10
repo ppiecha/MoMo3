@@ -3,6 +3,7 @@ package app.domain
 import app.domain.Generator
 import app.domain.Generator.NoteGen
 import app.domain.Generator.VelocityGen
+import app.syntax.Extensions.++
 import cats.data.Ior
 import cats.data.IorNec
 import cats.data.NonEmptyChain as NEC
@@ -76,19 +77,18 @@ object Track {
     notes: Option[Generator[Note]],
     duration: Option[DurationGen] = None,
     velocity: Option[Generator[Velocity]] = None,
-    instrument: Option[Instrument] = None,
     isActive: Boolean = true
-  )(using ch: Channel): Track = {
+  )(using ch: Channel, instrument: Option[Instrument]): Track = {
     Track(timing, notes, duration, velocity, instrument, callerSource, isActive)
   }
 
   def rest(value: Double)(using channel: Channel): Track = {
+    given Option[Instrument] = None
     track(
       timing = time(value),
       notes = None,
       duration = None,
-      velocity = None,
-      instrument = None
+      velocity = None
     )
   }
 

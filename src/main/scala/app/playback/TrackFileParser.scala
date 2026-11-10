@@ -19,6 +19,7 @@ import java.nio.file.Path
 import java.util.Comparator
 import scala.compiletime.error
 import scala.compiletime.summonFrom
+import scala.jdk.CollectionConverters.*
 import scala.reflect.Typeable
 
 object TrackFileParser {
@@ -145,7 +146,8 @@ object TrackFileParser {
           className
             .leftMap(_.map(error => addSourceContext(error, scalaFile)))
             .andThen { cn =>
-              catchAllNec(RuntimeEvaluator.evaluate[A](cn, methodName, compiledDir))
+              resolveCompiledClassName(cn, Path.of(compiledDir))
+                .andThen(resolved => catchAllNec(RuntimeEvaluator.evaluate[A](resolved, methodName, compiledDir)))
                 .leftMap(_.map(error => addSourceContext(error, scalaFile)))
             }
         case Validated.Invalid(e) =>
@@ -167,6 +169,37 @@ object TrackFileParser {
       sourceFiles = Nil,
       classpath = classpath
     ).andThen(identity)
+
+  def resolveCompiledClassName(className: String, directory: Path): ValidatedNec[DomainError, String] =
+    catchAllNec {
+      val simpleName = className.substring(className.lastIndexOf('.') + 1)
+      val paths      = Files.walk(directory)
+      try {
+        paths
+          .iterator()
+          .asScala
+          .filter(path => Files.isRegularFile(path) && path.getFileName.toString == s"$simpleName$$.class")
+          .map { path =>
+            val relative = directory.relativize(path).toString
+            relative.substring(0, relative.length - "$.class".length).replace(File.separatorChar, '.')
+          }
+          .toList
+          .sorted
+      } finally paths.close()
+    }.andThen { names =>
+      val matches = if className.contains('.') then names.filter(_ == className) else names
+      matches match {
+        case name :: Nil => name.validNec
+        case Nil =>
+          DomainError.MusicFileParseFailed(s"Compiled object '$className' was not found.").invalidNec
+        case _ =>
+          DomainError
+            .MusicFileParseFailed(
+              s"Compiled object '$className' is ambiguous: ${matches.mkString(", ")}."
+            )
+            .invalidNec
+      }
+    }
 
   private object DiagnosticParser {
     final case class Parsed(compilationError: CompilationError, sourcePath: String)

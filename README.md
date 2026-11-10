@@ -19,6 +19,8 @@ Track files are compiled dynamically in the background when they change, so play
 
 ## Track files
 
+The music entrypoint must define an `object` with the same name as its Scala file (for example, `Music` in `Music.scala`). It may use a Scala package; its package is determined from the compiled object, not the directory name. If the compiled sources contain objects with the same name in different packages, the entrypoint is ambiguous and must be renamed.
+
 Notes can be specified as MIDI numbers (0-127) or by pitch constants from `Note.a0` through `Note.c8`. Sharps use `s` (for example `Note.cs2`); names without an octave such as `Note.c` and `Note.cs` alias octave 4.
 
 ```scala

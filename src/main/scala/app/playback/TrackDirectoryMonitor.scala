@@ -2,9 +2,9 @@ package app.playback
 
 import app.domain.DomainError
 import app.domain.PlaybackPlan
+import app.domain.Section
 import app.domain.TimingContext
 import app.domain.Track
-import app.domain.Tracks
 import app.playback.TrackFileParser.classNameFromFilePath
 import app.syntax.flatten
 import cats.data.Ior
@@ -106,7 +106,7 @@ object TrackDirectoryMonitor {
           IO.pure(Ior.left(NonEmptyChain.one(DomainError.TrackFileParseFailed(s"Music file not found: $musicFile"))))
         case true =>
           IO.blocking {
-            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, Tracks]](
+            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, Section]](
               scalaFile = musicFile.toString,
               className = classNameFromFilePath(musicFile.getFileName),
               methodName = "playWrapper",
@@ -117,7 +117,7 @@ object TrackDirectoryMonitor {
             _.fold(
               musicErrors => Ior.left(musicErrors),
               musicTracks =>
-                Tracks
+                Section
                   .from(musicTracks.map(_.toList.map(resolveSource(_, trackSourceFiles))))
                   .leftMap(_.map {
                     case mismatch: DomainError.DurationMismatch =>
