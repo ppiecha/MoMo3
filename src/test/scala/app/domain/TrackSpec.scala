@@ -3,6 +3,7 @@ package app.domain
 import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import app.playback.TrackCompiler
+import app.syntax.Extensions.++
 import cats.data.NonEmptyList
 import cats.data.Validated
 import cats.data.ValidatedNec

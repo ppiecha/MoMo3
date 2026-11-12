@@ -9,4 +9,3 @@
 - ++ for section
 - ++ only via concatenable
 - to samo dla repeat i transpose
-- constructor track private
