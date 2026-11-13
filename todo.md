@@ -7,5 +7,4 @@
 
 - control gen
 - ++ for section
-- ++ only via concatenable
-- to samo dla repeat i transpose
+- repeat i transpose jako type class
