@@ -3,6 +3,7 @@ package app.domain
 import app.domain.Generator
 import app.domain.Generator.NoteGen
 import app.domain.Generator.VelocityGen
+import app.syntax.Extensions.repeat
 import cats.data.Ior
 import cats.data.IorNec
 import cats.data.NonEmptyChain as NEC

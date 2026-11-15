@@ -1,6 +1,4 @@
 package app.domain
-
-import app.syntax.Extensions.repeat
 import cats.data.Ior
 import cats.data.IorNec
 import cats.data.NonEmptyChain as NEC
@@ -11,8 +9,6 @@ import cats.data.ValidatedNec
 opaque type Section = NonEmptyList[Track]
 
 object Section {
-
-  def repeat(count: Int)(tracks: Section): Section = tracks.toNonEmptyList.repeat(count)
 
   def of(head: => Track, tail: => Track*): Section = NonEmptyList.of(head, tail*)
 
