@@ -1,10 +1,7 @@
 package app.syntax
 
-import app.domain.Chord
-import app.domain.Generator
-import app.domain.Generator.NoteGen
-import app.domain.Generator.VelocityGen
 import app.generic.Concatenable
+import app.generic.Transposable
 
 object Extensions {
 
@@ -14,19 +11,8 @@ object Extensions {
       LazyList.iterate(a)(concat.++(_, a)).take(count).lastOption.getOrElse(a)
   }
 
-  extension [A](opt: Option[Generator[A]]) {
-    def transpose(semitones: Int): Option[Generator[A]] = {
-      opt match
-        case Some(gen) =>
-          gen match
-            case NoteGen(steps) =>
-              Some(NoteGen(steps.map {
-                case Chord.Voiced(notes) => Chord.Voiced(notes.map(n => if n == 0 then n else n + semitones))
-                case Chord.Rest          => Chord.Rest
-              }))
-            case VelocityGen(_) => Some(gen)
-        case None => None
-    }
+  extension [A](a: A)(using transposable: Transposable[A]) {
+    def transpose(semitones: Int): A = transposable.transpose(a, semitones)
   }
 
 }
