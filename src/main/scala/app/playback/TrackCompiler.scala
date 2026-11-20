@@ -3,6 +3,7 @@ package app.playback
 import app.domain.*
 import app.domain.AbstractMidiEvent.AbsoluteMidiEvent
 import app.domain.MidiCommand.*
+import app.syntax.Extensions.repeat
 import cats.data.NonEmptyList
 import cats.data.ValidatedNec
 import cats.syntax.all.*

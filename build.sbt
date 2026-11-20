@@ -19,7 +19,11 @@ lazy val root = project
 
     scalacOptions ++= Seq(
       "-Wunused:imports",
-      "-Wunused:all"
+      "-Wunused:all",
+      "-deprecation",
+      "-feature",
+      "-unchecked",
+      "-Xlint",
     ),
 
     // --- Main dependencies ---

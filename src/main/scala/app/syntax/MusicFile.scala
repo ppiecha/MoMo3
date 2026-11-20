@@ -1,11 +1,11 @@
 package app.syntax
-import app.domain.Track
+import app.domain.Section
 import cats.data.NonEmptyChain
 import cats.data.Validated
 import cats.data.ValidatedNec
 
 trait MusicFile {
-  def playWrapper: ValidatedNec[String, Seq[Track]] =
+  def playWrapper: ValidatedNec[String, Section] =
     Validated
       .catchNonFatal(play)
       .leftMap { e =>
@@ -14,5 +14,5 @@ trait MusicFile {
         )
       }
 
-  def play: Seq[Track]
+  def play: Section
 }

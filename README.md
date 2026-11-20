@@ -1,6 +1,7 @@
 # MoMo3
 
-MoMo3 is a MIDI sequencer where music is written in a Scala DSL. Track files are compiled dynamically in the background when they change, so playback can be updated without restarting the application.
+MoMo3 is a MIDI sequencer where music is written in Scala DSL. \
+Track files are compiled dynamically in the background when they change, so playback can be updated without restarting the application.
 
 ## Requirements
 
@@ -17,3 +18,11 @@ MoMo3 is a MIDI sequencer where music is written in a Scala DSL. Track files are
 - Test: `sbt test`
 
 ## Track files
+
+The music entrypoint must define an `object` with the same name as its Scala file (for example, `Music` in `Music.scala`). It may use a Scala package; its package is determined from the compiled object, not the directory name. If the compiled sources contain objects with the same name in different packages, the entrypoint is ambiguous and must be renamed.
+
+Notes can be specified as MIDI numbers (0-127) or by pitch constants from `Note.a0` through `Note.c8`. Sharps use `s` (for example `Note.cs2`); names without an octave such as `Note.c` and `Note.cs` alias octave 4.
+
+```scala
+Track.note(Note.a0, Note.as0, Note.b0, Note.c1, Note.cs1, Note.c8)
+```

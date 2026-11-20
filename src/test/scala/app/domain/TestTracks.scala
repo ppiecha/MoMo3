@@ -4,7 +4,8 @@ import app.domain.Track.*
 
 object TestTracks {
 
-  given Channel = Channel.Channel0
+  given Channel            = Channel.Channel0
+  given Option[Instrument] = None
 
   val oneNoteTrack: Track =
     track(

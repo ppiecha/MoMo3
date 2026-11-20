@@ -100,6 +100,102 @@ class TrackFileParserSpec extends FunSuite {
     }
   }
 
+  test("evaluates a packaged object using its compiled package name") {
+    val directory = Files.createTempDirectory("track-file-parser-package")
+    val source    = directory.resolve("Music.scala")
+    Files.writeString(
+      source,
+      """package example.outer
+        |package inner
+        |object Music { def playWrapper: String = "fresh" }
+        |""".stripMargin
+    )
+
+    try {
+      val result = TrackFileParser.compileAndEvaluateFile[String](
+        scalaFile = source.toString,
+        className = TrackFileParser.classNameFromFilePath(source),
+        methodName = "playWrapper",
+        sourceFiles = Nil,
+        classpath = TrackFileParser.resolvedClasspath()
+      )
+
+      assertEquals(result, cats.data.Validated.validNec[DomainError, String]("fresh"))
+    } finally {
+      val paths = Files.walk(directory)
+      try paths.sorted(Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      finally paths.close()
+    }
+  }
+
+  test("ambiguous compiled object names are reported rather than choosing a package") {
+    val directory = Files.createTempDirectory("track-file-parser-ambiguous")
+    val source    = directory.resolve("Music.scala")
+    val other     = directory.resolve("Other.scala")
+    Files.writeString(source, "package first\nobject Music { def playWrapper: String = \"first\" }")
+    Files.writeString(other, "package second\nobject Music { def playWrapper: String = \"second\" }")
+
+    try {
+      val result = TrackFileParser.compileAndEvaluateFile[String](
+        scalaFile = source.toString,
+        className = TrackFileParser.classNameFromFilePath(source),
+        methodName = "playWrapper",
+        sourceFiles = List(other.toString),
+        classpath = TrackFileParser.resolvedClasspath()
+      )
+
+      result match {
+        case cats.data.Validated.Invalid(errors) =>
+          val message = errors.toChain.toList.mkString("\n")
+          assert(message.contains(s"source='${source.toString}'"))
+          assert(message.contains("first.Music"))
+          assert(message.contains("second.Music"))
+        case _ => fail("Expected ambiguous compiled object names to be rejected")
+      }
+
+      val qualifiedResult = TrackFileParser.compileAndEvaluateFile[String](
+        scalaFile = source.toString,
+        className = cats.data.Validated.validNec[DomainError, String]("first.Music"),
+        methodName = "playWrapper",
+        sourceFiles = List(other.toString),
+        classpath = TrackFileParser.resolvedClasspath()
+      )
+      assertEquals(qualifiedResult, cats.data.Validated.validNec[DomainError, String]("first"))
+    } finally {
+      val paths = Files.walk(directory)
+      try paths.sorted(Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      finally paths.close()
+    }
+  }
+
+  test("does not load an object from the parent classpath when it was not compiled") {
+    val directory = Files.createTempDirectory("track-file-parser-missing-object")
+    val source    = directory.resolve("Music.scala")
+    Files.writeString(source, "package test1\nobject Different {}")
+
+    try {
+      val result = TrackFileParser.compileAndEvaluateFile[String](
+        scalaFile = source.toString,
+        className = TrackFileParser.classNameFromFilePath(source),
+        methodName = "playWrapper",
+        sourceFiles = Nil,
+        classpath = TrackFileParser.resolvedClasspath()
+      )
+
+      result match {
+        case cats.data.Validated.Invalid(errors) =>
+          val message = errors.toChain.toList.mkString("\n")
+          assert(message.contains(s"source='${source.toString}'"))
+          assert(message.contains("Compiled object 'Music' was not found"))
+        case _ => fail("Expected a missing compiled object to be rejected")
+      }
+    } finally {
+      val paths = Files.walk(directory)
+      try paths.sorted(Comparator.reverseOrder()).forEach(path => Files.deleteIfExists(path))
+      finally paths.close()
+    }
+  }
+
   test("catchAllNec unwraps invocation target exception and keeps cause message") {
     val parseInt = classOf[java.lang.Integer].getMethod("parseInt", classOf[String])
     val result =

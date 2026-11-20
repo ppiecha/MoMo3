@@ -9,6 +9,7 @@ import munit.FunSuite
 class TrackCompilerSpec extends FunSuite {
 
   given Channel               = Channel.Channel0
+  given Option[Instrument]    = None
   private given TimingContext = valid(TimingContext.from(960, 120))
 
   test("compile returns InvalidMidiValue when note is out of range") {
@@ -115,9 +116,8 @@ class TrackCompilerSpec extends FunSuite {
       Track.time(4, 4),
       Track.note(36, 38),
       duration = Some(Track.duration(4, 4)),
-      velocity = Track.velocity(100, 90),
-      instrument = Some(instrument)
-    )
+      velocity = Track.velocity(100, 90)
+    )(using summon[Channel], Some(instrument))
     val bank = valid(Bank.from(instrument.bank))
     val prog = valid(Program.from(instrument.program))
 

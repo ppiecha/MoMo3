@@ -1,6 +1,4 @@
 package app.domain
-
-import app.syntax.Extensions.repeat
 import cats.data.NonEmptyList
 import cats.data.Validated
 import cats.data.ValidatedNec
@@ -9,17 +7,9 @@ sealed trait Generator[A] {
 
   import Generator.*
 
-  def ++(other: Generator[A]): Generator[A] = (this, other) match
-    case (NoteGen(s1), NoteGen(s2))         => NoteGen(NonEmptyList(s1.head, s1.tail ++ s2.toList))
-    case (VelocityGen(s1), VelocityGen(s2)) => VelocityGen(NonEmptyList(s1.head, s1.tail ++ s2.toList))
-
   def length: Int = this match
     case NoteGen(s)     => s.length
     case VelocityGen(s) => s.length
-
-  def repeat(n: Int): Generator[A] = this match
-    case NoteGen(s)     => NoteGen(s.repeat(n))
-    case VelocityGen(s) => VelocityGen(s.repeat(n))
 }
 
 object Generator {
