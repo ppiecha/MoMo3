@@ -59,7 +59,7 @@ class TrackDirectoryMonitorPackageSpec extends FunSuite {
       val plan = monitor.scanAndPlay.unsafeRunSync()
       val notes = plan match {
         case PlaybackPlan.EmptyPlaybackPlan => Seq.empty
-        case PlaybackPlan.PlaybackPlanData(events) =>
+        case PlaybackPlan.PlaybackPlanData(events, _) =>
           events.collect { case TimedEvent(_, AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, note, _))) =>
             note.value
           }

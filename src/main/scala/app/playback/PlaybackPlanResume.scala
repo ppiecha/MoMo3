@@ -38,10 +38,10 @@ object PlaybackPlanResume {
         }
       plan match {
         case EmptyPlaybackPlan => PlaybackPlan.EmptyPlaybackPlan
-        case PlaybackPlanData(events) =>
+        case PlaybackPlanData(events, timing) =>
           loop(elapsed, events.toVector, Vector.empty) match {
             case Vector()      => PlaybackPlan.EmptyPlaybackPlan
-            case resumedEvents => PlaybackPlanData(resumedEvents)
+            case resumedEvents => PlaybackPlanData(resumedEvents, timing)
           }
       }
     }

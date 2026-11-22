@@ -47,7 +47,7 @@ object PlaybackExecution {
       }
     plan match {
       case PlaybackPlan.EmptyPlaybackPlan => Temporal[F].pure(FiniteDuration(0L, MILLISECONDS))
-      case PlaybackPlan.PlaybackPlanData(events) =>
+      case PlaybackPlan.PlaybackPlanData(events, _) =>
         loop(events.toVector, FiniteDuration(0L, scala.concurrent.duration.MILLISECONDS))
     }
   }

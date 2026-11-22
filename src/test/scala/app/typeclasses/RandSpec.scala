@@ -1,4 +1,4 @@
-package app.generic
+package app.typeclasses
 
 import cats.data.NonEmptyList
 import munit.FunSuite

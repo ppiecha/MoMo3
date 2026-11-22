@@ -9,8 +9,9 @@ import cats.syntax.all.*
 
 sealed trait PlaybackPlan
 object PlaybackPlan {
-  case class PlaybackPlanData(events: Seq[TimedEvent]) extends PlaybackPlan
-  case object EmptyPlaybackPlan                        extends PlaybackPlan
+  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
+  case class PlaybackPlanData(events: Seq[TimedEvent], timing: Option[TimingContext] = None) extends PlaybackPlan
+  case object EmptyPlaybackPlan                                                              extends PlaybackPlan
 
   def fromTracks(tracks: Section)(using timingContext: TimingContext): IorNec[DomainError, PlaybackPlan] =
     NonEmptyList.fromList(tracks.toNonEmptyList.toList.filter(_.isActive)) match
@@ -19,5 +20,5 @@ object PlaybackPlan {
         active
           .traverse(track => toIorNec(TrackCompiler.compile(track)))
           .map(_.flatten)
-          .map(events => PlaybackPlanData(TimedEvent.fromAbsoluteEvents(events)))
+          .map(events => PlaybackPlanData(TimedEvent.fromAbsoluteEvents(events), Some(timingContext)))
 }

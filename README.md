@@ -21,6 +21,10 @@ Track files are compiled dynamically in the background when they change, so play
 
 The music entrypoint must define an `object` with the same name as its Scala file (for example, `Music` in `Music.scala`). It may use a Scala package; its package is determined from the compiled object, not the directory name. If the compiled sources contain objects with the same name in different packages, the entrypoint is ambiguous and must be renamed.
 
+An entrypoint extending `MusicFile` can override `def bpm: Option[Int] = Some(120)`.
+The BPM must be positive; if omitted, `timing-context.bpm` from the application configuration is used.
+Saving a changed BPM rebuilds playback at the same musical position. Invalid BPM leaves the previous plan active.
+
 Notes can be specified as MIDI numbers (0-127) or by pitch constants from `Note.a0` through `Note.c8`. Sharps use `s` (for example `Note.cs2`); names without an octave such as `Note.c` and `Note.cs` alias octave 4.
 
 ```scala

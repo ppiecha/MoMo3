@@ -186,8 +186,8 @@ class TrackSpec extends CatsEffectSuite {
     val tracks   = Section.from(Validated.validNec(List(active, inactive))).right.getOrElse(fail("invalid tracks"))
 
     val noteOns = (PlaybackPlan.fromTracks(tracks).right.getOrElse(fail("invalid plan")) match
-      case PlaybackPlan.PlaybackPlanData(events) => events.map(_.toString).mkString
-      case PlaybackPlan.EmptyPlaybackPlan        => ""
+      case PlaybackPlan.PlaybackPlanData(events, _) => events.map(_.toString).mkString
+      case PlaybackPlan.EmptyPlaybackPlan           => ""
     )
     assert(noteOns.contains("60"))
     assert(!noteOns.contains("62"))
@@ -199,12 +199,11 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("track factory leaves optional generators unset unless provided") {
-    val expected = Track(
+    val expected = Track.track(
       timing = Track.time(1, 2),
       notes = Track.note(60, 62),
       duration = None,
       velocity = None,
-      instrument = None,
       source = Some("TrackSpec.scala"),
       isActive = true
     )

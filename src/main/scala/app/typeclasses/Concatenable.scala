@@ -1,5 +1,5 @@
-package app.generic
-import app.domain.Channel
+package app.typeclasses
+
 import app.domain.DurationGen
 import app.domain.Generator
 import app.domain.Generator.NoteGen
@@ -61,17 +61,20 @@ object Concatenable {
       }
   }
 
-  given (using Channel): Concatenable[Track] with {
-    def ++(left: Track, right: Track): Track =
+  given Concatenable[Track] with {
+    def ++(left: Track, right: Track): Track = {
+      require(left.channel == right.channel, "Cannot concatenate tracks with different channels")
       Track(
         timing = TimeGen(concatenate(left.timing.values, right.timing.values)),
         notes = Concatenable[Option[Generator[Note]]].++(left.notes, right.notes),
         duration = Concatenable[Option[DurationGen]].++(left.duration, right.duration),
         velocity = Concatenable[Option[Generator[Velocity]]].++(left.velocity, right.velocity),
         instrument = left.instrument.orElse(right.instrument),
+        channel = left.channel,
         source = left.source.orElse(right.source),
         isActive = left.isActive
       )
+    }
   }
 
 }

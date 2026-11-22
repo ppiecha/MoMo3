@@ -29,7 +29,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
 
     writeTrack(directory.resolve("Bass0.scala"), 64)
     writeTrack(directory.resolve("Drums9.scala"), 36)
-    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0", "Drums9"))
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0", "Drums9"), None)
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
@@ -52,12 +52,89 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     assert(planEvents(result).size >= 4)
   }
 
+  test("music tempo overrides the configured default and invalid updates keep the previous plan") {
+    val directory = Files.createTempDirectory("track-monitor-tempo")
+    val musicFile = directory.resolve("Music.scala")
+    writeTrack(directory.resolve("Bass0.scala"), 60)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), None)
+
+    val harness = new TrackDirectoryMonitorTestHarness()
+    val monitor = TrackDirectoryMonitor
+      .live(
+        directory,
+        harness,
+        valid(TimingContext.from(480, 120)),
+        musicFile,
+        RepeatPolicy.none,
+        10.millis
+      )
+      .unsafeRunSync()
+
+    try {
+      val defaultPlan = monitor.scanReplaceAndResume.unsafeRunSync()
+      assertEquals(planEvents(defaultPlan).map(_.delay).foldLeft(Duration.Zero)(_ + _), 2.seconds)
+
+      writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), Some(60))
+      val slowerPlan = monitor.scanReplaceAndResume.unsafeRunSync()
+      assertEquals(planEvents(slowerPlan).map(_.delay).foldLeft(Duration.Zero)(_ + _), 4.seconds)
+      assertEquals(harness.replaceCalls.size, 2)
+
+      writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), Some(0))
+      val invalidPlan = monitor.scanReplaceAndResume.unsafeRunSync()
+      assertEquals(invalidPlan, slowerPlan)
+      assertEquals(harness.replaceCalls.size, 2)
+
+      writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), None)
+      val restoredPlan = monitor.scanReplaceAndResume.unsafeRunSync()
+      assertEquals(restoredPlan, defaultPlan)
+      assertEquals(harness.replaceCalls.size, 3)
+    } finally {
+      monitor.stop.unsafeRunSync()
+      Files.deleteIfExists(directory.resolve("Bass0.scala"))
+      Files.deleteIfExists(musicFile)
+      Files.deleteIfExists(directory)
+    }
+  }
+
+  test("watcher reloads tempo changes in a music file outside the track directory") {
+    val directory      = Files.createTempDirectory("track-monitor-external-tracks")
+    val musicDirectory = Files.createTempDirectory("track-monitor-external-music")
+    val musicFile      = musicDirectory.resolve("Music.scala")
+    writeTrack(directory.resolve("Bass0.scala"), 60)
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), None)
+    val harness = new TrackDirectoryMonitorTestHarness()
+    val monitor = TrackDirectoryMonitor
+      .live(
+        directory,
+        harness,
+        valid(TimingContext.from(480, 120)),
+        musicFile,
+        RepeatPolicy.none,
+        10.millis
+      )
+      .unsafeRunSync()
+
+    try {
+      monitor.scanReplaceAndResume.unsafeRunSync()
+      IO.sleep(100.millis).unsafeRunSync()
+      writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), Some(60))
+      val updatedPlan = awaitReplacement(harness, 2, 15.seconds).unsafeRunSync()
+      assertEquals(planEvents(updatedPlan).map(_.delay).foldLeft(Duration.Zero)(_ + _), 4.seconds)
+    } finally {
+      monitor.stop.unsafeRunSync()
+      Files.deleteIfExists(directory.resolve("Bass0.scala"))
+      Files.deleteIfExists(musicFile)
+      Files.deleteIfExists(directory)
+      Files.deleteIfExists(musicDirectory)
+    }
+  }
+
   test("scanOnce updates playback only when Music.scala compiles") {
     val directory = Files.createTempDirectory("track-monitor-music-compile-gate")
     val musicFile = directory.resolve("Music.scala")
 
     writeTrack(directory.resolve("Bass0.scala"), 60)
-    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"))
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), None)
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
@@ -96,7 +173,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
     val trackFile = directory.resolve("Bass0.scala")
 
     writeTrack(trackFile, 60)
-    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"))
+    writeMusicCollectionFromTrackObjects(musicFile, List("Bass0"), None)
 
     val timing  = valid(TimingContext.from(480, 120))
     val harness = new TrackDirectoryMonitorTestHarness()
@@ -180,12 +257,18 @@ class TrackDirectoryMonitorSpec extends FunSuite {
          |""".stripMargin
     )
 
-  private def writeMusicCollectionFromTrackObjects(path: Path, objects: List[String]): Unit = {
+  private def writeMusicCollectionFromTrackObjects(
+    path: Path,
+    objects: List[String],
+    bpm: Option[Int]
+  ): Unit = {
     val tracks = objects.map(name => s"$name()").mkString(",\n      ")
+    val tempo  = bpm.fold("")(value => s"override def bpm: Option[Int] = Some($value)")
 
     Files.writeString(
       path,
       s"""object Music extends app.syntax.MusicFile {
+         |  $tempo
          |  def play: app.domain.Section = app.domain.Section.of(
          |      $tracks
          |  )
@@ -216,8 +299,8 @@ class TrackDirectoryMonitorSpec extends FunSuite {
       .getOrElse(fail("Missing NoteOn event in playback plan"))
 
   private def planEvents(plan: PlaybackPlan): Seq[TimedEvent] = plan match {
-    case PlaybackPlan.EmptyPlaybackPlan        => Seq.empty
-    case PlaybackPlan.PlaybackPlanData(events) => events
+    case PlaybackPlan.EmptyPlaybackPlan           => Seq.empty
+    case PlaybackPlan.PlaybackPlanData(events, _) => events
   }
 
   private def awaitReplacement(

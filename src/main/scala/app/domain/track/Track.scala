@@ -16,13 +16,10 @@ case class Track(
   duration: Option[DurationGen],
   velocity: Option[Generator[Velocity]],
   instrument: Option[Instrument],
+  channel: Channel,
   source: Option[String],
   isActive: Boolean
-)(using
-  ch: Channel
 ) {
-
-  val channel: Channel = ch
 
   def withSource(newSource: Option[String]): Track = this.copy(source = newSource)
 
@@ -46,9 +43,22 @@ object Track {
     notes: Option[Generator[Note]],
     duration: Option[DurationGen] = None,
     velocity: Option[Generator[Velocity]] = None,
-    isActive: Boolean = true
-  )(using ch: Channel, instrument: Option[Instrument]): Track = {
-    Track(timing, notes, duration, velocity, instrument, callerSource, isActive)
+    isActive: Boolean = true,
+    source: Option[String] = None
+  )(using channel: Channel, instrument: Option[Instrument]): Track = {
+    Track(
+      timing,
+      notes,
+      duration,
+      velocity,
+      instrument,
+      channel,
+      source match {
+        case Some(source) => Some(source)
+        case None         => callerSource
+      },
+      isActive
+    )
   }
 
   def rest(value: Double)(using channel: Channel): Track = {

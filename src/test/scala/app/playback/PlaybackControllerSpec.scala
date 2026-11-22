@@ -132,7 +132,7 @@ class PlaybackControllerSpec extends CatsEffectSuite {
       sent       <- Ref[IO].of(Vector.empty[AbstractMidiEvent])
       controller <- PlaybackController.live(event => sent.update(_ :+ event))
       _          <- controller.play(plan(oldProgram), RepeatPolicy.none)
-      _          <- awaitElapsed(controller)
+      _          <- IO.sleep(1.second)
       _          <- controller.replace(plan(newProgram), RepeatPolicy.none)
       events     <- sent.get
       _          <- controller.stop
@@ -150,11 +150,69 @@ class PlaybackControllerSpec extends CatsEffectSuite {
     )
   }
 
-  private def awaitElapsed(controller: PlaybackController): IO[Unit] =
-    controller.elapsedTime.flatMap { elapsed =>
-      if elapsed > Duration.Zero then IO.unit
-      else IO.sleep(1.millis) *> awaitElapsed(controller)
-    }
+  test("changing tempo preserves musical position between events and while paused") {
+    val oldTiming = valid(TimingContext.from(480, 60))
+    val newTiming = valid(TimingContext.from(480, 120))
+    val note      = valid(Note.from(60))
+    val event = AbsoluteMidiEvent(
+      valid(Tick.from(2)(using oldTiming)),
+      MidiCommand.NoteOff(Channel.Channel0, note, valid(Velocity.from(0)))
+    )
+    val oldPlan = PlaybackPlanData(Seq(TimedEvent(2.seconds, event)), Some(oldTiming))
+    val newPlan = PlaybackPlanData(Seq(TimedEvent(1.second, event)), Some(newTiming))
+
+    val io = for {
+      sent           <- Ref[IO].of(Vector.empty[AbstractMidiEvent])
+      controller     <- PlaybackController.live(event => sent.update(_ :+ event))
+      _              <- controller.play(oldPlan, RepeatPolicy.none)
+      _              <- IO.sleep(500.millis)
+      _              <- controller.replace(newPlan, RepeatPolicy.none)
+      position       <- controller.elapsedTime
+      _              <- IO.sleep(250.millis)
+      _              <- controller.pause
+      _              <- controller.replace(oldPlan, RepeatPolicy.none)
+      pausedStatus   <- controller.status
+      pausedPosition <- controller.elapsedTime
+      _              <- IO.sleep(1.second)
+      beforeResume   <- sent.get
+      _              <- controller.resume
+      _              <- IO.sleep(999.millis)
+      beforeEvent    <- sent.get
+      _              <- IO.sleep(2.millis)
+      afterEvent     <- sent.get
+      _              <- controller.stop
+    } yield (position, pausedStatus, pausedPosition, beforeResume, beforeEvent, afterEvent)
+
+    val (position, pausedStatus, pausedPosition, beforeResume, beforeEvent, afterEvent) =
+      TestControl.executeEmbed(io).unsafeRunSync()
+    assertEquals(position, 250.millis)
+    assertEquals(pausedStatus, PlaybackStatus.Paused)
+    assertEquals(pausedPosition, 1.second)
+    assert(!beforeResume.contains(event))
+    assert(!beforeEvent.contains(event))
+    assert(afterEvent.contains(event))
+  }
+
+  test("tempo changes preserve position within the current repeat") {
+    val oldTiming = valid(TimingContext.from(480, 60))
+    val newTiming = valid(TimingContext.from(480, 120))
+    val event = AbsoluteMidiEvent(
+      valid(Tick.from(2)(using oldTiming)),
+      MidiCommand.NoteOff(Channel.Channel0, valid(Note.from(60)), valid(Velocity.from(0)))
+    )
+    val oldPlan = PlaybackPlanData(Seq(TimedEvent(2.seconds, event)), Some(oldTiming))
+    val newPlan = PlaybackPlanData(Seq(TimedEvent(1.second, event)), Some(newTiming))
+    val io = for {
+      controller <- PlaybackController.live(_ => IO.unit)
+      _          <- controller.play(oldPlan, RepeatPolicy.forever)
+      _          <- IO.sleep(2500.millis)
+      _          <- controller.replace(newPlan, RepeatPolicy.forever)
+      position   <- controller.elapsedTime
+      _          <- controller.stop
+    } yield position
+
+    assertEquals(TestControl.executeEmbed(io).unsafeRunSync(), 250.millis)
+  }
 
   private def valid[A](validated: cats.data.ValidatedNec[DomainError, A]): A = validated match {
     case cats.data.Validated.Valid(value) => value

@@ -6,6 +6,7 @@ import app.domain.Section
 import app.domain.TimingContext
 import app.domain.Track
 import app.playback.TrackFileParser.classNameFromFilePath
+import app.syntax.MusicDefinition
 import app.syntax.flatten
 import cats.data.Ior
 import cats.data.IorNec
@@ -106,26 +107,37 @@ object TrackDirectoryMonitor {
           IO.pure(Ior.left(NonEmptyChain.one(DomainError.TrackFileParseFailed(s"Music file not found: $musicFile"))))
         case true =>
           IO.blocking {
-            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, Section]](
+            TrackFileParser.compileAndEvaluateFile[ValidatedNec[String, MusicDefinition]](
               scalaFile = musicFile.toString,
               className = classNameFromFilePath(musicFile.getFileName),
-              methodName = "playWrapper",
+              methodName = "musicWrapper",
               sourceFiles = trackSourceFiles.map(_.toString),
               classpath = TrackFileParser.resolvedClasspath()
             )
           }.map(
             _.fold(
               musicErrors => Ior.left(musicErrors),
-              musicTracks =>
-                Section
-                  .from(musicTracks.map(_.toList.map(resolveSource(_, trackSourceFiles))))
-                  .leftMap(_.map {
-                    case mismatch: DomainError.DurationMismatch =>
-                      mismatch.copy(source = mismatch.source.orElse(Some(musicFile.toString)))
-                    case other => other
-                  })
-                  .map(tracks => PlaybackPlan.fromTracks(tracks)(using timing))
-                  .flatten
+              musicDefinition =>
+                musicDefinition.toEither match {
+                  case Left(errors) => Ior.left(errors.map(DomainError.MusicFileParseFailed.apply))
+                  case Right(definition) =>
+                    TimingContext.from(timing.ppq.value, definition.bpm.getOrElse(timing.bpm.value)) match {
+                      case cats.data.Validated.Invalid(errors) => Ior.left(errors)
+                      case cats.data.Validated.Valid(currentTiming) =>
+                        Section
+                          .from(
+                            cats.data.Validated
+                              .validNec(definition.section.toList.map(resolveSource(_, trackSourceFiles)))
+                          )
+                          .leftMap(_.map {
+                            case mismatch: DomainError.DurationMismatch =>
+                              mismatch.copy(source = mismatch.source.orElse(Some(musicFile.toString)))
+                            case other => other
+                          })
+                          .map(tracks => PlaybackPlan.fromTracks(tracks)(using currentTiming))
+                          .flatten
+                    }
+                }
             )
           )
       }
@@ -199,20 +211,40 @@ object TrackDirectoryMonitor {
 
     private def watchLoop: IO[Unit] =
       watchServiceResource.use { watchService =>
-        IO.blocking(
+        IO.blocking {
           directory.register(
             watchService,
             StandardWatchEventKinds.ENTRY_CREATE,
             StandardWatchEventKinds.ENTRY_MODIFY,
             StandardWatchEventKinds.ENTRY_DELETE
           )
-        ) *>
+          val musicDirectory = musicFile.toAbsolutePath.normalize().getParent
+          if musicDirectory != directory.toAbsolutePath.normalize() then
+            musicDirectory.register(
+              watchService,
+              StandardWatchEventKinds.ENTRY_CREATE,
+              StandardWatchEventKinds.ENTRY_MODIFY,
+              StandardWatchEventKinds.ENTRY_DELETE
+            )
+        } *>
           waitForChanges(watchService).foreverM
       }
 
     private def waitForChanges(watchService: WatchService): IO[Unit] =
       IO.interruptibleMany(watchService.take()).flatMap { key =>
-        val shouldScan = requiresScan(key.pollEvents().asScala)
+        val events = key.pollEvents().asScala
+        val shouldScan = key.watchable() match {
+          case watched: Path if watched.toAbsolutePath.normalize() == directory.toAbsolutePath.normalize() =>
+            requiresScan(events)
+          case _ =>
+            events.exists { event =>
+              event.kind == StandardWatchEventKinds.OVERFLOW ||
+              (event.context match {
+                case path: Path => path.getFileName == musicFile.getFileName
+                case _          => false
+              })
+            }
+        }
         IO.blocking(key.reset()).void *> runFullRescanIfNeeded(shouldScan, watchService)
       }
 

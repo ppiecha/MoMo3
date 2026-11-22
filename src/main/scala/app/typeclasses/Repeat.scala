@@ -1,4 +1,4 @@
-package app.generic
+package app.typeclasses
 
 object Repeat {
 

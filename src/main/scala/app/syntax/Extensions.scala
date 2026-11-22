@@ -1,7 +1,7 @@
 package app.syntax
 
-import app.generic.Concatenable
-import app.generic.Transposable
+import app.typeclasses.Concatenable
+import app.typeclasses.Transposable
 
 object Extensions {
 

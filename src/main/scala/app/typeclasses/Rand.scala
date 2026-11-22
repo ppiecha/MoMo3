@@ -1,4 +1,4 @@
-package app.generic
+package app.typeclasses
 import app.syntax.Extensions.repeat
 import cats.data.NonEmptyList
 
