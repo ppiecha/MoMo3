@@ -30,3 +30,9 @@ Notes can be specified as MIDI numbers (0-127) or by pitch constants from `Note.
 ```scala
 Track.note(Note.a0, Note.as0, Note.b0, Note.c1, Note.cs1, Note.c8)
 ```
+
+When tracks are concatenated, an omitted duration uses that track's timing values,
+an omitted note is a rest, and an omitted velocity uses the default velocity.
+A velocity sequence shorter than the track's timing uses its first value for
+the remaining steps. These defaults are applied separately to each track before
+concatenation, so adding a rest or repeating a pattern preserves their alignment.

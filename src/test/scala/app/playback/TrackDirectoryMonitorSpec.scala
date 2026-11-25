@@ -250,7 +250,7 @@ class TrackDirectoryMonitorSpec extends FunSuite {
          |  def apply(): app.domain.Track = app.domain.Track.track(
          |    timing = app.domain.Track.time(1),
          |    notes = app.domain.Track.note($note),
-         |    duration = Some(app.domain.Track.duration(1)),
+         |    duration = app.domain.Track.duration(1),
          |    velocity = app.domain.Track.velocity(app.domain.Velocity.Default)
          |  )
          |}

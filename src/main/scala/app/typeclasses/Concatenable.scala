@@ -5,9 +5,11 @@ import app.domain.Generator
 import app.domain.Generator.NoteGen
 import app.domain.Generator.VelocityGen
 import app.domain.Note
+import app.domain.NoteArg
 import app.domain.TimeGen
 import app.domain.Track
 import app.domain.Velocity
+import app.syntax.Extensions.repeat
 import cats.data.NonEmptyList
 
 trait Concatenable[A] {
@@ -61,14 +63,45 @@ object Concatenable {
       }
   }
 
+  private def trackNotes(track: Track): Generator[Note] =
+    track.notes.getOrElse(Generator.note(NoteArg.Single(0)).repeat(track.timing.length))
+
+  private def trackDuration(track: Track): DurationGen =
+    track.duration.getOrElse(DurationGen(track.timing.values))
+
+  private def trackVelocity(track: Track): (NonEmptyList[Int], List[Int]) = {
+    val values = track.velocity match {
+      case Some(VelocityGen(values)) => values
+      case None                      => NonEmptyList.one(Velocity.Default)
+    }
+    val (used, extra) = values.toList.splitAt(track.timing.length)
+    (NonEmptyList.fromListUnsafe(used.padTo(track.timing.length, values.head)), extra)
+  }
+
   given Concatenable[Track] with {
     def ++(left: Track, right: Track): Track = {
       require(left.channel == right.channel, "Cannot concatenate tracks with different channels")
+      val notes = (left.notes, right.notes) match {
+        case (None, None) => None
+        case _            => Some(Concatenable[Generator[Note]].++(trackNotes(left), trackNotes(right)))
+      }
+      val duration = (left.duration, right.duration) match {
+        case (None, None) => None
+        case _            => Some(Concatenable[DurationGen].++(trackDuration(left), trackDuration(right)))
+      }
+      val velocity = (left.velocity, right.velocity) match {
+        case (None, None) => None
+        case _ =>
+          val (leftValues, leftExtra)   = trackVelocity(left)
+          val (rightValues, rightExtra) = trackVelocity(right)
+          val combined                  = concatenate(leftValues, rightValues)
+          Some(VelocityGen(NonEmptyList(combined.head, combined.tail ++ leftExtra ++ rightExtra)))
+      }
       Track(
         timing = TimeGen(concatenate(left.timing.values, right.timing.values)),
-        notes = Concatenable[Option[Generator[Note]]].++(left.notes, right.notes),
-        duration = Concatenable[Option[DurationGen]].++(left.duration, right.duration),
-        velocity = Concatenable[Option[Generator[Velocity]]].++(left.velocity, right.velocity),
+        notes = notes,
+        duration = duration,
+        velocity = velocity,
         instrument = left.instrument.orElse(right.instrument),
         channel = left.channel,
         source = left.source.orElse(right.source),

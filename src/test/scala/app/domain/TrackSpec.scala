@@ -34,8 +34,8 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("duration should create duration generators from one or more values") {
-    assertEquals(Track.duration(2), DurationGen(NonEmptyList.one(2.0)))
-    assertEquals(Track.duration(1, 2, 3), DurationGen(NonEmptyList.of(1.0, 2.0, 3.0)))
+    assertEquals(Track.duration(2), Some(DurationGen(NonEmptyList.one(2.0))))
+    assertEquals(Track.duration(1, 2, 3), Some(DurationGen(NonEmptyList.of(1.0, 2.0, 3.0))))
   }
 
   test("note should create note generators from one or more values") {
@@ -210,8 +210,8 @@ class TrackSpec extends CatsEffectSuite {
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)
     assertEquals(
-      Track.track(Track.time(1, 2), Track.note(60, 62), duration = Some(Track.duration(3, 4))),
-      expected.copy(duration = Some(Track.duration(3, 4)))
+      Track.track(Track.time(1, 2), Track.note(60, 62), duration = Track.duration(3, 4)),
+      expected.copy(duration = Track.duration(3, 4))
     )
   }
 
@@ -226,26 +226,26 @@ class TrackSpec extends CatsEffectSuite {
     assertEquals(track.instrument, Some(instrument))
   }
 
-  test("rest should create a track with no note, duration, or velocity generators") {
+  test("rest should create a silent track with explicit note, duration, and velocity") {
     val rest = Track.rest(4)
 
     assertEquals(rest.timing, Track.time(4))
-    assertEquals(rest.duration, None)
-    assertEquals(rest.notes, None)
-    assertEquals(rest.velocity, None)
+    assertEquals(rest.duration, Track.duration(4))
+    assertEquals(rest.notes, Track.note(0))
+    assertEquals(rest.velocity, Track.velocity(0))
   }
 
   test("track concatenation should concatenate every generator") {
     val first = Track.track(
       Track.time(1),
       Track.note(60),
-      duration = Some(Track.duration(2)),
+      duration = Track.duration(2),
       velocity = Track.velocity(70)
     )
     val second = Track.track(
       Track.time(3),
       Track.note(62),
-      duration = Some(Track.duration(4)),
+      duration = Track.duration(4),
       velocity = Track.velocity(80)
     )
 
@@ -254,20 +254,20 @@ class TrackSpec extends CatsEffectSuite {
       Track.track(
         Track.time(1, 3),
         Track.note(60, 62),
-        duration = Some(Track.duration(2, 4)),
+        duration = Track.duration(2, 4),
         velocity = Track.velocity(70, 80)
       )
     )
   }
 
-  test("track concatenation should preserve correct duration type") {
+  test("track concatenation should retain the rest duration") {
     val first =
-      Track.track(Track.time(1), Track.note(60), duration = Some(Track.duration(1)))
+      Track.track(Track.time(1), Track.note(60), duration = Track.duration(1))
     val second = Track.rest(0.5)
 
     assertEquals(
       (first ++ second).duration,
-      Some(Track.duration(1))
+      Track.duration(1, 0.5)
     )
   }
 
@@ -275,7 +275,7 @@ class TrackSpec extends CatsEffectSuite {
     val track = Track.track(
       Track.time(1, 2),
       Track.note(60, 62),
-      duration = Some(Track.duration(3, 4)),
+      duration = Track.duration(3, 4),
       velocity = Track.velocity(70, 80)
     )
 

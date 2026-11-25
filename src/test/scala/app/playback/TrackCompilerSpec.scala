@@ -13,7 +13,7 @@ class TrackCompilerSpec extends FunSuite {
   private given TimingContext = valid(TimingContext.from(960, 120))
 
   test("compile returns InvalidMidiValue when note is out of range") {
-    val track = Track.track(Track.time(4), Track.note(200), duration = Some(Track.duration(4)))
+    val track = Track.track(Track.time(4), Track.note(200), duration = Track.duration(4))
     TrackCompiler.compile(track) match {
       case Valid(_) =>
         fail("Expected validation failure for invalid MIDI note")
@@ -34,7 +34,7 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4, 4),
       Track.note(60, 62),
-      duration = Some(Track.duration(4, 4)),
+      duration = Track.duration(4, 4),
       velocity = Track.velocity(100)
     )
     TrackCompiler.compile(track) match {
@@ -76,19 +76,19 @@ class TrackCompilerSpec extends FunSuite {
       Track.track(
         Track.time(4),
         Track.note(0),
-        duration = Some(Track.duration(4)),
+        duration = Track.duration(4),
         velocity = Track.velocity(100)
       ),
       Track.track(
         Track.time(4),
         Track.note(60),
-        duration = Some(Track.duration(4)),
+        duration = Track.duration(4),
         velocity = Track.velocity(0)
       ),
       Track.track(
         Track.time(4),
         Track.note(60),
-        duration = Some(Track.duration(0)),
+        duration = Track.duration(0),
         velocity = Track.velocity(100)
       )
     )
@@ -115,7 +115,7 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4, 4),
       Track.note(36, 38),
-      duration = Some(Track.duration(4, 4)),
+      duration = Track.duration(4, 4),
       velocity = Track.velocity(100, 90)
     )(using summon[Channel], Some(instrument))
     val bank = valid(Bank.from(instrument.bank))
@@ -140,7 +140,7 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4),
       Track.note((60, 64, 67)),
-      duration = Some(Track.duration(4)),
+      duration = Track.duration(4),
       velocity = Track.velocity(100)
     )
     TrackCompiler.compile(track) match {
@@ -163,7 +163,7 @@ class TrackCompilerSpec extends FunSuite {
     val track = Track.track(
       Track.time(4, 4),
       Track.note(60, 62),
-      duration = Some(Track.duration(4)),
+      duration = Track.duration(4),
       velocity = Track.velocity(100, 90)
     )
     TrackCompiler.compile(track) match {

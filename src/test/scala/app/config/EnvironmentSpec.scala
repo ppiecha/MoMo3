@@ -11,13 +11,14 @@ class EnvironmentSpec extends FunSuite {
   }
 
   test("Environment.load should load configuration from default application.conf") {
-    val result = Environment.load(ConfigSource.default, testInput)
+    val expectedConfig = ConfigSource.default.loadOrThrow[EnvironmentConfig]
+    val result         = Environment.load(ConfigSource.default, testInput)
     assert(result.isRight, s"Expected successful load, got $result")
     val env = result.getOrElse(fail("Could not get environment"))
 
     assertEquals(
       env.timingContext.bpm.value,
-      ConfigSource.default.loadOrThrow[EnvironmentConfig].timingContext.bpm
+      expectedConfig.timingContext.bpm
     )
     assertEquals(env.timingContext.ppq.value, 960)
     assertEquals(env.synthConfig.soundFontPath, "C:\\tools\\fluidsynth\\soundfonts\\soundfont.sf2")
@@ -27,8 +28,8 @@ class EnvironmentSpec extends FunSuite {
     assertEquals(env.midiConfig.volume, 100)
     assertEquals(env.midiConfig.chorus, 0)
     assertEquals(env.midiConfig.reverb, 0)
-    assertEquals(env.pathsConfig.tracks, "projects/test1/")
-    assertEquals(env.pathsConfig.musicFile, "projects/test1/Music.scala")
+    assertEquals(env.pathsConfig.tracks, expectedConfig.paths.tracks)
+    assertEquals(env.pathsConfig.musicFile, expectedConfig.paths.musicFile)
     assertEquals(env.startPlaybackOnStartup, true)
   }
 

@@ -65,9 +65,9 @@ object Track {
     given Option[Instrument] = None
     track(
       timing = time(value),
-      notes = None,
-      duration = None,
-      velocity = None
+      notes = note(0),
+      duration = Track.duration(value),
+      velocity = velocity(0)
     )
   }
 
@@ -81,8 +81,8 @@ object Track {
     TimeGen(NonEmptyList(head, tail.toList))
   }
 
-  def duration(head: Double, tail: Double*): DurationGen = {
-    DurationGen(NonEmptyList(head, tail.toList))
+  def duration(head: Double, tail: Double*): Option[DurationGen] = {
+    Some(DurationGen(NonEmptyList(head, tail.toList)))
   }
 
   def note(head: NoteArg, tail: NoteArg*): Option[NoteGen] = {

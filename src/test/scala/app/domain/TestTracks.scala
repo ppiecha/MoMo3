@@ -11,21 +11,21 @@ object TestTracks {
     track(
       time(4),
       note(60),
-      duration = Some(duration(8))
+      duration = duration(8)
     )
 
   val twoNotesTrack: Track =
     track(
       time(4, 4),
       note(60, 62),
-      duration = Some(duration(1, 1))
+      duration = duration(1, 1)
     )
 
   val threeNotesTrack: Track =
     track(
       time(4, 4, 2),
       note(60, 64, 67),
-      duration = Some(duration(1, 4d / 3, 2))
+      duration = duration(1, 4d / 3, 2)
     )
 
 }

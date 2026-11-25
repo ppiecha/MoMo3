@@ -70,7 +70,7 @@ object TrackCompiler {
         .map(v => labelled("velocity", Generator.parseVelocity(v)))
         .getOrElse(validatedVelocityDefault)
 
-      val dummy = (Tick.from(0), NonEmptyList.of(Note.from(0)), Tick.from(0))
+      val dummy = ((Tick.from(0), NonEmptyList.one(Note.from(0)).sequence), Tick.from(0))
 
       val compiledEvents =
         at

@@ -11,8 +11,8 @@ class SectionSpec extends FunSuite {
   given Option[Instrument] = None
 
   test("Section.from accepts tracks with matching duration") {
-    val first  = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
-    val second = Track.track(Track.time(4), Track.note(62), duration = Some(Track.duration(4)))
+    val first  = Track.track(Track.time(4), Track.note(60), duration = Track.duration(4))
+    val second = Track.track(Track.time(4), Track.note(62), duration = Track.duration(4))
 
     Section.from(Validated.Valid(List(first, second))) match {
       case Ior.Right(tracks) =>
@@ -47,8 +47,8 @@ class SectionSpec extends FunSuite {
   }
 
   test("Section.from rejects tracks with mismatched duration") {
-    val reference = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
-    val mismatch  = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
+    val reference = Track.track(Track.time(4), Track.note(60), duration = Track.duration(4))
+    val mismatch  = Track.track(Track.time(2), Track.note(62), duration = Track.duration(2))
 
     val result = Section.from(Validated.Valid(List(reference, mismatch)))
     result match {
@@ -69,9 +69,9 @@ class SectionSpec extends FunSuite {
   }
 
   test("Section.from accumulates duration mismatches for multiple tracks") {
-    val reference = Track.track(Track.time(4), Track.note(60), duration = Some(Track.duration(4)))
-    val mismatch1 = Track.track(Track.time(2), Track.note(62), duration = Some(Track.duration(2)))
-    val mismatch2 = Track.track(Track.time(1), Track.note(64), duration = Some(Track.duration(1)))
+    val reference = Track.track(Track.time(4), Track.note(60), duration = Track.duration(4))
+    val mismatch1 = Track.track(Track.time(2), Track.note(62), duration = Track.duration(2))
+    val mismatch2 = Track.track(Track.time(1), Track.note(64), duration = Track.duration(1))
 
     Section.from(Validated.Valid(List(reference, mismatch1, mismatch2))) match {
       case Ior.Both(errors, tracks) =>
@@ -90,9 +90,9 @@ class SectionSpec extends FunSuite {
   }
 
   test("Section.from returns Left when no valid tracks remain") {
-    val negative = Track.track(Track.time(-1), Track.note(60), duration = Some(Track.duration(-1)))
-    val second   = Track.track(Track.time(-1), Track.note(62), duration = Some(Track.duration(-1)))
-    val third    = Track.track(Track.time(-1), Track.note(64), duration = Some(Track.duration(-1)))
+    val negative = Track.track(Track.time(-1), Track.note(60), duration = Track.duration(-1))
+    val second   = Track.track(Track.time(-1), Track.note(62), duration = Track.duration(-1))
+    val third    = Track.track(Track.time(-1), Track.note(64), duration = Track.duration(-1))
 
     Section.from(Validated.Valid(List(negative, second, third))) match {
       case Ior.Left(errors) =>
