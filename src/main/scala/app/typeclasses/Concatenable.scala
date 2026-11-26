@@ -5,11 +5,14 @@ import app.domain.Generator
 import app.domain.Generator.NoteGen
 import app.domain.Generator.VelocityGen
 import app.domain.Note
+import app.domain.Section
 import app.domain.TimeGen
 import app.domain.Track
 import app.domain.Velocity
 import app.syntax.Extensions.repeat
 import cats.data.NonEmptyList
+
+import scala.util.Random
 
 trait Concatenable[A] {
   def ++(left: A, right: A): A
@@ -108,6 +111,49 @@ object Concatenable {
         source = left.source.orElse(right.source),
         muted = left.muted && right.muted
       )
+    }
+  }
+
+  given Concatenable[Section] with {
+    def ++(left: Section, right: Section): Section = {
+      val leftTracks  = left.toNonEmptyList
+      val rightTracks = right.toNonEmptyList
+
+      def validate(tracks: NonEmptyList[Track]): Unit = {
+        require(
+          tracks.toList.forall(_.timing.duration == tracks.head.timing.duration),
+          "All tracks in a section must have the same duration"
+        )
+      }
+
+      validate(leftTracks)
+      validate(rightTracks)
+
+      def silence(reference: Track, channel: app.domain.Channel): Track =
+        Track(reference.timing, None, None, None, None, channel, None, muted = true)
+
+      val leftList    = leftTracks.toList
+      val rightList   = rightTracks.toList
+      val leftCounts  = leftList.groupMapReduce(_.channel)(_ => 1)(_ + _)
+      val rightCounts = rightList.groupMapReduce(_.channel)(_ => 1)(_ + _)
+      val available   = Random.shuffle(rightList.zipWithIndex)
+      val (reversed, remaining) = leftList.foldLeft((List.empty[Track], available)) {
+        case ((merged, candidates), track) =>
+          val repeated = leftCounts.getOrElse(track.channel, 0) > 1 || rightCounts.getOrElse(track.channel, 0) > 1
+          val matched = candidates.find { case (candidate, _) =>
+            candidate.channel == track.channel && (!repeated || candidate.instrument == track.instrument)
+          }
+          val (next, rest) = matched match {
+            case Some((candidate, id)) => (candidate, candidates.filterNot(_._2 == id))
+            case None                  => (silence(rightTracks.head, track.channel), candidates)
+          }
+          (Concatenable[Track].++(track, next) :: merged, rest)
+      }
+      val rightOnly = remaining.sortBy(_._2).map { case (track, _) =>
+        Concatenable[Track].++(silence(leftTracks.head, track.channel), track)
+      }
+      val merged = NonEmptyList.fromListUnsafe(reversed.reverse ++ rightOnly)
+      Section(merged.head, merged.tail*)
     }
   }
 

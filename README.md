@@ -84,6 +84,14 @@ concatenation, so adding a rest or repeating a pattern preserves their alignment
 Muted segments remain silent when concatenated with active tracks; the active
 segments still play. Pitch repetition with `*` requires a count of at least one.
 
+Sections can be concatenated with `sectionA ++ sectionB` or repeated with
+`sectionA.repeat(2)`. Tracks are matched by channel. If either section has
+multiple tracks on a channel, they are matched by instrument as well; tracks
+with the same channel and instrument are paired randomly without reuse. A track
+without a match is paired with silence for the other section's duration.
+Each input section must have equal-length tracks, otherwise concatenation throws
+an `IllegalArgumentException`.
+
 ## Example
 
 ### `Bass0.scala` � a melodic track
