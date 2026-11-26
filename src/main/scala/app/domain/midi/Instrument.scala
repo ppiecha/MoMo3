@@ -8,6 +8,18 @@ object Instrument {
 
   def instrument(bank: Int, program: Int): Option[Instrument] = Some(Instrument(bank, program))
 
+  def instrument(program: Int): Option[Instrument] = instrument(Bank.Default, program)
+
+  /** Short percussion names usable as notes, e.g. `bd * 4` or `(hhc, bd)`. */
+  object Drum {
+    val bd: Pitch   = Pitch(PercussionNote.BassDrum.BassDrum1)
+    val sn: Pitch   = Pitch(PercussionNote.Snare.AcousticSnare)
+    val clap: Pitch = Pitch(PercussionNote.Snare.HandClap)
+    val hhc: Pitch  = Pitch(PercussionNote.HiHat.ClosedHiHat)
+    val hhp: Pitch  = Pitch(PercussionNote.HiHat.PedalHiHat)
+    val hho: Pitch  = Pitch(PercussionNote.HiHat.OpenHiHat)
+  }
+
   object Piano {
     val AcousticGrandPiano: Int  = 0
     val BrightAcousticPiano: Int = 1

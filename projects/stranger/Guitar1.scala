@@ -1,23 +1,12 @@
-import app.domain.*
-import app.domain.Channel.*
-import app.domain.Instrument.*
-import app.domain.Note.*
-import app.domain.Track.*
-import app.syntax.Extensions.*
-
-import scala.language.implicitConversions
+import app.dsl.{*, given}
 
 object Guitar1 {
-  given Channel = Channel1
-  given Option[Instrument] = instrument(
-    Bank.Default,
-    Guitar.ElectricGuitarClean
-  )
+  given TrackSet = TrackSet(Channel1, instrument(Guitar.ElectricGuitarClean))
 
   lazy val guitar: Track = guitar1.repeat(2)
 
-  val guitar1 = track(
-    timing = time(4).repeat(16),
+  val guitar1 = steps(
+    4,
     notes = note(
       (c3, g4),
       ds3,

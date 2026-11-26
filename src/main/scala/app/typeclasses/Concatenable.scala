@@ -5,7 +5,6 @@ import app.domain.Generator
 import app.domain.Generator.NoteGen
 import app.domain.Generator.VelocityGen
 import app.domain.Note
-import app.domain.NoteArg
 import app.domain.TimeGen
 import app.domain.Track
 import app.domain.Velocity
@@ -64,7 +63,7 @@ object Concatenable {
   }
 
   private def trackNotes(track: Track): Generator[Note] =
-    track.notes.getOrElse(Generator.note(NoteArg.Single(0)).repeat(track.timing.length))
+    track.notes.getOrElse(Generator.note(0).repeat(track.timing.length))
 
   private def trackDuration(track: Track): DurationGen =
     track.duration.getOrElse(DurationGen(track.timing.values))
@@ -90,11 +89,13 @@ object Concatenable {
         case _            => Some(Concatenable[DurationGen].++(trackDuration(left), trackDuration(right)))
       }
       val velocity = (left.velocity, right.velocity) match {
-        case (None, None) => None
+        case (None, None) if !left.muted && !right.muted => None
         case _ =>
           val (leftValues, leftExtra)   = trackVelocity(left)
           val (rightValues, rightExtra) = trackVelocity(right)
-          val combined                  = concatenate(leftValues, rightValues)
+          val audibleLeft               = if left.muted then leftValues.map(_ => Velocity.Zero) else leftValues
+          val audibleRight              = if right.muted then rightValues.map(_ => Velocity.Zero) else rightValues
+          val combined                  = concatenate(audibleLeft, audibleRight)
           Some(VelocityGen(NonEmptyList(combined.head, combined.tail ++ leftExtra ++ rightExtra)))
       }
       Track(
@@ -105,7 +106,7 @@ object Concatenable {
         instrument = left.instrument.orElse(right.instrument),
         channel = left.channel,
         source = left.source.orElse(right.source),
-        isActive = left.isActive
+        muted = left.muted && right.muted
       )
     }
   }

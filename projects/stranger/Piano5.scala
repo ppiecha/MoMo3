@@ -1,18 +1,10 @@
-import app.domain.*
-import app.domain.Channel.*
-import app.domain.Instrument.*
-import app.domain.Note.*
-import app.domain.Track.*
-import app.syntax.Extensions.*
-
-import scala.language.implicitConversions
+import app.dsl.{*, given}
 
 object Piano5 {
-  given Channel            = Channel5
-  given Option[Instrument] = instrument(Bank.Default, Strings.OrchestralHarp)
+  given TrackSet = TrackSet(Channel5, instrument(Strings.OrchestralHarp))
 
-  val piano: Track = track(
-    timing = time(8).repeat(64),
+  val piano: Track = steps(
+    8,
     notes = note(
       c4,
       ds4,
@@ -78,7 +70,7 @@ object Piano5 {
       c4,
       ds4,
       c4
-    ).transpose(0),
-    velocity = velocity(50).repeat(8)
+    ),
+    velocity = velocity(50)
   )
 }

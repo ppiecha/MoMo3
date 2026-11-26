@@ -10,6 +10,8 @@ opaque type Section = NonEmptyList[Track]
 
 object Section {
 
+  def apply(head: => Track, tail: => Track*): Section = NonEmptyList.of(head, tail*)
+
   def of(head: => Track, tail: => Track*): Section = NonEmptyList.of(head, tail*)
 
   def from(tracks: ValidatedNec[String, List[Track]]): IorNec[DomainError, Section] = tracks match

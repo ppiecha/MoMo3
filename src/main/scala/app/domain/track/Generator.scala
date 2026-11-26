@@ -35,9 +35,13 @@ object Generator {
 
   def note(head: NoteArg, tail: NoteArg*): NoteGen = {
     val chords: NonEmptyList[Chord] = NonEmptyList(head, tail.toList).map {
-      case NoteArg.Single(n) => Chord.Voiced(NonEmptyList.one(n))
-      case NoteArg.Many(t) =>
-        val ns = t.toList.collect { case i: Int => i }
+      case n: Int   => Chord.Voiced(NonEmptyList.one(n))
+      case p: Pitch => Chord.Voiced(NonEmptyList.one(p.value))
+      case t: Tuple =>
+        val ns = t.toList.collect {
+          case i: Int   => i
+          case p: Pitch => p.value
+        }
         ns match
           case h :: tail => Chord.Voiced(NonEmptyList(h, tail))
           case Nil       => Chord.Rest

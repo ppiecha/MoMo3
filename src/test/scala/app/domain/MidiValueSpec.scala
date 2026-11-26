@@ -7,11 +7,20 @@ import munit.ScalaCheckSuite
 import org.scalacheck.Gen
 import org.scalacheck.Prop.*
 
+import scala.language.implicitConversions
+
 class MidiValueSpec extends FunSuite with ScalaCheckSuite {
 
   test("MidiValue should create a valid Note") {
     val result: ValidatedNec[DomainError, Note] = Note.from(60)
     assert(result.isValid)
+  }
+
+  test("pitch constants remain usable wherever MIDI integers are expected") {
+    val pitch: Int = Note.c4
+    assertEquals(pitch, 60)
+    assertEquals(Note.from(Note.c4), Note.from(60))
+    assertEquals(Note.from(Pitch(200)), Note.from(200))
   }
 
   test("MidiValue should create an invalid Note for out of range value") {

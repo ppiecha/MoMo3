@@ -60,7 +60,7 @@ object TrackCompiler {
       val at = accumulateTimes(track)
       val notes = track.notes
         .map(n => labelled("note", Generator.parseNotes(n)))
-        .getOrElse(Generator.parseNotes(Generator.note(NoteArg.Single(0)).repeat(track.timing.length)))
+        .getOrElse(Generator.parseNotes(Generator.note(0).repeat(track.timing.length)))
       val duration = track.duration
         .map(d => labelled("duration", Generator.parseTicks(d)))
         .getOrElse(Generator.parseTicks(track.timing))

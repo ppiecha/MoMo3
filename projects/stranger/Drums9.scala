@@ -1,38 +1,16 @@
-import app.domain.*
-import app.domain.Channel.*
-import app.domain.Instrument.*
-import app.domain.Track.*
-import app.syntax.Extensions.*
-
-import scala.language.implicitConversions
+import app.dsl.{*, given}
 
 object Drums9 {
-  given Channel = Channel9
-  given Option[Instrument] = instrument(
-    bank = Bank.Default,
-    program = PercussionKit.ElectronicKit
-  )
+  given TrackSet = TrackSet(Channel9, instrument(PercussionKit.ElectronicKit))
 
   lazy val drums = drums2.repeat(verseDuration)
 
-  val drums2 = track(
-    timing = time(8).repeat(8),
-    notes = note(
-      (PercussionNote.HiHat.ClosedHiHat, PercussionNote.BassDrum.BassDrum1),
-      PercussionNote.HiHat.PedalHiHat
-    ) ++
-      note(
-        (PercussionNote.HiHat.ClosedHiHat, PercussionNote.Snare.HandClap),
-        PercussionNote.HiHat.PedalHiHat
-      ) ++
-      note(
-        PercussionNote.HiHat.PedalHiHat,
-        (PercussionNote.HiHat.ClosedHiHat, PercussionNote.BassDrum.BassDrum1)
-      ) ++
-      note(
-        (PercussionNote.HiHat.ClosedHiHat, PercussionNote.Snare.HandClap),
-        PercussionNote.HiHat.PedalHiHat
-      ),
+  val drums2 = steps(
+    8,
+    notes = note((hhc, bd), hhp) ++
+      note((hhc, clap), hhp) ++
+      note(hhp, (hhc, bd)) ++
+      note((hhc, clap), hhp),
     velocity = velocity(60)
   )
 }

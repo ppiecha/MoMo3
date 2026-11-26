@@ -34,15 +34,15 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("duration should create duration generators from one or more values") {
-    assertEquals(Track.duration(2), Some(DurationGen(NonEmptyList.one(2.0))))
-    assertEquals(Track.duration(1, 2, 3), Some(DurationGen(NonEmptyList.of(1.0, 2.0, 3.0))))
+    assertEquals(Track.duration(2), (DurationGen(NonEmptyList.one(2.0))))
+    assertEquals(Track.duration(1, 2, 3), (DurationGen(NonEmptyList.of(1.0, 2.0, 3.0))))
   }
 
   test("note should create note generators from one or more values") {
-    assertEquals(Track.note(60), Some(Generator.NoteGen(NonEmptyList.one(Chord.Voiced(NonEmptyList.one(60))))))
+    assertEquals(Track.note(60), (Generator.NoteGen(NonEmptyList.one(Chord.Voiced(NonEmptyList.one(60))))))
     assertEquals(
       Track.note(60, 62, 64),
-      Some(
+      (
         Generator.NoteGen(
           NonEmptyList.of(
             Chord.Voiced(NonEmptyList.one(60)),
@@ -146,13 +146,14 @@ class TrackSpec extends CatsEffectSuite {
       Note.c8
     )
 
-    assertEquals(pitches, (21 to 108).toList)
+    assertEquals(pitches.map(_.value), (21 to 108).toList)
     assertEquals(
       Track.note(Note.a0, Note.as0, Note.b0, Note.c1, Note.cs1, Note.c8),
       Track.note(21, 22, 23, 24, 25, 108)
     )
     assertEquals(
-      List(Note.c, Note.cs, Note.d, Note.ds, Note.e, Note.f, Note.fs, Note.g, Note.gs, Note.a, Note.as, Note.b),
+      List(Note.c, Note.cs, Note.d, Note.ds, Note.e, Note.f, Note.fs, Note.g, Note.gs, Note.a, Note.as, Note.b)
+        .map(_.value),
       (60 to 71).toList
     )
   }
@@ -160,7 +161,7 @@ class TrackSpec extends CatsEffectSuite {
   test("note should allow tuple chords mixed with single notes") {
     assertEquals(
       Track.note((60, 64, 67), 30, 40),
-      Some(
+      (
         Generator.NoteGen(
           NonEmptyList.of(
             Chord.Voiced(NonEmptyList(60, List(64, 67))),
@@ -182,7 +183,7 @@ class TrackSpec extends CatsEffectSuite {
 
   test("PlaybackPlan.fromTracks should exclude inactive tracks") {
     val active   = Track.track(Track.time(4), Track.note(60))
-    val inactive = Track.track(Track.time(4), Track.note(62), isActive = false)
+    val inactive = Track.track(Track.time(4), Track.note(62), muted = true)
     val tracks   = Section.from(Validated.validNec(List(active, inactive))).right.getOrElse(fail("invalid tracks"))
 
     val noteOns = (PlaybackPlan.fromTracks(tracks).right.getOrElse(fail("invalid plan")) match
@@ -194,8 +195,8 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("velocity should create velocity generators from one or more values") {
-    assertEquals(Track.velocity(70), Some(Generator.VelocityGen(NonEmptyList.one(70))))
-    assertEquals(Track.velocity(70, 80, 90), Some(Generator.VelocityGen(NonEmptyList.of(70, 80, 90))))
+    assertEquals(Track.velocity(70), (Generator.VelocityGen(NonEmptyList.one(70))))
+    assertEquals(Track.velocity(70, 80, 90), (Generator.VelocityGen(NonEmptyList.of(70, 80, 90))))
   }
 
   test("track factory leaves optional generators unset unless provided") {
@@ -205,13 +206,13 @@ class TrackSpec extends CatsEffectSuite {
       duration = None,
       velocity = None,
       source = Some("TrackSpec.scala"),
-      isActive = true
+      muted = false
     )
 
     assertEquals(Track.track(Track.time(1, 2), Track.note(60, 62)), expected)
     assertEquals(
       Track.track(Track.time(1, 2), Track.note(60, 62), duration = Track.duration(3, 4)),
-      expected.copy(duration = Track.duration(3, 4))
+      expected.copy(duration = Some(Track.duration(3, 4)))
     )
   }
 
@@ -227,12 +228,12 @@ class TrackSpec extends CatsEffectSuite {
   }
 
   test("rest should create a silent track with explicit note, duration, and velocity") {
-    val rest = Track.rest(4)
+    val rest = Track.pause(4)
 
     assertEquals(rest.timing, Track.time(4))
-    assertEquals(rest.duration, Track.duration(4))
-    assertEquals(rest.notes, Track.note(0))
-    assertEquals(rest.velocity, Track.velocity(0))
+    assertEquals(rest.duration, Some(Track.duration(4)))
+    assertEquals(rest.notes, Some(Track.note(0)))
+    assertEquals(rest.velocity, Some(Track.velocity(0)))
   }
 
   test("track concatenation should concatenate every generator") {
@@ -263,11 +264,11 @@ class TrackSpec extends CatsEffectSuite {
   test("track concatenation should retain the rest duration") {
     val first =
       Track.track(Track.time(1), Track.note(60), duration = Track.duration(1))
-    val second = Track.rest(0.5)
+    val second = Track.pause(0.5)
 
     assertEquals(
       (first ++ second).duration,
-      Track.duration(1, 0.5)
+      Some(Track.duration(1, 0.5))
     )
   }
 
@@ -280,7 +281,7 @@ class TrackSpec extends CatsEffectSuite {
     )
 
     assertEquals(
-      track.muted,
+      track.silenced,
       track.copy(velocity = Some(Generator.velocity(Velocity.Zero, Velocity.Zero)))
     )
   }
@@ -310,5 +311,32 @@ class TrackSpec extends CatsEffectSuite {
     events match
       case Validated.Invalid(errors) => fail(s"Expected valid events but got errors: $errors")
       case Validated.Valid(events)   => assertEquals(events.toList, expectedEvents)
+  }
+
+  test("pitch * n should repeat the note n times") {
+    assertEquals(Note.c1 * 3, Track.note(24, 24, 24))
+    assertEquals(Note.c1 * 1, Track.note(24))
+    intercept[IllegalArgumentException](Note.c1 * 0)
+    intercept[IllegalArgumentException](Note.c1 * -1)
+    intercept[IllegalArgumentException](Note.c1 * Int.MinValue)
+  }
+
+  test("steps should derive timing from the notes") {
+    val derived = Track.steps(16, Track.note(60, 62, 64))
+    assertEquals(derived.timing, Track.time(16, 16, 16))
+  }
+
+  test("Section.apply should build a section from tracks") {
+    val a = Track.track(Track.time(4), Track.note(60))
+    val b = Track.track(Track.time(4), Track.note(62))
+    assertEquals(Section(a, b).toList, List(a, b))
+  }
+
+  test("drum aliases should map to percussion notes") {
+    assertEquals(Instrument.Drum.bd.value, Instrument.PercussionNote.BassDrum.BassDrum1)
+  }
+
+  test("instrument with a single argument should use the default bank") {
+    assertEquals(Instrument.instrument(20), Some(Instrument(Bank.Default, 20)))
   }
 }

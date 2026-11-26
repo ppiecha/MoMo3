@@ -22,7 +22,7 @@ class TrackConcatenationSpec extends FunSuite {
       timing = Track.time(8, 8, 16, 16, 8).repeat(2),
       notes = Track.note(0, 51, 0, 48, 0).repeat(2).transpose(36),
       velocity = Track.velocity(55)
-    ) ++ Track.rest(1)
+    ) ++ Track.pause(1)
     val track = pattern.repeat(4)
 
     assertEquals(track.timing.length, 44)
@@ -54,12 +54,12 @@ class TrackConcatenationSpec extends FunSuite {
 
     val before = defaults ++ explicit
     val after  = explicit ++ defaults
-    assertEquals(before.notes, Track.note(0, 0, 60, 62))
-    assertEquals(after.notes, Track.note(60, 62, 0, 0))
-    assertEquals(before.duration, Track.duration(1, 2, 5, 6))
-    assertEquals(after.duration, Track.duration(5, 6, 1, 2))
-    assertEquals(before.velocity, Track.velocity(Velocity.Default, Velocity.Default, 80, 80))
-    assertEquals(after.velocity, Track.velocity(80, 80, Velocity.Default, Velocity.Default))
+    assertEquals(before.notes, Some(Track.note(0, 0, 60, 62)))
+    assertEquals(after.notes, Some(Track.note(60, 62, 0, 0)))
+    assertEquals(before.duration, Some(Track.duration(1, 2, 5, 6)))
+    assertEquals(after.duration, Some(Track.duration(5, 6, 1, 2)))
+    assertEquals(before.velocity, Some(Track.velocity(Velocity.Default, Velocity.Default, 80, 80)))
+    assertEquals(after.velocity, Some(Track.velocity(80, 80, Velocity.Default, Velocity.Default)))
     assert(TrackCompiler.compile(before).isValid)
     assert(TrackCompiler.compile(after).isValid)
   }
@@ -72,11 +72,57 @@ class TrackConcatenationSpec extends FunSuite {
     assert(TrackCompiler.compile(track).isValid)
   }
 
+  test("muted segments are silent without suppressing active segments in either order") {
+    val active = Track.track(Track.time(4, 4), Track.note(60, 62), velocity = Track.velocity(70))
+    val muted  = Track.track(Track.time(4, 4), Track.note(64, 65), muted = true)
+
+    def noteOns(track: Track): List[(Int, Int, Int)] =
+      PlaybackPlan.fromTracks(Section(track)).right.getOrElse(fail("Expected a valid playback plan")) match {
+        case PlaybackPlan.PlaybackPlanData(events, _) =>
+          events.toList.collect { case TimedEvent(_, AbsoluteMidiEvent(at, MidiCommand.NoteOn(_, note, velocity))) =>
+            (at.value, note.value, velocity.value)
+          }
+        case PlaybackPlan.EmptyPlaybackPlan => fail("Expected an active playback plan")
+      }
+
+    val activeThenMuted = active ++ muted
+    val mutedThenActive = muted ++ active
+    assert(!activeThenMuted.muted)
+    assert(!mutedThenActive.muted)
+    assertEquals(activeThenMuted.velocity, Some(Track.velocity(70, 70, 0, 0)))
+    assertEquals(mutedThenActive.velocity, Some(Track.velocity(0, 0, 70, 70)))
+    assertEquals(noteOns(activeThenMuted).map(_._2), List(60, 62))
+    assertEquals(noteOns(mutedThenActive).map(_._2), List(60, 62))
+    assertEquals(noteOns(mutedThenActive).map(_._1), noteOns(activeThenMuted).map(_._1 + 1920))
+    assertEquals(noteOns(mutedThenActive).map(_._3), List(70, 70))
+  }
+
+  test("fully muted concatenations stay muted and remain silent when combined with active tracks") {
+    val muted  = Track.track(Track.time(4), Track.note(64), velocity = Track.velocity(90), muted = true)
+    val active = Track.track(Track.time(4), Track.note(60))
+    val silent = muted ++ muted
+
+    assert(silent.muted)
+    assertEquals(PlaybackPlan.fromTracks(Section(silent)).right, Some(PlaybackPlan.EmptyPlaybackPlan))
+    val combined = silent ++ active
+    assert(!combined.muted)
+    assertEquals(combined.velocity, Some(Track.velocity(0, 0, Velocity.Default)))
+    val plan = PlaybackPlan.fromTracks(Section(combined)).right.getOrElse(fail("Expected a valid playback plan"))
+    val notes = plan match {
+      case PlaybackPlan.PlaybackPlanData(events, _) =>
+        events.toList.collect { case TimedEvent(_, AbsoluteMidiEvent(_, MidiCommand.NoteOn(_, note, _))) =>
+          note.value
+        }
+      case PlaybackPlan.EmptyPlaybackPlan => fail("Expected an active playback plan")
+    }
+    assertEquals(notes, List(60))
+  }
+
   test("short velocity patterns fall back to their own first value, not the other track's") {
     val first  = Track.track(Track.time(1, 1, 1), Track.note(60, 61, 62), velocity = Track.velocity(70, 80))
     val second = Track.track(Track.time(1, 1, 1), Track.note(63, 64, 65), velocity = Track.velocity(90, 100))
     val track  = first ++ second
-    assertEquals(track.velocity, Track.velocity(70, 80, 70, 90, 100, 90))
+    assertEquals(track.velocity, Some(Track.velocity(70, 80, 70, 90, 100, 90)))
     val events = TrackCompiler.compile(track) match {
       case Valid(result)   => result
       case Invalid(errors) => fail(s"Expected valid events but got $errors")
@@ -106,13 +152,13 @@ class TrackConcatenationSpec extends FunSuite {
 
     val first = Track.track(Track.time(1), Track.note(60), velocity = Track.velocity(70, 200))
     val track = first ++ second
-    assertEquals(track.velocity, Track.velocity(70, 90, 200))
+    assertEquals(track.velocity, Some(Track.velocity(70, 90, 200)))
     assert(TrackCompiler.compile(track).isInvalid)
   }
 
   test("explicitly mismatched duration lengths still fail validation") {
     val invalid = Track.track(Track.time(1, 1), Track.note(60, 62), duration = Track.duration(1))
-    val track   = invalid ++ Track.rest(1)
+    val track   = invalid ++ Track.pause(1)
     assertEquals(track.duration.map(_.length), Some(2))
     assert(TrackCompiler.compile(track).isInvalid)
   }
