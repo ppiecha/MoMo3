@@ -10,16 +10,10 @@ object Drums9 {
   given Channel = Channel9
   given Option[Instrument] = instrument(
     bank = Bank.Default,
-    program = PercussionKit.Tr808Kit
+    program = PercussionKit.ElectronicKit
   )
 
   lazy val drums = drums2.repeat(verseDuration)
-
-  val drums1 = track(
-    timing = time(2, 2),
-    notes = note(PercussionNote.BassDrum.BassDrum1).repeat(2),
-    velocity = velocity(80)
-  )
 
   val drums2 = track(
     timing = time(8).repeat(8),
@@ -40,12 +34,5 @@ object Drums9 {
         PercussionNote.HiHat.PedalHiHat
       ),
     velocity = velocity(60)
-  )(using
-    Channel9,
-    instrument(
-      Bank.Default,
-      PercussionKit.ElectronicKit
-    )
   )
-
 }

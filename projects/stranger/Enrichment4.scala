@@ -11,12 +11,14 @@ object Enrichment4 {
   given Channel            = Channel4
   given Option[Instrument] = instrument(Bank.Default, Ethnic.Shamisen)
 
-  lazy val enrich: Track = (part1 ++ part2).transpose(12).repeat(4)
+  lazy val enrich: Track = (part1 ++ part2)
+    .transpose(0)
+    .repeat(4)
   val part2 =
     track(
       timing = time(8, 16, 16, 16, 16, 8).repeat(2),
       notes = note(r, ds3, r, r, r, r, r, c3, r, r, r, r),
-      velocity = velocity(50)
+      velocity = velocity(45)
     )
   val part1 = part2.copy(
     timing = time(16).repeat(16),

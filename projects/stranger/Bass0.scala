@@ -24,9 +24,11 @@ object Bass0 {
   val base1 = track(
     timing = time(16).repeat(64),
     notes = (note(c1).repeat(15) ++
-      repeatByName(note(gs0).repeat(3) ++ rand(note(gs0), note(gs1)), 4) ++
+      repeatByName(note(gs0).repeat(3) ++
+      rand(note(gs0), note(gs1)), 4) ++
       note(f0).repeat(16) ++
-      note(gs0).repeat(15) ++ note(as0).repeat(1) ++
+      note(gs0).repeat(15) ++
+      note(as0).repeat(1) ++
       note(c1))
       .transpose(12),
     velocity = velocity(70)
@@ -37,7 +39,8 @@ object Bass0 {
       notes = note(c1).repeat(15) ++
         note(gs1).repeat(16) ++
         note(f1).repeat(16) ++
-        note(gs1).repeat(15) ++ note(as0).repeat(1) ++
+        note(gs1).repeat(15) ++
+        note(as0).repeat(1) ++
         note(c1)
     )
 }

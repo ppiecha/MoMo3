@@ -23,6 +23,6 @@ object Loop3 {
       ++ note(c2, ds2))
       .repeat(2)
       .transpose(24),
-    velocity = velocity(45)
+    velocity = velocity(40)
   )
 }

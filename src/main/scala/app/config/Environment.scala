@@ -12,9 +12,7 @@ case class TimingConfig(
 
 case class EnvironmentConfig(
   timingContext: TimingConfig,
-  synthConfig: SynthConfig,
   midiOutputConfig: MidiOutputConfig,
-  midi: MidiConfig,
   paths: PathsConfig,
   startPlaybackOnStartup: Boolean
 ) derives ConfigReader
@@ -22,45 +20,21 @@ case class EnvironmentConfig(
 case class Environment private (
   timingContext: TimingContext,
   input: ConsoleInput,
-  synthConfig: SynthConfig,
   midiOutputConfig: MidiOutputConfig,
-  midiConfig: MidiConfig,
   pathsConfig: PathsConfig,
   startPlaybackOnStartup: Boolean
 )
 
 object Environment {
-  def from(
-    bpm: Int,
-    ppq: Int,
-    synthConfig: SynthConfig,
-    midiOutputConfig: MidiOutputConfig,
-    midiConfig: MidiConfig,
-    pathsConfig: PathsConfig,
-    startPlaybackOnStartup: Boolean,
-    input: ConsoleInput
-  ): Either[DomainError, Environment] = {
-    TimingContext
-      .from(ppq, bpm)
-      .map(tc => Environment(tc, input, synthConfig, midiOutputConfig, midiConfig, pathsConfig, startPlaybackOnStartup))
-      .toEither
-      .leftMap(errors => DomainError.InvalidConfig(errors.toNonEmptyList))
-  }
-
   def fromConfig(
     config: EnvironmentConfig,
     input: ConsoleInput
   ): Either[DomainError, Environment] = {
-    from(
-      bpm = config.timingContext.bpm,
-      ppq = config.timingContext.ppq,
-      synthConfig = config.synthConfig,
-      midiOutputConfig = config.midiOutputConfig,
-      midiConfig = config.midi,
-      pathsConfig = config.paths,
-      startPlaybackOnStartup = config.startPlaybackOnStartup,
-      input = input
-    )
+    TimingContext
+      .from(config.timingContext.ppq, config.timingContext.bpm)
+      .map(tc => Environment(tc, input, config.midiOutputConfig, config.paths, config.startPlaybackOnStartup))
+      .toEither
+      .leftMap(errors => DomainError.InvalidConfig(errors.toNonEmptyList))
   }
 
   def load(
